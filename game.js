@@ -12,10 +12,19 @@ const W = cv.width, H = cv.height;
 
 const scoreEl = document.getElementById('score');
 const bestEl = document.getElementById('best');
+const livesHud = document.getElementById('livesHud');
 const overlay = document.getElementById('overlay');
 const ovTitle = document.getElementById('ovTitle');
 const ovSub = document.getElementById('ovSub');
 const startBtn = document.getElementById('startBtn');
+const pauseOverlay = document.getElementById('pauseOverlay');
+const resumeBtn = document.getElementById('resumeBtn');
+const restartBtn = document.getElementById('restartBtn');
+const toTitleBtn = document.getElementById('toTitleBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const touchControls = document.getElementById('touchControls');
+const mountTitle = document.getElementById('mountTitle');
+const mountPause = document.getElementById('mountPause');
 
 const css = (n, fallback) => {
   const v = getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -38,9 +47,9 @@ const GROUND_Y = H - GROUND_H;       // top surface of the ground
 // Add/remove floating platforms here to change the stage.
 const platforms = [
   { x: 0,   y: GROUND_Y, w: W,   h: GROUND_H, ground: true },
-  { x: 160, y: H - 180,  w: 180, h: 16 },
-  { x: 620, y: H - 180,  w: 180, h: 16 },
-  { x: 390, y: H - 300,  w: 180, h: 16 },
+  { x: 120, y: H - 150,  w: 150, h: 16 },
+  { x: 530, y: H - 150,  w: 150, h: 16 },
+  { x: 320, y: H - 250,  w: 160, h: 16 },
 ];
 
 // ---- Player & physics ---------------------------------------------------
@@ -78,27 +87,45 @@ const LEFT  = e => e === 'ArrowLeft'  || e === 'a' || e === 'A';
 const RIGHT = e => e === 'ArrowRight' || e === 'd' || e === 'D';
 const JUMP  = e => e === 'ArrowUp'    || e === 'w' || e === 'W' || e === ' ';
 
-window.addEventListener('keydown', e => {
-  if (JUMP(e.key) && !keys._jumpHeld) { player.bufferT = PHYS.buffer; }
-  keys[e.key] = true;
-  if (JUMP(e.key)) keys._jumpHeld = true;
-  if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
-});
-window.addEventListener('keyup', e => {
-  keys[e.key] = false;
-  if (JUMP(e.key)) {
+// Core press/release, shared by keyboard AND on-screen touch buttons.
+function onPress(key) {
+  if (key === 'Escape') {
+    if (running && !paused) pauseGame();
+    else if (running && paused) resumeGame();
+    return;
+  }
+  if (JUMP(key) && !keys._jumpHeld) { player.bufferT = PHYS.buffer; }
+  keys[key] = true;
+  if (JUMP(key)) keys._jumpHeld = true;
+}
+function onRelease(key) {
+  keys[key] = false;
+  if (JUMP(key)) {
     keys._jumpHeld = false;
     if (player.vy < 0) player.vy *= PHYS.jumpCut;   // variable jump height
   }
+}
+
+window.addEventListener('keydown', e => {
+  onPress(e.key);
+  if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','Escape'].includes(e.key)) e.preventDefault();
 });
+window.addEventListener('keyup', e => onRelease(e.key));
 
 const held = pred => Object.keys(keys).some(k => keys[k] && pred(k));
 
 // ---- Game state ---------------------------------------------------------
 let running = false;
+let paused = false;
 let elapsed = 0;
 let best = parseFloat(localStorage.getItem('dodge_best') || '0') || 0;
 bestEl.textContent = best.toFixed(1) + 's';
+
+// Settings-driven values (defaults; overwritten when settings load below)
+let startLives = 3;        // 残機 (debug setting)
+let livesLeft = startLives;
+let invuln = 0;            // invincibility timer after taking a hit (s)
+let bulletSpeedMul = 1;    // 弾の速さ multiplier (debug setting)
 
 function reset() {
   player.x = W / 2 - player.w / 2;
@@ -109,6 +136,9 @@ function reset() {
   player.coyoteT = 0; player.bufferT = 0; player.squash = 0;
   bullets = [];
   elapsed = 0;
+  livesLeft = startLives;
+  invuln = 0;
+  updateLivesHud();
   Patterns.reset();
 }
 
@@ -138,6 +168,7 @@ function update(dt) {
   // Timers
   player.coyoteT -= dt;
   player.bufferT -= dt;
+  if (invuln > 0) invuln -= dt;
 
   // Jump (with coyote time + input buffering)
   if (player.bufferT > 0 && (player.onGround || player.coyoteT > 0)) {
@@ -146,6 +177,7 @@ function update(dt) {
     player.coyoteT = 0;
     player.bufferT = 0;
     player.squash = 1;       // stretch on takeoff
+    sfxJump();
   }
 
   // Integrate + collide (axis-separated)
@@ -162,18 +194,20 @@ function update(dt) {
   // ---- Bullets: author-defined spawning ----
   Patterns.tick(elapsed, dt);
 
-  for (const b of bullets) { b.x += b.vx * dt; b.y += b.vy * dt; }
+  for (const b of bullets) { b.x += b.vx * dt * bulletSpeedMul; b.y += b.vy * dt * bulletSpeedMul; }
   // Cull bullets far off-screen
   bullets = bullets.filter(b =>
     b.x > -b.r - 60 && b.x < W + b.r + 60 &&
     b.y > -b.r - 60 && b.y < H + b.r + 60);
 
   // ---- Collision: bullet (circle) vs player (rect) ----
-  for (const b of bullets) {
-    const nx = Math.max(player.x, Math.min(b.x, player.x + player.w));
-    const ny = Math.max(player.y, Math.min(b.y, player.y + player.h));
-    const dx = b.x - nx, dy = b.y - ny;
-    if (dx * dx + dy * dy < b.r * b.r) { gameOver(); return; }
+  if (invuln <= 0) {
+    for (const b of bullets) {
+      const nx = Math.max(player.x, Math.min(b.x, player.x + player.w));
+      const ny = Math.max(player.y, Math.min(b.y, player.y + player.h));
+      const dx = b.x - nx, dy = b.y - ny;
+      if (dx * dx + dy * dy < b.r * b.r) { hitPlayer(); return; }
+    }
   }
 }
 
@@ -259,6 +293,9 @@ function draw() {
 }
 
 function drawCharacter() {
+  // Blink while invincible (after a hit)
+  if (invuln > 0 && Math.floor(invuln * 12) % 2 === 0) return;
+
   // Squash/stretch
   const s = player.squash;
   const sx = 1 - s * 0.18;
@@ -344,37 +381,189 @@ function loop(t) {
   let dt = (t - lastT) / 1000;
   lastT = t;
   if (dt > 0.05) dt = 0.05;          // clamp big frame gaps (tab switches)
-  update(dt);
-  if (running) draw();
+  if (!paused) {                     // when paused: freeze time, keep last frame
+    update(dt);
+    if (running) draw();
+  }
   requestAnimationFrame(loop);
 }
 
+// ---- Audio (the 音量 setting controls this) -----------------------------
+let audioCtx = null;
+let masterVol = 0.7;
+function beep(freq, dur, type, vol) {
+  if (masterVol <= 0) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type || 'square';
+    o.frequency.value = freq;
+    const t = audioCtx.currentTime;
+    g.gain.setValueAtTime(masterVol * (vol || 1) * 0.18, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o.stop(t + dur);
+  } catch (e) { /* ignore audio errors */ }
+}
+function sfxJump() { beep(620, 0.10, 'square', 0.8); }
+function sfxHit()  { beep(140, 0.30, 'sawtooth', 1); }
+
+// ---- Game flow ----------------------------------------------------------
 function start() {
   reset();
   running = true;
+  paused = false;
   overlay.classList.add('hidden');
+  pauseOverlay.classList.add('hidden');
+  pauseBtn.classList.remove('hidden');
+  updateTouchControls();
   lastT = performance.now();
   requestAnimationFrame(loop);
 }
 
+function pauseGame() {
+  if (!running || paused) return;
+  paused = true;
+  mountPause.appendChild(settingsPanel);        // settings live here while paused
+  controlModeGroup.classList.add('hidden');     // control mode: title screen only
+  pauseOverlay.classList.remove('hidden');
+}
+
+function resumeGame() {
+  if (!running || !paused) return;
+  paused = false;
+  pauseOverlay.classList.add('hidden');
+  lastT = performance.now();                    // avoid a time jump on resume
+}
+
+function showTitle() {
+  running = false;
+  paused = false;
+  pauseOverlay.classList.add('hidden');
+  pauseBtn.classList.add('hidden');
+  mountTitle.appendChild(settingsPanel);
+  controlModeGroup.classList.remove('hidden');
+  ovTitle.textContent = 'Dodge Game';
+  ovSub.textContent = 'Avoid the circles. Survive as long as you can.';
+  startBtn.textContent = 'Start';
+  overlay.classList.remove('hidden');
+  updateTouchControls();
+  draw();
+}
+
 function gameOver() {
   running = false;
+  paused = false;
+  pauseBtn.classList.add('hidden');
   if (elapsed > best) {
     best = elapsed;
     localStorage.setItem('dodge_best', String(best));
     bestEl.textContent = best.toFixed(1) + 's';
   }
+  mountTitle.appendChild(settingsPanel);
+  controlModeGroup.classList.remove('hidden');
   ovTitle.textContent = 'Game Over';
   ovSub.textContent = 'You survived ' + elapsed.toFixed(1) + 's';
   startBtn.textContent = 'Try again';
   overlay.classList.remove('hidden');
+  updateTouchControls();
   draw();
 }
 
-startBtn.addEventListener('click', start);
+function hitPlayer() {
+  livesLeft -= 1;
+  updateLivesHud();
+  sfxHit();
+  if (livesLeft <= 0) { gameOver(); return; }
+  invuln = 1.6;          // brief mercy invincibility
+  bullets = [];          // clear the field so the next life is fair
+}
 
-// Draw an idle frame behind the start overlay
-draw();
+function updateLivesHud() {
+  livesHud.textContent = livesLeft;
+}
+
+// ---- Settings UI (built once, moved between title & pause) ---------------
+const settingsPanel = document.importNode(
+  document.getElementById('settingsTemplate').content.querySelector('#settingsPanel'), true);
+const controlModeGroup = settingsPanel.querySelector('#controlModeGroup');
+
+// Sliders: { id, value-label id, storage key, default, how to apply, label format }
+const sliderDefs = [
+  { id: 'volume',      val: 'volVal',    store: 'dodge_volume',      def: 70,             apply: v => masterVol = v / 100,    fmt: v => v },
+  { id: 'moveSpeed',   val: 'moveVal',   store: 'dodge_moveSpeed',   def: PHYS.moveSpeed, apply: v => PHYS.moveSpeed = v,      fmt: v => v },
+  { id: 'jumpVel',     val: 'jumpVal',   store: 'dodge_jumpVel',     def: PHYS.jumpVel,   apply: v => PHYS.jumpVel = v,        fmt: v => v },
+  { id: 'lives',       val: 'livesVal',  store: 'dodge_lives',       def: 3,              apply: v => startLives = v,          fmt: v => v },
+  { id: 'bulletSpeed', val: 'bulletVal', store: 'dodge_bulletSpeed', def: 100,            apply: v => bulletSpeedMul = v / 100, fmt: v => v + '%' },
+];
+for (const d of sliderDefs) {
+  const slider = settingsPanel.querySelector('#' + d.id);
+  const valEl = settingsPanel.querySelector('#' + d.val);
+  const saved = localStorage.getItem(d.store);
+  slider.value = saved !== null ? saved : d.def;
+  const apply = () => {
+    const v = Number(slider.value);
+    d.apply(v);
+    valEl.textContent = d.fmt(v);
+    localStorage.setItem(d.store, String(v));
+  };
+  slider.addEventListener('input', apply);
+  apply();
+}
+
+// Control mode (PC / mobile) — only selectable on the title screen
+let controlMode = localStorage.getItem('dodge_controlMode') || 'pc';
+const modeBtns = settingsPanel.querySelectorAll('.seg-btn[data-mode]');
+function setControlMode(m) {
+  controlMode = m;
+  localStorage.setItem('dodge_controlMode', m);
+  modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+  updateTouchControls();
+}
+modeBtns.forEach(b => b.addEventListener('click', () => setControlMode(b.dataset.mode)));
+setControlMode(controlMode);
+
+// D-pad side (left / right) for mobile controls — title screen only
+let dpadSide = localStorage.getItem('dodge_dpadSide') || 'left';
+const dpadBtns = settingsPanel.querySelectorAll('.seg-btn[data-dpad]');
+function setDpadSide(side) {
+  dpadSide = side;
+  localStorage.setItem('dodge_dpadSide', side);
+  dpadBtns.forEach(b => b.classList.toggle('active', b.dataset.dpad === side));
+  touchControls.classList.toggle('dpad-right', side === 'right');
+}
+dpadBtns.forEach(b => b.addEventListener('click', () => setDpadSide(b.dataset.dpad)));
+setDpadSide(dpadSide);
+
+// Show on-screen buttons only in mobile mode, while actually playing
+function updateTouchControls() {
+  const show = controlMode === 'mobile' && running;
+  touchControls.classList.toggle('hidden', !show);
+}
+
+// Wire the on-screen touch buttons to the same press/release as the keyboard
+touchControls.querySelectorAll('.tbtn').forEach(btn => {
+  const key = btn.dataset.key;
+  const press = e => { e.preventDefault(); onPress(key); btn.classList.add('pressed'); };
+  const release = e => { e.preventDefault(); onRelease(key); btn.classList.remove('pressed'); };
+  btn.addEventListener('touchstart', press, { passive: false });
+  btn.addEventListener('touchend', release);
+  btn.addEventListener('touchcancel', release);
+  btn.addEventListener('mousedown', press);
+  btn.addEventListener('mouseup', release);
+  btn.addEventListener('mouseleave', e => { if (btn.classList.contains('pressed')) release(e); });
+});
+
+// Buttons
+startBtn.addEventListener('click', start);
+resumeBtn.addEventListener('click', resumeGame);
+restartBtn.addEventListener('click', start);
+toTitleBtn.addEventListener('click', showTitle);
+pauseBtn.addEventListener('click', () => { paused ? resumeGame() : pauseGame(); });
+
+// Boot up on the title screen
+showTitle();
 
 
 /* =========================================================================
@@ -389,7 +578,7 @@ draw();
      B.spawn(x, y, vx, vy, r)   -> create a bullet at (x,y) moving (vx,vy), radius r
      B.aim(x, y, speed)         -> {vx, vy} pointing from (x,y) toward the player
      B.player                   -> { x, y } center of the player right now
-     B.W, B.H                   -> canvas size (800 x 450)
+     B.W, B.H                   -> canvas size (1200 x 750)
      B.rand(min, max)           -> random float in [min, max)
      B.every(key, interval, fn) -> run fn() once per `interval` seconds
                                    (give each call a unique string key)
@@ -445,6 +634,15 @@ const Patterns = {
       const v = B.aim(x, -10, 220);
       B.spawn(x, -10, v.vx, v.vy, B.rand(8, 13));
     });
+
+    B.every('ring', 0.1, () => {
+  const cx = B.W / 2, cy = B.H / 3; // 中心の位置
+  const n = 32, speed = 150;        // 16方向に発射
+  for (let i = 0; i < n; i++) {
+    const a = (Math.PI * 2) * i / n;
+    B.spawn(cx, cy, Math.cos(a) * speed, Math.sin(a) * speed, 3);
+  }
+});
     /* -------------------- end placeholder -------------------- */
   },
 };

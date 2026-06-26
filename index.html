@@ -11,18 +11,95 @@
     <div class="hud">
       <div class="stat"><span class="label">Time</span><span class="value" id="score">0.0s</span></div>
       <div class="stat"><span class="label">Best</span><span class="value" id="best">0.0s</span></div>
-      <span class="hint">← → / A D to move &nbsp;·&nbsp; ↑ / W / Space to jump</span>
+      <div class="stat"><span class="label">Lives</span><span class="value" id="livesHud">3</span></div>
+      <span class="hint">← → / A D &nbsp;·&nbsp; ↑ / W / Space jump &nbsp;·&nbsp; Esc pause</span>
     </div>
 
     <div class="stage">
-      <canvas id="game" width="960" height="600"></canvas>
+      <canvas id="game" width="1200" height="750"></canvas>
+
+      <!-- Pause toggle (works with click & tap) -->
+      <button class="pause-btn hidden" id="pauseBtn" aria-label="pause">II</button>
+
+      <!-- Title / Game over screen -->
       <div class="overlay" id="overlay">
         <h1 id="ovTitle">Dodge Game</h1>
         <p id="ovSub">Avoid the circles. Survive as long as you can.</p>
+        <div class="mount" id="mountTitle"></div>
         <button id="startBtn">Start</button>
+      </div>
+
+      <!-- Pause screen -->
+      <div class="overlay hidden" id="pauseOverlay">
+        <h1>Paused</h1>
+        <div class="mount" id="mountPause"></div>
+        <div class="btn-row">
+          <button id="resumeBtn">再開 (Esc)</button>
+          <button id="restartBtn" class="btn-sub">やり直す</button>
+          <button id="toTitleBtn" class="btn-sub">タイトルへ</button>
+        </div>
+      </div>
+
+      <!-- On-screen touch controls (shown only in mobile control mode) -->
+      <div class="touch hidden" id="touchControls">
+        <div class="dpad">
+          <button class="tbtn up"    data-key="ArrowUp"    aria-label="up">▲</button>
+          <button class="tbtn left"  data-key="ArrowLeft"  aria-label="left">◀</button>
+          <button class="tbtn down"  data-key="ArrowDown"  aria-label="down">▼</button>
+          <button class="tbtn right" data-key="ArrowRight" aria-label="right">▶</button>
+        </div>
+        <button class="tbtn jump" data-key=" " aria-label="jump">JUMP</button>
       </div>
     </div>
   </div>
+
+  <!-- Single settings panel, moved between the title and pause screens -->
+  <template id="settingsTemplate">
+    <div class="settings-panel" id="settingsPanel">
+
+      <div class="settings-group" id="controlModeGroup">
+        <div class="group-title">操作方法</div>
+        <div class="seg">
+          <button class="seg-btn" data-mode="pc">パソコン操作</button>
+          <button class="seg-btn" data-mode="mobile">スマホ操作</button>
+        </div>
+        <div class="group-title">十字キーの位置（スマホ操作時）</div>
+        <div class="seg">
+          <button class="seg-btn" data-dpad="left">左</button>
+          <button class="seg-btn" data-dpad="right">右</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="group-title">設定</div>
+        <label class="setting">
+          <span class="setting-label">音量 <b id="volVal"></b></span>
+          <input type="range" id="volume" min="0" max="100" step="1">
+        </label>
+      </div>
+
+      <details class="settings-group debug">
+        <summary class="group-title">デバッグ設定（ゲームに影響）</summary>
+        <label class="setting">
+          <span class="setting-label">移動速度 <b id="moveVal"></b></span>
+          <input type="range" id="moveSpeed" min="120" max="500" step="10">
+        </label>
+        <label class="setting">
+          <span class="setting-label">ジャンプ力 <b id="jumpVal"></b></span>
+          <input type="range" id="jumpVel" min="500" max="1100" step="10">
+        </label>
+        <label class="setting">
+          <span class="setting-label">残機 <b id="livesVal"></b></span>
+          <input type="range" id="lives" min="1" max="9" step="1">
+        </label>
+        <label class="setting">
+          <span class="setting-label">弾の速さ <b id="bulletVal"></b></span>
+          <input type="range" id="bulletSpeed" min="30" max="200" step="5">
+        </label>
+      </details>
+
+    </div>
+  </template>
 
   <script src="game.js"></script>
 </body>
