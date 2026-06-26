@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dodge Game</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="hud">
+      <div class="stat"><span class="label">Time</span><span class="value" id="score">0.0s</span></div>
+      <div class="stat"><span class="label">Best</span><span class="value" id="best">0.0s</span></div>
+      <span class="hint">← → / A D to move &nbsp;·&nbsp; ↑ / W / Space to jump</span>
+    </div>
+
+    <div class="stage">
+      <canvas id="game" width="960" height="600"></canvas>
+      <div class="overlay" id="overlay">
+        <h1 id="ovTitle">Dodge Game</h1>
+        <p id="ovSub">Avoid the circles. Survive as long as you can.</p>
+        <button id="startBtn">Start</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
