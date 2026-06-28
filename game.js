@@ -3,7 +3,7 @@
 /* =========================================================================
    ENGINE  —  character, physics, ground/platforms, collision, game loop.
    You normally don't need to touch this part.
-   Scroll down to the "BULLET PATTERNS" section to author your 弾幕.
+   Scroll down to the "弾幕" section at the bottom to author your bullets.
    ========================================================================= */
 
 const cv = document.getElementById('game');
@@ -68,7 +68,7 @@ const PHYS = {
 
 const player = {
   x: W / 2 - 13, y: GROUND_Y - 36,
-  w: 26, h: 36,
+  w: 20, h: 20,
   vx: 0, vy: 0,
   onGround: false,
   facing: 1,
@@ -78,10 +78,8 @@ const player = {
 };
 
 // ---- Bullets ------------------------------------------------------------
-// Each bullet: { x, y, vx, vy, r, delay, delayMax }.
-// `delay` (seconds) is a charge/warning time: while it's > 0 the bullet just
-// sits at its spawn point as a faint warning ring (no movement, can't hit you);
-// when it reaches 0 it "fires" and starts moving.
+// Every bullet is a plain object. The chart at the bottom calls spawn(...)
+// to create them; here the engine just runs them. See the 弾幕 section.
 let bullets = [];
 
 // ---- Input --------------------------------------------------------------
@@ -135,7 +133,8 @@ function reset() {
   player.x = W / 2 - player.w / 2;
   player.y = GROUND_Y - player.h;
   player.vx = 0; player.vy = 0;
-  player.onGround = false;
+  player.onGround = true;     // already standing on the ground — avoids a
+                             // spurious "landing" squash on the first frame
   player.facing = 1;
   player.coyoteT = 0; player.bufferT = 0; player.squash = 0;
   bullets = [];
@@ -143,7 +142,7 @@ function reset() {
   livesLeft = startLives;
   invuln = 0;
   updateLivesHud();
-  Patterns.reset();
+  resetChart();              // rebuild the bullet timeline from the top
 }
 
 // ---- Update -------------------------------------------------------------
@@ -201,24 +200,33 @@ function update(dt) {
   player.squash *= Math.pow(0.0001, dt);
   if (Math.abs(player.squash) < 0.01) player.squash = 0;
 
-  // ---- Bullets: author-defined spawning ----
-  Patterns.tick(elapsed, dt);
+  updateBullets(dt);
+}
 
+// ---- Bullets: spawn from the timeline, then move & collide --------------
+function updateBullets(dt) {
+  // Spawn whatever the chart scheduled. Clock to the song so bullets stay in
+  // sync; if the music didn't start (e.g. blocked), fall back to the game clock.
+  const songT = (bgm && !bgm.paused) ? bgm.currentTime : elapsed;
+  runChart(songT);
+
+  const e = dt * bulletSpeedMul;            // effective step (the 弾の速さ knob)
   for (const b of bullets) {
-    if (b.delay > 0) { b.delay -= dt; continue; }   // still charging: stay put
-    b.x += b.vx * dt * bulletSpeedMul;
-    b.y += b.vy * dt * bulletSpeedMul;
+    if (b.delay > 0) { b.delay -= dt; continue; }   // charging: a warning ring
+    b.age += e;                                      // seconds since it fired
+    b.move(b, e);                                    // run THIS bullet's movement
   }
-  // Cull FIRED bullets that left the screen (charging ones are always kept)
+
+  // Drop fired bullets that left the screen (charging ones are always kept).
   bullets = bullets.filter(b =>
     b.delay > 0 ||
-    (b.x > -b.r - 60 && b.x < W + b.r + 60 &&
-     b.y > -b.r - 60 && b.y < H + b.r + 60));
+    (b.x > -b.r - W && b.x < W * 2 + b.r &&
+     b.y > -b.r - H && b.y < H * 2 + b.r));
 
-  // ---- Collision: bullet (circle) vs player (rect) ----
+  // Collision: bullet (circle) vs player (rect).
   if (invuln <= 0) {
     for (const b of bullets) {
-      if (b.delay > 0) continue;          // warning rings don't hit you
+      if (b.delay > 0) continue;            // warning rings don't hit you
       const nx = Math.max(player.x, Math.min(b.x, player.x + player.w));
       const ny = Math.max(player.y, Math.min(b.y, player.y + player.h));
       const dx = b.x - nx, dy = b.y - ny;
@@ -289,36 +297,37 @@ function draw() {
     }
   }
 
-  // Bullets
-  for (const b of bullets) {
-    if (b.delay > 0) {
-      // Charging: a faint warning ring, with a core that fills as it nears firing
-      const k = b.delayMax > 0 ? 1 - b.delay / b.delayMax : 1;   // 0 -> 1 progress
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(226, 75, 74, 0.55)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.fillStyle = 'rgba(226, 75, 74, 0.30)';
-      ctx.arc(b.x, b.y, b.r * k, 0, Math.PI * 2);
-      ctx.fill();
-      continue;
-    }
-    ctx.fillStyle = COL.danger;
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-    ctx.fill();
-    // soft inner highlight so big bullets read well
-    ctx.beginPath();
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.arc(b.x - b.r * 0.25, b.y - b.r * 0.25, b.r * 0.45, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  for (const b of bullets) drawBullet(b);
 
   drawCharacter();
 
   scoreEl.textContent = elapsed.toFixed(1) + 's';
+}
+
+function drawBullet(b) {
+  if (b.delay > 0) {
+    // Charging: a faint warning ring, with a core that fills as it nears firing.
+    const k = b.delayMax > 0 ? 1 - b.delay / b.delayMax : 1;   // 0 -> 1 progress
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(226, 75, 74, 0.55)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(226, 75, 74, 0.30)';
+    ctx.arc(b.x, b.y, b.r * k, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  ctx.fillStyle = COL.danger;
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+  ctx.fill();
+  // soft inner highlight so big bullets read well
+  ctx.beginPath();
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.arc(b.x - b.r * 0.25, b.y - b.r * 0.25, b.r * 0.45, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawCharacter() {
@@ -405,8 +414,9 @@ function roundRect(x, y, w, h, r) {
 
 // ---- Main loop ----------------------------------------------------------
 let lastT = 0;
+let looping = false;                  // is exactly one rAF loop alive?
 function loop(t) {
-  if (!running) return;
+  if (!running) { looping = false; return; }   // stopped: let the loop die
   let dt = (t - lastT) / 1000;
   lastT = t;
   if (dt > 0.05) dt = 0.05;          // clamp big frame gaps (tab switches)
@@ -420,6 +430,14 @@ function loop(t) {
 // ---- Audio (the 音量 setting controls this) -----------------------------
 let audioCtx = null;
 let masterVol = 0.7;
+
+// Background music. The bullet timeline is synced to this track's playback
+// time. (The file is named .mp3 but is actually AAC/MP4 — browsers play it.)
+const bgm = new Audio(encodeURI('the EmpErroR.mp3'));
+bgm.preload = 'auto';
+bgm.volume = masterVol;
+// Survive to the end of the song = clear.
+bgm.addEventListener('ended', () => { if (running) winGame(); });
 function beep(freq, dur, type, vol) {
   if (masterVol <= 0) return;
   try {
@@ -447,13 +465,19 @@ function start() {
   pauseOverlay.classList.add('hidden');
   pauseBtn.classList.remove('hidden');
   updateTouchControls();
+  bgm.currentTime = 0;
+  bgm.play().catch(() => {});                    // play from the top (user gesture)
   lastT = performance.now();
-  requestAnimationFrame(loop);
+  if (!looping) {                  // reuse the live loop on restart; never stack two
+    looping = true;
+    requestAnimationFrame(loop);
+  }
 }
 
 function pauseGame() {
   if (!running || paused) return;
   paused = true;
+  bgm.pause();                                   // freeze the music too
   mountPause.appendChild(settingsPanel);        // settings live here while paused
   controlModeGroup.classList.add('hidden');     // control mode: title screen only
   pauseOverlay.classList.remove('hidden');
@@ -463,12 +487,14 @@ function resumeGame() {
   if (!running || !paused) return;
   paused = false;
   pauseOverlay.classList.add('hidden');
+  bgm.play().catch(() => {});
   lastT = performance.now();                    // avoid a time jump on resume
 }
 
 function showTitle() {
   running = false;
   paused = false;
+  bgm.pause(); bgm.currentTime = 0;
   pauseOverlay.classList.add('hidden');
   pauseBtn.classList.add('hidden');
   mountTitle.appendChild(settingsPanel);
@@ -484,6 +510,7 @@ function showTitle() {
 function gameOver() {
   running = false;
   paused = false;
+  bgm.pause();
   pauseBtn.classList.add('hidden');
   if (elapsed > best) {
     best = elapsed;
@@ -495,6 +522,27 @@ function gameOver() {
   ovTitle.textContent = 'Game Over';
   ovSub.textContent = 'You survived ' + elapsed.toFixed(1) + 's';
   startBtn.textContent = 'Try again';
+  overlay.classList.remove('hidden');
+  updateTouchControls();
+  draw();
+}
+
+// Reached the end of the song without dying.
+function winGame() {
+  running = false;
+  paused = false;
+  bgm.pause();
+  pauseBtn.classList.add('hidden');
+  if (elapsed > best) {
+    best = elapsed;
+    localStorage.setItem('dodge_best', String(best));
+    bestEl.textContent = best.toFixed(1) + 's';
+  }
+  mountTitle.appendChild(settingsPanel);
+  controlModeGroup.classList.remove('hidden');
+  ovTitle.textContent = 'クリア！ 🎉';
+  ovSub.textContent = '最後まで生き残った！';
+  startBtn.textContent = 'もう一回';
   overlay.classList.remove('hidden');
   updateTouchControls();
   draw();
@@ -520,7 +568,7 @@ const controlModeGroup = settingsPanel.querySelector('#controlModeGroup');
 
 // Sliders: { id, value-label id, storage key, default, how to apply, label format }
 const sliderDefs = [
-  { id: 'volume',      val: 'volVal',    store: 'dodge_volume',      def: 70,             apply: v => masterVol = v / 100,      fmt: v => v },
+  { id: 'volume',      val: 'volVal',    store: 'dodge_volume',      def: 70,             apply: v => { masterVol = v / 100; bgm.volume = masterVol; }, fmt: v => v },
   { id: 'moveSpeed',   val: 'moveVal',   store: 'dodge_moveSpeed',   def: PHYS.moveSpeed, apply: v => PHYS.moveSpeed = v,        fmt: v => v },
   { id: 'jumpVel',     val: 'jumpVal',   store: 'dodge_jumpVel',     def: PHYS.jumpVel,   apply: v => PHYS.jumpVel = v,          fmt: v => v },
   { id: 'lives',       val: 'livesVal',  store: 'dodge_lives',       def: 3,              apply: v => startLives = v,           fmt: v => v },
@@ -606,123 +654,168 @@ showTitle();
 
 
 /* =========================================================================
-   BULLET PATTERNS  (弾幕)  —  THIS IS YOUR PART.
-   -------------------------------------------------------------------------
-   This is a TIMELINE. Instead of repeating a fixed pattern forever, you
-   schedule danmaku at exact times — made for syncing to music.
+   弾幕（だんまく）  —  ここがあなたの編集エリア
+   =========================================================================
 
-   Write your song in buildScript() below using:
+   弾は ただのオブジェクト。 spawn(...) で画面に出ます。
 
-       at(time, () => { ...spawn bullets... });
+       spawn({ x: 600, y: -10, vx: 0, vy: 200, r: 8 });
+       //      出る位置        速さ(右,下)   大きさ
 
-   `time` is seconds from the start of the run. Each line fires ONCE when the
-   clock reaches that time. Order doesn't matter — they get sorted for you.
+   出てからの流れはこれだけ:
+       毎フレーム  b.move(b, dt) で位置を更新  →  画面の外に出たら消える
 
-   --- Charge / warning delay ---
-   A bullet can be summoned NOW but FIRE later. The `delay` argument (seconds)
-   is that gap. During the delay the bullet shows as a faint warning ring,
-   doesn't move, and can't hit you; then it fires. This is what makes a
-   clockwise pattern easy: summon a whole ring at once and give each bullet a
-   slightly larger delay, so they go off one-by-one around the circle.
+   ● 動きを変えたい → move に関数を渡す（下の straight / spinRing が見本）
+   ● 召喚→発射までの溜め → delay（秒）。その間は赤い警告リングで、当たらない。
+   ● b.age = 発射してからの秒数（揺れや時間変化に使える）
 
-   Helpers (all on B):
-     B.spawn(x, y, vx, vy, r, delay)            one bullet
-     B.fromAngle(angle, speed)  -> {vx, vy}      velocity from an angle (radians)
-     B.aim(x, y, speed)         -> {vx, vy}      velocity toward the player
-     B.ring(x, y, count, speed, r, delay, start) count bullets evenly around a
-                                                 circle, all fired together
-     B.spiral(x, y, count, speed, r, opts)       a rotating sweep (the clockwise
-                                                 one). opts = { turns, gap, start, delay }
-                                                 gap = seconds between each shot
-     B.player   B.W   B.H   B.rand(min, max)
-
-   Angle note: x = cos(angle), y = sin(angle). y points DOWN, so a LARGER
-   angle turns CLOCKWISE on screen. 0 = right, PI/2 = down, PI = left.
+   角度のはなし: x = cos(角度), y = sin(角度)。y は下向きなので、
+   角度が大きくなるほど画面では「時計回り」。0=右, π/2=下, π=左。
    ========================================================================= */
 
 const TAU = Math.PI * 2;
 
-const B = {
-  get W() { return W; },
-  get H() { return H; },
-  get player() { return { x: player.x + player.w / 2, y: player.y + player.h / 2 }; },
-  rand(min, max) { return min + Math.random() * (max - min); },
-
-  // One bullet. `delay` (seconds) charges as a warning ring before it fires.
-  spawn(x, y, vx, vy, r, delay) {
-    const d = delay || 0;
-    bullets.push({ x, y, vx, vy, r: r || 6, delay: d, delayMax: d });
-  },
-
-  fromAngle(angle, speed) {
-    return { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed };
-  },
-  aim(x, y, speed) {
-    const p = B.player;
-    const a = Math.atan2(p.y - y, p.x - x);
-    return { vx: Math.cos(a) * speed, vy: Math.sin(a) * speed };
-  },
-
-  // `count` bullets evenly spaced around a circle, all fired together.
-  ring(x, y, count, speed, r, delay, start) {
-    start = start || 0;
-    for (let i = 0; i < count; i++) {
-      const a = start + (i / count) * TAU;
-      B.spawn(x, y, Math.cos(a) * speed, Math.sin(a) * speed, r, delay);
-    }
-  },
-
-  // A rotating sweep: each bullet fires a bit after the previous one (gap), so
-  // the emitter looks like it's spinning. Angle grows -> spins clockwise.
-  spiral(x, y, count, speed, r, opts) {
-    opts = opts || {};
-    const turns = opts.turns != null ? opts.turns : 1;   // how many full circles
-    const gap   = opts.gap   != null ? opts.gap   : 0.05; // seconds between shots
-    const start = opts.start != null ? opts.start : 0;    // starting angle (rad)
-    const delay = opts.delay != null ? opts.delay : 0;    // warm-up before shot 1
-    for (let i = 0; i < count; i++) {
-      const a = start + (i / count) * TAU * turns;
-      B.spawn(x, y, Math.cos(a) * speed, Math.sin(a) * speed, r, delay + i * gap);
-    }
-  },
-};
-
-// ===========================================================================
-//  YOUR SONG  —  add `at(time, () => { ... })` lines below, in any order.
-// ===========================================================================
-function buildScript() {
-  const S = [];
-  const at = (t, fn) => S.push({ t, fn });
-  const cx = W / 2, cy = H / 3;          // a handy "center" to fire from
-
-  /* ---- DEMO (replace these with your own cues for the music) -----------
-     Shows the three ideas: timed cues, the warning delay, and a clockwise
-     spiral. Each cue prints once when the clock hits its time.            */
-
-  // Big aimed shots, each with a 0.8s warning ring before it fires.
-  at(1.0, () => { const v = B.aim(cx,      -20, 240); B.spawn(cx,      -20, v.vx, v.vy, 14, 0.8); });
-  at(2.0, () => { const v = B.aim(160,     -20, 240); B.spawn(160,     -20, v.vx, v.vy, 14, 0.8); });
-  at(3.0, () => { const v = B.aim(W - 160, -20, 240); B.spawn(W - 160, -20, v.vx, v.vy, 14, 0.8); });
-
-  // A full ring: all the warning rings appear, then everything fires outward.
-  at(5.0, () => B.ring(cx, cy, 20, 170, 7, 1.0, 0));
-
-  // The clockwise spiral: 1 turn, a shot every 0.04s, after a 0.5s warm-up.
-  at(8.0,  () => B.spiral(cx, cy, 60, 190, 6, { turns: 1, gap: 0.04, start: 0,       delay: 0.5 }));
-  at(11.0, () => B.spiral(cx, cy, 60, 190, 6, { turns: 2, gap: 0.03, start: Math.PI, delay: 0.5 }));
-
-  return S.sort((a, b) => a.t - b.t);
+// 便利な小道具 ------------------------------------------------------------
+function rand(min, max) { return min + Math.random() * (max - min); }     // min〜max の乱数
+function playerXY() {                                                       // プレイヤーの中心 {x,y}
+  return { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+}
+function aimVel(x, y, speed) {                                              // (x,y)→プレイヤー方向の速度
+  const p = playerXY();
+  const a = Math.atan2(p.y - y, p.x - x);
+  return { vx: Math.cos(a) * speed, vy: Math.sin(a) * speed };
 }
 
-const Patterns = {
-  _cues: [],
-  _i: 0,
-  reset() { this._cues = buildScript(); this._i = 0; },
-  // Fire every cue whose scheduled time has arrived. t = seconds since start.
-  tick(t, dt) {
-    while (this._i < this._cues.length && this._cues[this._i].t <= t) {
-      this._cues[this._i].fn(B);
-      this._i++;
-    }
-  },
-};
+// ★これがすべての中心★ 弾を1つ作って画面に出す。
+// b に書ける値: x, y(位置) / r(半径) / vx, vy(速度) / delay(溜め秒) / move(動き)
+//               ＋ move が使う好きな値（cx, spin, amp ... なんでも）
+function spawn(b) {
+  if (b.r  == null) b.r  = 6;
+  if (b.vx == null) b.vx = 0;
+  if (b.vy == null) b.vy = 0;
+  if (b.move == null) b.move = straight;   // 何も指定しなければ「まっすぐ」
+  b.age = 0;
+  b.delay = b.delay || 0;
+  b.delayMax = b.delay;
+  bullets.push(b);
+  return b;
+}
+
+/* ---- 動き（move 関数）---------------------------------------------------
+   「動き」とは『毎フレーム、弾の位置をどう変えるか』を書いた関数です。
+       move(b, dt)   b = 弾そのもの（b.x/b.y を書き換えると動く）, dt = 経過秒
+   下の straight が一番シンプルなお手本。これを真似て自由に増やせます。
+   -------------------------------------------------------------------------- */
+function straight(b, dt) {            // まっすぐ進む（spawn の初期設定）
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+}
+
+// まとめて出す道具（中身は全部 spawn を呼んでいるだけ）--------------------
+
+// 円形に同時発射（まっすぐ外向き）
+function ring({ x, y, count, speed, r = 6, delay = 0, start = 0 }) {
+  for (let i = 0; i < count; i++) {
+    const a = start + (i / count) * TAU;
+    spawn({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, delay });
+  }
+}
+
+// 回って見える渦（まっすぐ飛ぶ弾を、少しずつ時間差で出す）
+//   turns=周回数 / gap=1発ごとの遅れ秒 / start=開始角 / delay=全体の溜め
+function spiral({ x, y, count, speed, r = 6, turns = 1, gap = 0.05, start = 0, delay = 0 }) {
+  for (let i = 0; i < count; i++) {
+    const a = start + (i / count) * TAU * turns;
+    spawn({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, delay: delay + i * gap });
+  }
+}
+
+// ★本当に回転する弾★ 中心(x,y)のまわりを実際に回り続ける弾を count 個並べる。
+//   radius=距離 / spin=回る速さ(＋時計回り) / grow=1秒で広がる距離 / delay=溜め
+function spinRing({ x, y, count, radius = 60, spin = 2, grow = 0, r = 6, start = 0, delay = 0 }) {
+  for (let i = 0; i < count; i++) {
+    const a = start + (i / count) * TAU;
+    spawn({
+      x: x + Math.cos(a) * radius, y: y + Math.sin(a) * radius, r, delay,
+      cx: x, cy: y, angle: a, radius, spin, grow,
+      move(b, dt) {                          // ← 動きをその場で書いた例
+        b.angle  += b.spin * dt;             //    少し回して
+        b.radius += b.grow * dt;             //    少し広げて
+        b.x = b.cx + Math.cos(b.angle) * b.radius;   // 位置を計算しなおす
+        b.y = b.cy + Math.sin(b.angle) * b.radius;
+      },
+    });
+  }
+}
+
+// ★正方形に並んだ4つの弾が、回転しながら飛んでいく★
+//   x, y   … スタート位置（正方形の中心）
+//   vx, vy … 飛んでいく速さ（中心が動く向き。＋vy で下へ）
+//   size   … 中心から角までの距離（正方形の大きさ）
+//   spin   … 回る速さ（＋で時計回り）
+// 考え方は「中心＋回転した角のオフセット」を毎フレーム計算しているだけ。
+function spinSquare({ x, y, vx = 0, vy = 0, size = 36, spin = 2.5, r = 7, delay = 0 }) {
+  for (let i = 0; i < 4; i++) {
+    const corner = Math.PI / 4 + i * (TAU / 4);   // 角の向き 45°,135°,225°,315°
+    spawn({
+      x, y, r, delay,
+      cx: x, cy: y, vx, vy, corner, size, spin,
+      move(b, dt) {
+        const mx = b.cx + b.vx * b.age;          // ① 中心が進む
+        const my = b.cy + b.vy * b.age;
+        const ang = b.corner + b.spin * b.age;   // ② 全体が回る
+        b.x = mx + Math.cos(ang) * b.size;       // ③ 中心＋回転した角
+        b.y = my + Math.sin(ang) * b.size;
+      },
+    });
+  }
+}
+
+/* ---- 譜面（曲のどの時間に弾を出すか）-----------------------------------
+   "the EmpErroR.mp3"  全長128.8秒 / 約80 BPM(1拍0.75秒) / 最初の拍 ≈ 0.78秒。
+   タイムラインは曲の再生時刻で動くので、キューは拍にそろって発動します。
+
+       at(時刻, () => { spawn(...) });   ← その時刻に1回だけ実行
+
+   数値は自由に調整OK: r=大きさ / gap=渦の密度 / delay=警告の長さ。
+   -------------------------------------------------------------------------- */
+function buildScript() {
+  const cues = [];
+  const cx = W / 2, cy = H / 3;          // 上の方の中心（ここから撃つ）
+
+  // 時刻 T に「発射」したいリング/渦を、warn 秒の警告つきで予約する
+  const burst = (t, fn) => cues.push({ t, fn });
+
+  // ---- 解析でいちばん大きく鳴った瞬間のアクセント ----
+  const aimShot = T => burst(T, () => { const v = aimVel(cx, -20, 280); spawn({ x: cx, y: -20, vx: v.vx, vy: v.vy, r: 16 }); });
+  [0.81, 3.81, 6.18].forEach(aimShot);                                                 // イントロの一撃
+  burst(40.05, () => ring({ x: cx, y: cy, count: 24, speed: 195, r: 8, delay: 0.8 }));            // 40s
+  burst(68.00, () => spiral({ x: cx, y: cy, count: 44, speed: 220, r: 7, turns: 1, gap: 0.02, delay: 0.6 })); // 68s 落ち
+  burst(75.56, () => ring({ x: cx, y: cy, count: 20, speed: 200, r: 7, delay: 0.6, start: Math.PI / 20 }));
+  // ★回転する弾のお手本★ 中心を回りながら外へ広がる
+  burst(13.55, () => spinRing({ x: cx, y: cy, count: 14, radius: 0, spin: 0.5, grow: 95, r: 6, delay: 0.6 }));
+  burst(13.55, () => spinRing({ x: cx, y: cy, count: 14, radius: 0, spin: 0.6, grow: 90, r: 6, delay: 0.6 }));
+  burst(13.55, () => spinRing({ x: cx, y: cy, count: 14, radius: 0, spin: 0.7, grow: 85, r: 6, delay: 0.6 }));
+  // ★回転する正方形のお手本★ 上から回りながら降ってくる
+  burst(10.05, () => spinSquare({ x: cx, y: -40, vy: 230, size: 42, spin: 2.6, delay: 0.5 }));
+  [94.81, 95.55, 99.80].forEach((T, i) =>                                              // クライマックスの連発
+    burst(T, () => spiral({ x: cx, y: cy, count: 36, speed: 220, r: 6, turns: 2, gap: 0.015, start: i * 1.1, delay: 0.5 })));
+  burst(115.50, () => ring({ x: cx, y: cy, count: 18, speed: 185, r: 7, delay: 0.7 }));           // 115s
+
+  for(let n=0;n<500;n++){
+    burst(n/5, () => spawn({ x: rand(100,1100), y: -20, vx: rand(-30,30), vy: rand(200,400), r:12}));
+  }
+
+  return cues.sort((a, b) => a.t - b.t);
+}
+
+// 譜面の進行役: 時刻が来たキューを順に発火するだけ。
+let chart = [];
+let chartIndex = 0;
+function resetChart() { chart = buildScript(); chartIndex = 0; }
+function runChart(t) {
+  while (chartIndex < chart.length && chart[chartIndex].t <= t) {
+    chart[chartIndex].fn();
+    chartIndex++;
+  }
+}
