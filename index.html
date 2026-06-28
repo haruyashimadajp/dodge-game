@@ -16,7 +16,7 @@
     </div>
 
     <div class="stage">
-      <canvas id="game" width="1200" height="750"></canvas>
+      <canvas id="game" width="800" height="750"></canvas>
 
       <!-- Pause toggle (works with click & tap) -->
       <button class="pause-btn hidden" id="pauseBtn" aria-label="pause">II</button>
@@ -40,16 +40,17 @@
         </div>
       </div>
 
-      <!-- On-screen touch controls (shown only in mobile control mode) -->
-      <div class="touch hidden" id="touchControls">
-        <div class="dpad">
-          <button class="tbtn up"    data-key="ArrowUp"    aria-label="up">▲</button>
-          <button class="tbtn left"  data-key="ArrowLeft"  aria-label="left">◀</button>
-          <button class="tbtn down"  data-key="ArrowDown"  aria-label="down">▼</button>
-          <button class="tbtn right" data-key="ArrowRight" aria-label="right">▶</button>
-        </div>
-        <button class="tbtn jump" data-key=" " aria-label="jump">JUMP</button>
+    </div>
+
+    <!-- On-screen touch controls (below the stage, shown only in mobile mode) -->
+    <div class="touch hidden" id="touchControls">
+      <div class="dpad">
+        <button class="tbtn up"    data-key="ArrowUp"    aria-label="up">▲</button>
+        <button class="tbtn left"  data-key="ArrowLeft"  aria-label="left">◀</button>
+        <button class="tbtn down"  data-key="ArrowDown"  aria-label="down">▼</button>
+        <button class="tbtn right" data-key="ArrowRight" aria-label="right">▶</button>
       </div>
+      <button class="tbtn jump" data-key=" " aria-label="jump">JUMP</button>
     </div>
   </div>
 

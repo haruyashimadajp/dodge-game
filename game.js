@@ -791,7 +791,7 @@ function buildScript() {
   burst(115.50, () => ring({ x: cx, y: cy, count: 18, speed: 185, r: 7, delay: 0.7 }));           // 115s
 
   for(let n=0;n<500;n++){
-    burst(n/5, () => spawn({ x: rand(100,1100), y: -20, vx: rand(-30,30), vy: rand(200,400), r:12}));
+    burst(n/5, () => spawn({ x: rand(20, W - 20), y: -20, vx: rand(-30,30), vy: rand(200,400), r:12}));
   }
 
   return cues.sort((a, b) => a.t - b.t);

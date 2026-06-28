@@ -36,7 +36,7 @@ html, body {
   gap: 12px;
   flex-wrap: wrap;
   width: 100%;
-  max-width: 1200px;
+  max-width: 800px;
 }
 .stat {
   background: var(--panel);
@@ -49,7 +49,7 @@ html, body {
 .stage {
   position: relative;
   width: 100%;
-  max-width: 1200px;
+  max-width: 800px;
 }
 canvas {
   width: 100%;
@@ -181,15 +181,12 @@ details.settings-group[open] > summary { margin-bottom: 4px; }
   z-index: 5;
 }
 
-/* ---- On-screen touch controls ---- */
-.touch {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;   /* only the buttons catch input */
-  z-index: 4;
-}
+/* ---- On-screen touch controls ----
+   Fixed to the LEFT/RIGHT sides of the screen so the buttons sit in the
+   margins beside the (near-square) game — meant for landscape phone play.
+   The container itself draws nothing; its children are individually fixed. */
+.touch { display: contents; }
 .tbtn {
-  pointer-events: auto;
   background: rgba(91, 140, 255, 0.32);
   border: 1.5px solid rgba(255, 255, 255, 0.25);
   color: #fff;
@@ -202,12 +199,12 @@ details.settings-group[open] > summary { margin-bottom: 4px; }
 }
 .tbtn.pressed { background: rgba(91, 140, 255, 0.6); }
 .dpad {
-  position: absolute;
-  left: 18px;
-  bottom: 18px;
+  position: fixed;
+  left: max(14px, env(safe-area-inset-left));
+  bottom: max(14px, env(safe-area-inset-bottom));
   width: 168px;
   height: 168px;
-  pointer-events: none;
+  z-index: 6;
 }
 .dpad .tbtn {
   position: absolute;
@@ -219,14 +216,24 @@ details.settings-group[open] > summary { margin-bottom: 4px; }
 .dpad .left  { left: 0;    top: 56px; }
 .dpad .right { left: 112px; top: 56px; }
 .tbtn.jump {
-  position: absolute;
-  right: 24px;
-  bottom: 40px;
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
   width: 104px;
   height: 104px;
   border-radius: 50%;
   font-size: 16px;
+  z-index: 6;
 }
 /* D-pad on the right, jump on the left */
-.touch.dpad-right .dpad { left: auto; right: 18px; }
-.touch.dpad-right .tbtn.jump { right: auto; left: 24px; }
+.touch.dpad-right .dpad { left: auto; right: max(14px, env(safe-area-inset-right)); }
+.touch.dpad-right .tbtn.jump { right: auto; left: max(20px, env(safe-area-inset-left)); }
+
+/* Landscape phone: fit the square game to the screen HEIGHT so there is
+   room on the left & right for the side buttons (no overlap with the board). */
+@media (orientation: landscape) and (pointer: coarse) {
+  .wrap { padding: 6px; gap: 6px; min-height: 100vh; justify-content: center; }
+  .hud { max-width: 92vh; }
+  .stage { width: fit-content; max-width: 100%; }
+  canvas { width: auto; height: 80vh; max-width: 100vw; }
+}
