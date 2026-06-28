@@ -665,7 +665,7 @@ showTitle();
    出てからの流れはこれだけ:
        毎フレーム  b.move(b, dt) で位置を更新  →  画面の外に出たら消える
 
-   ● 動きを変えたい → move に関数を渡す（下の straight / spinRing が見本）
+   ● 動きを変えたい → move に関数を渡す（下の straight / spinShape が見本）
    ● 召喚→発射までの溜め → delay（秒）。その間は赤い警告リングで、当たらない。
    ● b.age = 発射してからの秒数（揺れや時間変化に使える）
 
@@ -730,42 +730,30 @@ function spiral({ x, y, count, speed, r = 6, turns = 1, gap = 0.05, start = 0, d
   }
 }
 
-// ★本当に回転する弾★ 中心(x,y)のまわりを実際に回り続ける弾を count 個並べる。
-//   radius=距離 / spin=回る速さ(＋時計回り) / grow=1秒で広がる距離 / delay=溜め
-function spinRing({ x, y, count, radius = 60, spin = 2, grow = 0, r = 6, start = 0, delay = 0 }) {
-  for (let i = 0; i < count; i++) {
-    const a = start + (i / count) * TAU;
-    spawn({
-      x: x + Math.cos(a) * radius, y: y + Math.sin(a) * radius, r, delay,
-      cx: x, cy: y, angle: a, radius, spin, grow,
-      move(b, dt) {                          // ← 動きをその場で書いた例
-        b.angle  += b.spin * dt;             //    少し回して
-        b.radius += b.grow * dt;             //    少し広げて
-        b.x = b.cx + Math.cos(b.angle) * b.radius;   // 位置を計算しなおす
-        b.y = b.cy + Math.sin(b.angle) * b.radius;
-      },
-    });
-  }
-}
-
-// ★正方形に並んだ4つの弾が、回転しながら飛んでいく★
-//   x, y   … スタート位置（正方形の中心）
-//   vx, vy … 飛んでいく速さ（中心が動く向き。＋vy で下へ）
-//   size   … 中心から角までの距離（正方形の大きさ）
-//   spin   … 回る速さ（＋で時計回り）
+// ★回転する図形★ 中心のまわりに count 個の弾を等間隔で並べ、まるごと回す。
+// 「リング」も「正方形」もこれ1つ。count を増やせば円（リング）、少なくすれば
+// 多角形（4で正方形・3で三角形）。中心は vx,vy で動かせるので、回しながら飛ばせる。
+//   x, y   … スタート位置（図形の中心）
+//   count  … 弾の数（＝角の数）。多いほど円に近づく
+//   size   … 中心から弾までの距離（図形の大きさ）。0 から grow で広げてもOK
+//   spin   … 回る速さ（＋で時計回り、−で反時計回り）
+//   grow   … 1秒で size がどれだけ広がるか（0 なら大きさ一定）
+//   vx, vy … 中心が動く速さ（＋vy で下へ。0 ならその場で回るだけ）
+//   start  … 最初の向き（ラジアン）。図形の傾きを変えたいとき
 // 考え方は「中心＋回転した角のオフセット」を毎フレーム計算しているだけ。
-function spinSquare({ x, y, vx = 0, vy = 0, size = 36, spin = 2.5, r = 7, delay = 0 }) {
-  for (let i = 0; i < 4; i++) {
-    const corner = Math.PI / 4 + i * (TAU / 4);   // 角の向き 45°,135°,225°,315°
+function spinShape({ x, y, count = 4, size = 36, spin = 2.5, grow = 0, vx = 0, vy = 0, r = 7, start = 0, delay = 0 }) {
+  for (let i = 0; i < count; i++) {
+    const corner = start + i * (TAU / count);   // この弾が中心から見て向く角度
     spawn({
       x, y, r, delay,
-      cx: x, cy: y, vx, vy, corner, size, spin,
+      cx: x, cy: y, vx, vy, corner, size, spin, grow,
       move(b, dt) {
         const mx = b.cx + b.vx * b.age;          // ① 中心が進む
         const my = b.cy + b.vy * b.age;
         const ang = b.corner + b.spin * b.age;   // ② 全体が回る
-        b.x = mx + Math.cos(ang) * b.size;       // ③ 中心＋回転した角
-        b.y = my + Math.sin(ang) * b.size;
+        const rad = b.size + b.grow * b.age;     // ③ だんだん広がる
+        b.x = mx + Math.cos(ang) * rad;          // ④ 中心＋回転した角
+        b.y = my + Math.sin(ang) * rad;
       },
     });
   }
@@ -775,7 +763,7 @@ function spinSquare({ x, y, vx = 0, vy = 0, size = 36, spin = 2.5, r = 7, delay 
    "the EmpErroR.mp3"  全長128.8秒 / 約80 BPM(1拍0.75秒) / 最初の拍 ≈ 0.78秒。
    タイムラインは曲の再生時刻で動くので、キューは拍にそろって発動します。
 
-       at(時刻, () => { spawn(...) });   ← その時刻に1回だけ実行
+       burst(時刻, () => { spawn(...) });   ← その時刻に1回だけ実行
 
    数値は自由に調整OK: r=大きさ / gap=渦の密度 / delay=警告の長さ。
    -------------------------------------------------------------------------- */
@@ -783,7 +771,7 @@ function buildScript() {
   const cues = [];
   const cx = W / 2, cy = H / 3;          // 上の方の中心（ここから撃つ）
 
-  // 時刻 T に「発射」したいリング/渦を、warn 秒の警告つきで予約する
+  // 時刻 t に弾を出す命令を予約する（時間順は最後の sort が直してくれる）
   const burst = (t, fn) => cues.push({ t, fn });
 
   // ---- 解析でいちばん大きく鳴った瞬間のアクセント ----
@@ -792,12 +780,12 @@ function buildScript() {
   burst(40.05, () => ring({ x: cx, y: cy, count: 24, speed: 195, r: 8, delay: 0.8 }));            // 40s
   burst(68.00, () => spiral({ x: cx, y: cy, count: 44, speed: 220, r: 7, turns: 1, gap: 0.02, delay: 0.6 })); // 68s 落ち
   burst(75.56, () => ring({ x: cx, y: cy, count: 20, speed: 200, r: 7, delay: 0.6, start: Math.PI / 20 }));
-  // ★回転する弾のお手本★ 中心を回りながら外へ広がる
-  burst(13.55, () => spinRing({ x: cx, y: cy, count: 14, radius: 0, spin: 0.5, grow: 95, r: 6, delay: 0.6 }));
-  burst(13.55, () => spinRing({ x: cx, y: cy, count: 14, radius: 0, spin: 0.6, grow: 90, r: 6, delay: 0.6 }));
-  burst(13.55, () => spinRing({ x: cx, y: cy, count: 14, radius: 0, spin: 0.7, grow: 85, r: 6, delay: 0.6 }));
-  // ★回転する正方形のお手本★ 上から回りながら降ってくる
-  burst(10.05, () => spinSquare({ x: cx, y: -40, vy: 230, size: 42, spin: 2.6, delay: 0.5 }));
+  // ★回転する弾のお手本★ 中心を回りながら外へ広がる（リング）
+  burst(13.55, () => spinShape({ x: cx, y: cy, count: 14, size: 0, spin: 0.5, grow: 95, r: 6, delay: 0.6 }));
+  burst(13.55, () => spinShape({ x: cx, y: cy, count: 14, size: 0, spin: 0.6, grow: 90, r: 6, delay: 0.6 }));
+  burst(13.55, () => spinShape({ x: cx, y: cy, count: 14, size: 0, spin: 0.7, grow: 85, r: 6, delay: 0.6 }));
+  // ★回転する六角形のお手本★ 上から回りながら降ってくる
+  burst(10.05, () => spinShape({ x: cx, y: -40, vy: 230, size: 42, spin: 2.6, delay: 0.5, count: 6 }));
   [94.81, 95.55, 99.80].forEach((T, i) =>                                              // クライマックスの連発
     burst(T, () => spiral({ x: cx, y: cy, count: 36, speed: 220, r: 6, turns: 2, gap: 0.015, start: i * 1.1, delay: 0.5 })));
   burst(115.50, () => ring({ x: cx, y: cy, count: 18, speed: 185, r: 7, delay: 0.7 }));           // 115s
