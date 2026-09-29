@@ -286,6 +286,11 @@ spawn({ x: 600, y: 200, vy: 180, r: 10, delay: 0.8 });
 | `spinShape({ x, y, count, size, spin, grow, vx, vy, r, start, delay })` | 中心のまわりに弾を並べて**まるごと回す**（リング・多角形）。中心も動かせる（5-4） |
 | `fan({ x, y, count, spread, speed, r, delay })` | プレイヤー方向を真ん中に、扇形に `count` 発の狙い撃ち（`spread`=1発ごとの開き角） |
 | `wave({ x, y, fall, amp, freq, r, delay })` | ゆらゆら左右に揺れながら落ちる弾（`amp`=揺れ幅、`freq`=揺れの速さ） |
+| `firework({ x, y, vx, vy, fuse, count, speed, r, bits, delay })` | **花火**。打ち上がって減速し、`fuse` 秒後に破裂して `count` 発のリングになる |
+| `bouncer({ x, y, vx, hop, r, life, delay })` | **はね玉**。重力で落ちて地面や足場の上で跳ね、壁で跳ね返る。`life` 秒で消える |
+| `geyser({ x, count, gap, speed, r, delay })` | **噴水**。地面の `x` から弾が縦一列に吹き上がる（`x: playerXY().x` で足元をねらえる） |
+| `curtain({ y, gapX, gapW, spacing, vy, r, delay })` | **すき間のある横一列**。画面の幅いっぱいに降ってきて、`gapX` のまわりだけ穴があく |
+| `homing({ x, y, speed, turn, seek, r, delay })` | **追尾弾**。`seek` 秒のあいだプレイヤーの方へ曲がる（`turn`=曲がる強さ）。そのあとはまっすぐ |
 | `aimVel(x, y, speed)` | (x,y)から**プレイヤーを狙う**速度 `{vx, vy}` を返す |
 | `playerXY()` | 今のプレイヤーの中心 `{ x, y }` |
 | `rand(min, max)` | min〜maxのランダムな数 |
@@ -360,6 +365,7 @@ spawn({ x: 600, y: -10, r: 8, fall: 180, sway: 220, move: zigzag });
 ```
 
 > コツ：`b.age`（経過秒）と `dt`（フレーム秒）を組み合わせれば、たいていの動きが作れます。
+> 弾を途中で消したいときは、`move` の中で `b.dead = true;` にします（`firework` は破裂したときにこれで消えています）。
 > プレイヤーを狙いたいときは関数の中で `playerXY()` を呼べます。
 
 #### `spinShape`（回転する図形のショートカット）

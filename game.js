@@ -217,11 +217,12 @@ function updateBullets(dt) {
     b.move(b, e);                                    // run THIS bullet's movement
   }
 
-  // Drop fired bullets that left the screen (charging ones are always kept).
-  bullets = bullets.filter(b =>
+  // Drop bullets a move() marked dead, and fired ones that left the screen
+  // (charging ones are always kept).
+  bullets = bullets.filter(b => !b.dead && (
     b.delay > 0 ||
     (b.x > -b.r - W && b.x < W * 2 + b.r &&
-     b.y > -b.r - H && b.y < H * 2 + b.r));
+     b.y > -b.r - H && b.y < H * 2 + b.r)));
 
   // Collision: bullet (circle) vs player (rect).
   if (invuln <= 0) {
@@ -668,6 +669,7 @@ showTitle();
    ● 動きを変えたい → move に関数を渡す（下の straight / spinShape が見本）
    ● 召喚→発射までの溜め → delay（秒）。その間は赤い警告リングで、当たらない。
    ● b.age = 発射してからの秒数（揺れや時間変化に使える）
+   ● move の中で b.dead = true にすると、その弾は消える（花火の破裂などに）
 
    角度のはなし: x = cos(角度), y = sin(角度)。y は下向きなので、
    角度が大きくなるほど画面では「時計回り」。0=右, π/2=下, π=左。
@@ -747,6 +749,89 @@ function wave({ x, y, fall = 170, amp = 60, freq = 5, r = 8, delay = 0 }) {
     move(b, dt) {
       b.y += b.fall * dt;
       b.x = b.x0 + Math.sin(b.age * b.freq) * b.amp;
+    },
+  });
+}
+
+// ---- ここから下は「新しい形態」の弾 -------------------------------------
+
+// 花火: 打ち上がって減速し、fuse 秒後に破裂してリングになる
+//   vx, vy=打ち上げの速さ / fuse=破裂までの秒 / count, speed=破裂したリングの数と速さ
+function firework({ x, y, vx = 0, vy = -420, fuse = 0.9, count = 14, speed = 150, r = 10, bits = 6, delay = 0 }) {
+  spawn({
+    x, y, vx, vy, r, delay, fuse, count, speed, bits,
+    move(b, dt) {
+      b.vx *= Math.pow(0.25, dt);             // だんだん減速
+      b.vy *= Math.pow(0.25, dt);
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      if (b.age >= b.fuse) {                  // 時間が来たら破裂
+        ring({ x: b.x, y: b.y, count: b.count, speed: b.speed, r: b.bits, start: rand(0, TAU) });
+        b.dead = true;                        // 玉そのものは消す
+      }
+    },
+  });
+}
+
+// はね玉: 重力で落ちて、地面と足場の上でポンポン跳ねる。壁では跳ね返る。life 秒で消える
+//   vx=横の速さ / hop=跳ねる強さ（大きいほど高く跳ぶ）
+function bouncer({ x, y, vx = 160, vy = 0, hop = 620, r = 12, life = 7, delay = 0 }) {
+  spawn({
+    x, y, vx, vy, r, delay, hop, life,
+    move(b, dt) {
+      const bottom = b.y + b.r;
+      b.vy += 1400 * dt;                      // 重力
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      if (b.x < b.r || b.x > W - b.r) { b.vx = -b.vx; b.x = Math.max(b.r, Math.min(W - b.r, b.x)); }
+      if (b.vy > 0) {
+        for (const p of platforms) {          // 上から着地したら跳ねる
+          if (bottom <= p.y && b.y + b.r >= p.y && b.x > p.x && b.x < p.x + p.w) {
+            b.y = p.y - b.r;
+            b.vy = -b.hop;
+          }
+        }
+      }
+      if (b.age > b.life) b.dead = true;
+    },
+  });
+}
+
+// 噴水: 地面から弾が縦一列に吹き上がる（x に警告が出るので、横に逃げる）
+//   count=何発 / gap=1発ごとの遅れ秒 / speed=上がる速さ
+function geyser({ x, count = 7, gap = 0.08, speed = 520, r = 9, delay = 0 }) {
+  for (let i = 0; i < count; i++) {
+    spawn({ x, y: GROUND_Y - r, vy: -speed, r, delay: delay + i * gap });
+  }
+}
+
+// すき間のある横一列: 画面の幅いっぱいに弾を並べて落とす。gapX のあたりだけ穴があく
+//   gapX=穴の中心 / gapW=穴の幅 / spacing=弾の間隔 / vy=落ちる速さ
+function curtain({ y = -10, gapX, gapW = 110, spacing = 30, vy = 150, r = 9, delay = 0 }) {
+  for (let x = spacing / 2; x < W; x += spacing) {
+    if (Math.abs(x - gapX) < gapW / 2) continue;   // 穴の部分は出さない
+    spawn({ x, y, vy, r, delay });
+  }
+}
+
+// 追尾弾: seek 秒のあいだ、プレイヤーの方へ少しずつ曲がる。そのあとはまっすぐ
+//   turn=1秒に曲がれる角度（ラジアン。大きいほどしつこい）
+function homing({ x, y, speed = 170, turn = 1.8, seek = 2.2, r = 9, delay = 0 }) {
+  const v = aimVel(x, y, speed);
+  spawn({
+    x, y, vx: v.vx, vy: v.vy, r, delay, speed, turn, seek,
+    move(b, dt) {
+      if (b.age < b.seek) {
+        const p = playerXY();
+        const now = Math.atan2(b.vy, b.vx);
+        let diff = Math.atan2(p.y - b.y, p.x - b.x) - now;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));      // -π〜π に直す
+        const a = now + Math.max(-b.turn * dt, Math.min(b.turn * dt, diff));
+        b.vx = Math.cos(a) * b.speed;
+        b.vy = Math.sin(a) * b.speed;
+      }
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
     },
   });
 }
@@ -841,9 +926,13 @@ function buildScript() {
       // 偶数小節: 回りながら降ってくる六角形（左右交互・回転も逆）
       const left = k % 4 === 0;
       fire(bar(k), 0.5, delay => spinShape({ x: left ? W * 0.3 : W * 0.7, y: -40, vy: 200, count: 6, size: 42, spin: left ? 2.6 : -2.6, delay }));
-    } else {
-      // 奇数小節: 全方位リング
+    } else if (k < 8) {
+      // 奇数小節（前半）: 全方位リング
       fire(bar(k), 0.6, delay => ring({ x: cx, y: cy, count: 16, speed: 170, r: 7, start: k * 0.3, delay }));
+    } else {
+      // 奇数小節（後半）: 地面から花火が打ち上がって、空中で破裂
+      const x = k === 9 ? W * 0.25 : W * 0.75;
+      fire(bar(k), 0.6, delay => firework({ x, y: GROUND_Y - 12, vx: k === 9 ? 60 : -60, vy: -560, fuse: 0.9, count: 16, speed: 150, delay }));
     }
   }
   // 後半 16.9〜24.9: 2拍目・4拍目に3方向の狙い撃ちを追加
@@ -862,7 +951,12 @@ function buildScript() {
     fire(beat(k * 4 + 1),   0.35, delay => drop(delay, { rMin: 6, rMax: 9 }));
     fire(beat(k * 4 + 3),   0.35, delay => drop(delay, { rMin: 6, rMax: 9 }));
     // 奇数小節: 回りながら降ってくる正方形（足場にずっといられないように）
-    if (k % 2 === 1) fire(bar(k), 0.5, delay => spinShape({ x: rand(150, W - 150), y: -40, count: 4, size: 38, spin: 2.4, vy: 210, delay }));
+    //           後半は代わりに、足場の上でも跳ねるはね玉
+    if (k % 2 === 1 && k < 16) fire(bar(k), 0.5, delay => spinShape({ x: rand(150, W - 150), y: -40, count: 4, size: 38, spin: 2.4, vy: 210, delay }));
+    if (k % 2 === 1 && k >= 16) {
+      const left = k === 17;
+      fire(bar(k), 0.5, delay => bouncer({ x: left ? 40 : W - 40, y: 60, vx: left ? 170 : -170, hop: 640, r: 13, life: 6, delay }));
+    }
   }
   fire(bar(16), 0.8, delay => ring({ x: cx, y: cy, count: 20, speed: 170, r: 7, delay }));   // 32.9s 後半の合図
   // 38.9s サビ前のため: 回りながら広がる3重リング
@@ -875,7 +969,16 @@ function buildScript() {
   for (let k = 20; k < 31; k++) {
     // 16分音符ごとに1発、1小節で1周する渦（小節ごとに回る向きが逆）
     fire(bar(k), 0.4, delay => spiral({ x: cx, y: cy, count: 16, speed: 190, r: 6, turns: k % 2 ? -1 : 1, gap: 0.125, start: k * 0.4, delay }));
-    for (let i = 0; i < 4; i++) fire(beat(k * 4 + i), 0.35, delay => drop(delay, { rMin: 6, rMax: 10 }));
+    const homingBar = k === 25 || k === 27;
+    for (let i = 0; i < 4; i++) {
+      if (homingBar && i === 1) continue;      // 追尾弾を出す拍は雨を休む
+      fire(beat(k * 4 + i), 0.35, delay => drop(delay, { rMin: 6, rMax: 10 }));
+    }
+    // 50.9s / 54.9s: 上すみから追尾弾が2発、しつこく追ってくる
+    if (homingBar) {
+      fire(beat(k * 4 + 1), 0.5, delay => homing({ x: 60,     y: 40, speed: 170, turn: 1.6, seek: 2.4, r: 10, delay }));
+      fire(beat(k * 4 + 1), 0.5, delay => homing({ x: W - 60, y: 40, speed: 170, turn: 1.6, seek: 2.4, r: 10, delay }));
+    }
     // 48.9〜56.9: 3拍目に地面すれすれの弾（左右交互）
     if (k >= 24 && k < 28) fire(beat(k * 4 + 2), 0.5, delay => wall(k % 2 === 0, LOW, 260, delay));
     // 56.9〜62.9: 裏拍に上すみから3方向の狙い撃ち
@@ -894,6 +997,11 @@ function buildScript() {
   // ===== Cメロ 66.9〜80.9秒 =================================================
   fire(bar(33), 0.6, delay => spiral({ x: cx, y: cy, count: 44, speed: 220, r: 7, turns: 1, gap: 0.02, delay }));  // 66.9s 再開
   for (let k = 33; k < 40; k++) {
+    if (k === 34 || k === 38) {
+      // 68.9s / 76.9s: すき間のある横一列が降ってくる → 穴の下に入る
+      fire(bar(k), 0.6, delay => curtain({ y: 20, gapX: rand(150, W - 150), gapW: 120, spacing: 30, vy: 150, r: 9, delay }));
+      continue;                                  // この小節は揺れる弾を休む（穴をふさがないように）
+    }
     // 毎拍、ゆらゆら揺れながら落ちる弾（左右の列を交互に）
     for (let i = 0; i < 4; i++) {
       const x = (i % 2 === 0) ? rand(80, W / 2 - 40) : rand(W / 2 + 40, W - 80);
@@ -908,8 +1016,8 @@ function buildScript() {
   [73.24, 73.49, 73.72, 73.86].forEach(t =>
     fire(t, 0.3, delay => { const v = aimVel(cx, -10, 300); spawn({ x: cx, y: -10, vx: v.vx, vy: v.vy, r: 8, delay }); }));
   fire(beat(150), 0.6, delay => ring({ x: cx, y: cy, count: 20, speed: 200, r: 7, start: Math.PI / 20, delay }));  // 75.9s
-  // 76.9〜80.9: 音が厚くなるので、2拍目・4拍目に雨を追加
-  for (let k = 38; k < 40; k++) for (const i of [1, 3]) fire(beat(k * 4 + i), 0.35, delay => drop(delay));
+  // 78.9〜80.9: 音が厚くなるので、2拍目・4拍目に雨を追加
+  for (const i of [1, 3]) fire(beat(39 * 4 + i), 0.35, delay => drop(delay));
 
   // ===== 盛り上げ 80.9〜96.9秒 ==============================================
   fire(bar(40), 0.6, delay => ring({ x: cx, y: cy, count: 20, speed: 180, r: 8, delay }));   // 80.9s
@@ -920,10 +1028,10 @@ function buildScript() {
     fire(beat(k * 4 + 2), 0.5, delay => wall(!L, MID, 280, delay));
     for (const i of [1, 3]) fire(beat(k * 4 + i), 0.4, delay => wave({ x: rand(80, W - 80), y: 20, fall: 170, amp: 60, freq: 5, r: 8, delay }));
   }
-  // 88.9〜94.9: 8分音符の細かい雨（だんだん密に）＋ 小節の頭に狙い撃ち
+  // 88.9〜94.9: 8分音符の細かい雨（だんだん密に）＋ 小節の頭にプレイヤーの足元から噴水
   for (let k = 44; k < 47; k++) {
     for (let i = 0; i < 8; i++) fire(beat(k * 4 + i / 2), 0.3, delay => drop(delay, { rMin: 5, rMax: 8, vMin: 200, vMax: 260 }));
-    fire(bar(k), 0.5, delay => { const v = aimVel(cx, 30, 280); spawn({ x: cx, y: 30, vx: v.vx, vy: v.vy, r: 14, delay }); });
+    fire(bar(k), 0.7, delay => geyser({ x: playerXY().x, count: 7, gap: 0.08, speed: 520, r: 10, delay }));
   }
   fire(beat(183), 0.5, delay => ring({ x: W * 0.25, y: cy, count: 14, speed: 180, r: 7, delay }));  // 92.4s
   fire(beat(187), 0.5, delay => ring({ x: W * 0.75, y: cy, count: 14, speed: 180, r: 7, delay }));  // 94.4s
@@ -943,9 +1051,14 @@ function buildScript() {
       fire(bar(k), 0.4, delay => spiral({ x: W * 0.75, y: cy, count: 8, speed: 180, r: 6, turns: -dir, gap: 0.25, start: k * 0.5, delay }));
       if (k % 2 === 1) fire(beat(k * 4 + 2), 0.5, delay => fan({ x: cx, y: 30, count: 5, spread: 0.25, speed: 250, r: 7, delay }));
     } else {
-      // 104.9〜112.7: 回りながら広がる花（2重）＋ 地面すれすれの横弾
-      fire(bar(k), 0.5, delay => spinShape({ x: cx, y: cy, count: 10, size: 0, spin:  1.2, grow: 110, r: 7, delay }));
-      fire(bar(k), 0.5, delay => spinShape({ x: cx, y: cy, count: 10, size: 0, spin: -1.2, grow: 110, r: 7, start: Math.PI / 10, delay }));
+      // 104.9〜112.7: 回りながら広がる花（2重）と、左右から打ち上がる花火を交互に ＋ 地面すれすれの横弾
+      if (k % 2 === 0) {
+        fire(bar(k), 0.5, delay => spinShape({ x: cx, y: cy, count: 10, size: 0, spin:  1.2, grow: 110, r: 7, delay }));
+        fire(bar(k), 0.5, delay => spinShape({ x: cx, y: cy, count: 10, size: 0, spin: -1.2, grow: 110, r: 7, start: Math.PI / 10, delay }));
+      } else {
+        fire(bar(k), 0.6, delay => firework({ x: W * 0.15, y: GROUND_Y - 12, vx:  140, vy: -600, fuse: 0.8, count: 14, speed: 160, delay }));
+        fire(bar(k), 0.6, delay => firework({ x: W * 0.85, y: GROUND_Y - 12, vx: -140, vy: -600, fuse: 0.8, count: 14, speed: 160, delay }));
+      }
       fire(beat(k * 4 + 2), 0.5, delay => wall(k % 2 === 0, LOW, 280, delay));
       // 降ってくる六角形（左右交互）
       fire(beat(k * 4 + 2), 0.5, delay => spinShape({ x: k % 2 ? W * 0.25 : W * 0.75, y: -40, vy: 220, count: 6, size: 40, spin: 2.8, delay }));
@@ -958,7 +1071,9 @@ function buildScript() {
   // ===== アウトロ 114.2〜120.2秒 ============================================
   fire(beat(228), 0.7, delay => ring({ x: cx, y: cy, count: 18, speed: 185, r: 7, delay }));           // 114.8s
   fire(beat(230), 0.7, delay => ring({ x: cx, y: cy, count: 18, speed: 185, r: 7, start: Math.PI / 18, delay })); // 115.8s
-  for (let n = 232; n < 240; n += 2) fire(beat(n), 0.5, delay => drop(delay, { rMin: 8, rMax: 12, vMin: 140, vMax: 180 }));
+  // 116.8s / 118.8s: 左右からはね玉がひとつずつ
+  fire(beat(232), 0.5, delay => bouncer({ x: 40,     y: 60, vx:  150, hop: 600, r: 14, life: 6, delay }));
+  fire(beat(236), 0.5, delay => bouncer({ x: W - 40, y: 60, vx: -150, hop: 600, r: 14, life: 6, delay }));
 
   // ===== フェードアウト 120.2〜128.8秒 ======================================
   fire(beat(239), 0.8, delay => ring({ x: cx, y: cy, count: 12, speed: 120, r: 10, delay }));  // 最後の一発
