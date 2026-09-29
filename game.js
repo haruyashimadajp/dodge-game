@@ -730,6 +730,27 @@ function spiral({ x, y, count, speed, r = 6, turns = 1, gap = 0.05, start = 0, d
   }
 }
 
+// 扇形の狙い撃ち: プレイヤーの方向を真ん中にして count 発を spread（ラジアン）ずつ開く
+function fan({ x, y, count = 3, spread = 0.3, speed = 220, r = 7, delay = 0 }) {
+  const p = playerXY();
+  const base = Math.atan2(p.y - y, p.x - x);
+  for (let i = 0; i < count; i++) {
+    const a = base + (i - (count - 1) / 2) * spread;
+    spawn({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, delay });
+  }
+}
+
+// ゆらゆら揺れながら落ちる弾: fall=落ちる速さ / amp=揺れ幅(px) / freq=揺れの速さ
+function wave({ x, y, fall = 170, amp = 60, freq = 5, r = 8, delay = 0 }) {
+  spawn({
+    x, y, r, delay, x0: x, fall, amp, freq,
+    move(b, dt) {
+      b.y += b.fall * dt;
+      b.x = b.x0 + Math.sin(b.age * b.freq) * b.amp;
+    },
+  });
+}
+
 // ★回転する図形★ 中心のまわりに count 個の弾を等間隔で並べ、まるごと回す。
 // 「リング」も「正方形」もこれ1つ。count を増やせば円（リング）、少なくすれば
 // 多角形（4で正方形・3で三角形）。中心は vx,vy で動かせるので、回しながら飛ばせる。
@@ -760,10 +781,20 @@ function spinShape({ x, y, count = 4, size = 36, spin = 2.5, grow = 0, vx = 0, v
 }
 
 /* ---- 譜面（曲のどの時間に弾を出すか）-----------------------------------
-   "the EmpErroR.mp3"  全長128.8秒 / 約80 BPM(1拍0.75秒) / 最初の拍 ≈ 0.78秒。
+   "the EmpErroR.mp3"  全長128.8秒 / 120 BPM（1拍0.5秒・1小節=4拍=2秒）
+   最初の小節の頭 = 0.865秒。曲は 8秒（4小節）ごとに場面が変わります。
+
+       0.9〜  8.9  イントロ        40.9〜 63.8  サビ1          96.9〜114.2  サビ2（いちばん激しい）
+       8.9〜 24.9  Aメロ           63.8〜 66.9  ブレイク（静か）114.2〜120.2  アウトロ
+      24.9〜 40.9  Bメロ           66.9〜 80.9  Cメロ          120.2〜128.8  フェードアウト
+                                   80.9〜 96.9  盛り上げ
+
    タイムラインは曲の再生時刻で動くので、キューは拍にそろって発動します。
 
-       burst(時刻, () => { spawn(...) });   ← その時刻に1回だけ実行
+       burst(時刻, () => { spawn(...) });          ← その時刻に1回だけ実行
+       fire(時刻, 警告秒, delay => ring({ ..., delay }));
+                                                  ← 警告を出して、ちょうど「時刻」に発射
+       beat(n) = n拍目の時刻 / bar(k) = k小節目の頭の時刻
 
    数値は自由に調整OK: r=大きさ / gap=渦の密度 / delay=警告の長さ。
    -------------------------------------------------------------------------- */
@@ -774,24 +805,166 @@ function buildScript() {
   // 時刻 t に弾を出す命令を予約する（時間順は最後の sort が直してくれる）
   const burst = (t, fn) => cues.push({ t, fn });
 
-  // ---- 解析でいちばん大きく鳴った瞬間のアクセント ----
-  const aimShot = T => burst(T, () => { const v = aimVel(cx, -20, 280); spawn({ x: cx, y: -20, vx: v.vx, vy: v.vy, r: 16 }); });
-  [0.81, 3.81, 6.18].forEach(aimShot);                                                 // イントロの一撃
-  burst(40.05, () => ring({ x: cx, y: cy, count: 24, speed: 195, r: 8, delay: 0.8 }));            // 40s
-  burst(68.00, () => spiral({ x: cx, y: cy, count: 44, speed: 220, r: 7, turns: 1, gap: 0.02, delay: 0.6 })); // 68s 落ち
-  burst(75.56, () => ring({ x: cx, y: cy, count: 20, speed: 200, r: 7, delay: 0.6, start: Math.PI / 20 }));
-  // ★回転する弾のお手本★ 中心を回りながら外へ広がる（リング）
-  burst(13.55, () => spinShape({ x: cx, y: cy, count: 14, size: 0, spin: 0.5, grow: 95, r: 6, delay: 0.6 }));
-  burst(13.55, () => spinShape({ x: cx, y: cy, count: 14, size: 0, spin: 0.6, grow: 90, r: 6, delay: 0.6 }));
-  burst(13.55, () => spinShape({ x: cx, y: cy, count: 14, size: 0, spin: 0.7, grow: 85, r: 6, delay: 0.6 }));
-  // ★回転する六角形のお手本★ 上から回りながら降ってくる
-  burst(10.05, () => spinShape({ x: cx, y: -40, vy: 230, size: 42, spin: 2.6, delay: 0.5, count: 6 }));
-  [94.81, 95.55, 99.80].forEach((T, i) =>                                              // クライマックスの連発
-    burst(T, () => spiral({ x: cx, y: cy, count: 36, speed: 220, r: 6, turns: 2, gap: 0.015, start: i * 1.1, delay: 0.5 })));
-  burst(115.50, () => ring({ x: cx, y: cy, count: 18, speed: 185, r: 7, delay: 0.7 }));           // 115s
+  // 拍の時刻。106秒あたりで拍が 0.12秒ほど前にずれるので、そこから基準を変えている。
+  const beat = n => (n <= 210 ? 0.865 : 0.75) + n * 0.5;   // n拍目（0始まり、小数もOK）
+  const bar  = k => beat(k * 4);                             // k小節目の頭
 
-  for(let n=0;n<500;n++){
-    burst(n/5, () => spawn({ x: rand(20, W - 20), y: -20, vx: rand(-30,30), vy: rand(200,400), r:12}));
+  // ちょうど t 秒に「発射」させる: warn 秒前に召喚して、警告リングを warn 秒出す。
+  const fire = (t, warn, fn) => burst(t - warn, () => fn(warn));
+
+  // この譜面でよく使う部品 -------------------------------------------------
+  // 上から降る雨つぶ（大きさ・速さは少しランダム）
+  const drop = (delay, { rMin = 7, rMax = 12, vMin = 180, vMax = 240 } = {}) => {
+    const r = rand(rMin, rMax);
+    spawn({ x: rand(r, W - r), y: 20, vy: rand(vMin, vMax), r, delay });
+  };
+  // 画面の横はしから地面ぞいに飛んでくる弾
+  //   LOW = 地面すれすれ → ジャンプでよける / MID = 頭の上 → 跳ばずにやりすごす
+  const LOW = GROUND_Y - 10, MID = GROUND_Y - 70;
+  const wall = (fromLeft, y, speed, delay) =>
+    spawn({ x: fromLeft ? 10 : W - 10, y, vx: fromLeft ? speed : -speed, r: 10, delay });
+
+  // ===== イントロ 0.9〜8.9秒 ================================================
+  // 小節の頭に、左右の上すみから大玉の狙い撃ち ＋ 3拍目に小さな雨
+  for (let k = 0; k < 4; k++) {
+    const x = k % 2 === 0 ? 120 : W - 120;
+    fire(bar(k), 0.6, delay => { const v = aimVel(x, 40, 260); spawn({ x, y: 40, vx: v.vx, vy: v.vy, r: 16, delay }); });
+    fire(beat(k * 4 + 2), 0.4, delay => drop(delay, { rMin: 6, rMax: 8 }));
+  }
+  // 7.0〜8.9秒 ドラムの連打 → 渦がぐるっと1周してAメロへ
+  fire(7.0, 0.5, delay => spiral({ x: cx, y: cy, count: 24, speed: 180, r: 6, turns: 1, gap: 1.86 / 24, delay }));
+
+  // ===== Aメロ 8.9〜24.9秒 ==================================================
+  for (let k = 4; k < 12; k++) {
+    for (let i = 0; i < 4; i++) fire(beat(k * 4 + i), 0.35, delay => drop(delay));   // 毎拍の雨
+    if (k % 2 === 0) {
+      // 偶数小節: 回りながら降ってくる六角形（左右交互・回転も逆）
+      const left = k % 4 === 0;
+      fire(bar(k), 0.5, delay => spinShape({ x: left ? W * 0.3 : W * 0.7, y: -40, vy: 200, count: 6, size: 42, spin: left ? 2.6 : -2.6, delay }));
+    } else {
+      // 奇数小節: 全方位リング
+      fire(bar(k), 0.6, delay => ring({ x: cx, y: cy, count: 16, speed: 170, r: 7, start: k * 0.3, delay }));
+    }
+  }
+  // 後半 16.9〜24.9: 2拍目・4拍目に3方向の狙い撃ちを追加
+  for (let k = 8; k < 12; k++) {
+    for (const i of [1, 3]) {
+      fire(beat(k * 4 + i), 0.4, delay => fan({ x: rand(100, W - 100), y: 30, count: 3, spread: 0.35, speed: 230, r: 7, delay }));
+    }
+  }
+
+  // ===== Bメロ 24.9〜40.9秒 =================================================
+  // 横から「低い弾（跳ぶ）」と「高い弾（跳ばない）」が交互に来る。足場の上は安全地帯。
+  for (let k = 12; k < 20; k++) {
+    const L = k % 2 === 0;                           // 小節ごとに左右を入れかえ
+    fire(bar(k),            0.5, delay => wall(L,  LOW, 240, delay));
+    fire(beat(k * 4 + 2),   0.5, delay => wall(!L, MID, 240, delay));
+    fire(beat(k * 4 + 1),   0.35, delay => drop(delay, { rMin: 6, rMax: 9 }));
+    fire(beat(k * 4 + 3),   0.35, delay => drop(delay, { rMin: 6, rMax: 9 }));
+    // 奇数小節: 回りながら降ってくる正方形（足場にずっといられないように）
+    if (k % 2 === 1) fire(bar(k), 0.5, delay => spinShape({ x: rand(150, W - 150), y: -40, count: 4, size: 38, spin: 2.4, vy: 210, delay }));
+  }
+  fire(bar(16), 0.8, delay => ring({ x: cx, y: cy, count: 20, speed: 170, r: 7, delay }));   // 32.9s 後半の合図
+  // 38.9s サビ前のため: 回りながら広がる3重リング
+  for (const [spin, grow] of [[0.5, 95], [0.6, 90], [0.7, 85]]) {
+    fire(bar(19), 0.6, delay => spinShape({ x: cx, y: cy, count: 14, size: 0, spin, grow, r: 6, delay }));
+  }
+
+  // ===== サビ1 40.9〜63.8秒 =================================================
+  fire(bar(20), 0.8, delay => ring({ x: cx, y: cy, count: 24, speed: 195, r: 8, delay }));   // サビの一発目
+  for (let k = 20; k < 31; k++) {
+    // 16分音符ごとに1発、1小節で1周する渦（小節ごとに回る向きが逆）
+    fire(bar(k), 0.4, delay => spiral({ x: cx, y: cy, count: 16, speed: 190, r: 6, turns: k % 2 ? -1 : 1, gap: 0.125, start: k * 0.4, delay }));
+    for (let i = 0; i < 4; i++) fire(beat(k * 4 + i), 0.35, delay => drop(delay, { rMin: 6, rMax: 10 }));
+    // 48.9〜56.9: 3拍目に地面すれすれの弾（左右交互）
+    if (k >= 24 && k < 28) fire(beat(k * 4 + 2), 0.5, delay => wall(k % 2 === 0, LOW, 260, delay));
+    // 56.9〜62.9: 裏拍に上すみから3方向の狙い撃ち
+    if (k >= 28) {
+      fire(beat(k * 4 + 1.5), 0.4, delay => fan({ x: 60,     y: 40, count: 3, spread: 0.3, speed: 240, r: 7, delay }));
+      fire(beat(k * 4 + 3.5), 0.4, delay => fan({ x: W - 60, y: 40, count: 3, spread: 0.3, speed: 240, r: 7, delay }));
+    }
+  }
+  fire(bar(31), 0.6, delay => ring({ x: cx, y: cy, count: 30, speed: 150, r: 9, delay }));   // 62.9s サビ1のしめ
+
+  // ===== ブレイク 63.8〜66.9秒（音が消える）=================================
+  // ひと休み: ゆっくり落ちてくる大玉だけ
+  [[128, 0.2], [129, 0.8], [130, 0.5]].forEach(([n, fx]) =>
+    fire(beat(n), 0.5, delay => spawn({ x: W * fx, y: -10, vy: 110, r: 22, delay })));
+
+  // ===== Cメロ 66.9〜80.9秒 =================================================
+  fire(bar(33), 0.6, delay => spiral({ x: cx, y: cy, count: 44, speed: 220, r: 7, turns: 1, gap: 0.02, delay }));  // 66.9s 再開
+  for (let k = 33; k < 40; k++) {
+    // 毎拍、ゆらゆら揺れながら落ちる弾（左右の列を交互に）
+    for (let i = 0; i < 4; i++) {
+      const x = (i % 2 === 0) ? rand(80, W / 2 - 40) : rand(W / 2 + 40, W - 80);
+      fire(beat(k * 4 + i), 0.4, delay => wave({ x, y: 20, fall: 160, amp: 50, freq: 4, r: 8, delay }));
+    }
+  }
+  // 72.9s 回りながら広がる3重リング（逆回転）
+  for (const [spin, grow] of [[-0.5, 95], [-0.6, 90], [-0.7, 85]]) {
+    fire(bar(36), 0.6, delay => spinShape({ x: cx, y: cy, count: 14, size: 0, spin, grow, r: 6, delay }));
+  }
+  // 73.2〜73.9s ドラムのフィル: 素早い狙い撃ち4連
+  [73.24, 73.49, 73.72, 73.86].forEach(t =>
+    fire(t, 0.3, delay => { const v = aimVel(cx, -10, 300); spawn({ x: cx, y: -10, vx: v.vx, vy: v.vy, r: 8, delay }); }));
+  fire(beat(150), 0.6, delay => ring({ x: cx, y: cy, count: 20, speed: 200, r: 7, start: Math.PI / 20, delay }));  // 75.9s
+  // 76.9〜80.9: 音が厚くなるので、2拍目・4拍目に雨を追加
+  for (let k = 38; k < 40; k++) for (const i of [1, 3]) fire(beat(k * 4 + i), 0.35, delay => drop(delay));
+
+  // ===== 盛り上げ 80.9〜96.9秒 ==============================================
+  fire(bar(40), 0.6, delay => ring({ x: cx, y: cy, count: 20, speed: 180, r: 8, delay }));   // 80.9s
+  // 80.9〜88.9: Bメロの横弾が速くなって戻ってくる ＋ 揺れる弾
+  for (let k = 40; k < 44; k++) {
+    const L = k % 2 === 1;
+    fire(bar(k),          0.5, delay => wall(L,  LOW, 280, delay));
+    fire(beat(k * 4 + 2), 0.5, delay => wall(!L, MID, 280, delay));
+    for (const i of [1, 3]) fire(beat(k * 4 + i), 0.4, delay => wave({ x: rand(80, W - 80), y: 20, fall: 170, amp: 60, freq: 5, r: 8, delay }));
+  }
+  // 88.9〜94.9: 8分音符の細かい雨（だんだん密に）＋ 小節の頭に狙い撃ち
+  for (let k = 44; k < 47; k++) {
+    for (let i = 0; i < 8; i++) fire(beat(k * 4 + i / 2), 0.3, delay => drop(delay, { rMin: 5, rMax: 8, vMin: 200, vMax: 260 }));
+    fire(bar(k), 0.5, delay => { const v = aimVel(cx, 30, 280); spawn({ x: cx, y: 30, vx: v.vx, vy: v.vy, r: 14, delay }); });
+  }
+  fire(beat(183), 0.5, delay => ring({ x: W * 0.25, y: cy, count: 14, speed: 180, r: 7, delay }));  // 92.4s
+  fire(beat(187), 0.5, delay => ring({ x: W * 0.75, y: cy, count: 14, speed: 180, r: 7, delay }));  // 94.4s
+  // 94.9〜95.9s サビ直前: 2周する渦の連発
+  [188, 189].forEach((n, i) =>
+    fire(beat(n), 0.5, delay => spiral({ x: cx, y: cy, count: 36, speed: 220, r: 6, turns: 2, gap: 0.015, start: i * 1.1, delay })));
+
+  // ===== サビ2 96.9〜114.2秒（いちばん激しい）===============================
+  fire(bar(48), 0.8, delay => ring({ x: cx, y: cy, count: 30, speed: 200, r: 8, delay }));   // 96.9s
+  for (let k = 48; k < 56; k++) {
+    fire(beat(k * 4 + 1), 0.35, delay => drop(delay));
+    fire(beat(k * 4 + 3), 0.35, delay => drop(delay));
+    if (k < 52) {
+      // 96.9〜104.9: 左右の2か所から、逆向きに回る渦（8分音符ごと）
+      const dir = k % 2 ? 1 : -1;
+      fire(bar(k), 0.4, delay => spiral({ x: W * 0.25, y: cy, count: 8, speed: 180, r: 6, turns:  dir, gap: 0.25, start: k * 0.5, delay }));
+      fire(bar(k), 0.4, delay => spiral({ x: W * 0.75, y: cy, count: 8, speed: 180, r: 6, turns: -dir, gap: 0.25, start: k * 0.5, delay }));
+      if (k % 2 === 1) fire(beat(k * 4 + 2), 0.5, delay => fan({ x: cx, y: 30, count: 5, spread: 0.25, speed: 250, r: 7, delay }));
+    } else {
+      // 104.9〜112.7: 回りながら広がる花（2重）＋ 地面すれすれの横弾
+      fire(bar(k), 0.5, delay => spinShape({ x: cx, y: cy, count: 10, size: 0, spin:  1.2, grow: 110, r: 7, delay }));
+      fire(bar(k), 0.5, delay => spinShape({ x: cx, y: cy, count: 10, size: 0, spin: -1.2, grow: 110, r: 7, start: Math.PI / 10, delay }));
+      fire(beat(k * 4 + 2), 0.5, delay => wall(k % 2 === 0, LOW, 280, delay));
+      // 降ってくる六角形（左右交互）
+      fire(beat(k * 4 + 2), 0.5, delay => spinShape({ x: k % 2 ? W * 0.25 : W * 0.75, y: -40, vy: 220, count: 6, size: 40, spin: 2.8, delay }));
+    }
+  }
+  // 112.7s フィナーレ: 2周の大きな渦 ＋ リング
+  fire(bar(56), 0.6, delay => spiral({ x: cx, y: cy, count: 48, speed: 200, r: 7, turns: 2, gap: 0.03, delay }));
+  fire(beat(226), 0.5, delay => ring({ x: cx, y: cy, count: 24, speed: 170, r: 8, start: Math.PI / 24, delay }));
+
+  // ===== アウトロ 114.2〜120.2秒 ============================================
+  fire(beat(228), 0.7, delay => ring({ x: cx, y: cy, count: 18, speed: 185, r: 7, delay }));           // 114.8s
+  fire(beat(230), 0.7, delay => ring({ x: cx, y: cy, count: 18, speed: 185, r: 7, start: Math.PI / 18, delay })); // 115.8s
+  for (let n = 232; n < 240; n += 2) fire(beat(n), 0.5, delay => drop(delay, { rMin: 8, rMax: 12, vMin: 140, vMax: 180 }));
+
+  // ===== フェードアウト 120.2〜128.8秒 ======================================
+  fire(beat(239), 0.8, delay => ring({ x: cx, y: cy, count: 12, speed: 120, r: 10, delay }));  // 最後の一発
+  // あとは雪のようにゆっくり降るだけ（曲の最後まで生き残ればクリア）
+  for (let t = beat(242); t < 126; t += 1.0) {
+    burst(t, () => spawn({ x: rand(20, W - 20), y: -10, vy: rand(70, 100), r: 5 }));
   }
 
   return cues.sort((a, b) => a.t - b.t);

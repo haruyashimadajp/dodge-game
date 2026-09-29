@@ -221,6 +221,23 @@ function buildScript() {
 - 同じ時刻に何個書いても全部発動します。
 - ゲームをやり直すと、また 0 秒から譜面が流れます。
 
+### 5-1.5. 拍にそろえる道具 `beat` / `bar` / `fire`
+
+曲は **120 BPM**（1拍 = 0.5秒、1小節 = 4拍 = 2秒）で、最初の小節の頭が **0.865秒** です。
+`buildScript()` の中には、秒数を自分で計算しなくていいように次の道具があります。
+
+```js
+beat(n)   // n拍目の時刻（0始まり。beat(2.5) のように小数で裏拍もOK）
+bar(k)    // k小節目の頭の時刻（= beat(k * 4)）
+
+// 警告を 0.6秒 出して、ちょうど 20小節目の頭に「発射」する
+fire(bar(20), 0.6, delay => ring({ x: cx, y: cy, count: 24, speed: 195, r: 8, delay }));
+```
+
+`fire(時刻, 警告秒, delay => ...)` は「警告秒」だけ早く召喚して、弾が**拍ぴったりに飛び出す**ようにします。
+中で使う弾には、受け取った `delay` をそのまま渡してください。
+曲のどこが何の場面か（Aメロ・サビなど）は、`game.js` の譜面の上のコメントに書いてあります。
+
 ### 5-2. チャージ（警告→発射）＝ `delay`
 
 今回いちばん大事な新機能です。
@@ -267,6 +284,8 @@ spawn({ x: 600, y: 200, vy: 180, r: 10, delay: 0.8 });
 | `ring({ x, y, count, speed, r, delay, start })` | 円のまわりに等間隔で `count` 発、**同時に**発射 |
 | `spiral({ x, y, count, speed, r, turns, gap, start, delay })` | **回って見える渦**（時計回りの本命）。下で詳しく |
 | `spinShape({ x, y, count, size, spin, grow, vx, vy, r, start, delay })` | 中心のまわりに弾を並べて**まるごと回す**（リング・多角形）。中心も動かせる（5-4） |
+| `fan({ x, y, count, spread, speed, r, delay })` | プレイヤー方向を真ん中に、扇形に `count` 発の狙い撃ち（`spread`=1発ごとの開き角） |
+| `wave({ x, y, fall, amp, freq, r, delay })` | ゆらゆら左右に揺れながら落ちる弾（`amp`=揺れ幅、`freq`=揺れの速さ） |
 | `aimVel(x, y, speed)` | (x,y)から**プレイヤーを狙う**速度 `{vx, vy}` を返す |
 | `playerXY()` | 今のプレイヤーの中心 `{ x, y }` |
 | `rand(min, max)` | min〜maxのランダムな数 |
