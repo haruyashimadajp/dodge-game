@@ -238,6 +238,14 @@ fire(bar(20), 0.6, delay => ring({ x: cx, y: cy, count: 24, speed: 195, r: 8, de
 中で使う弾には、受け取った `delay` をそのまま渡してください。
 曲のどこが何の場面か（Aメロ・サビなど）は、`game.js` の譜面の上のコメントに書いてあります。
 
+譜面の中には、強い音用の道具もあります（`buildScript()` の中だけで使えます）:
+
+```js
+hit(t)        // t 秒に画面が少し光るだけ
+impact(t)     // 光る ＋ 真ん中から大きなリング ＋ 地面を左右に走る衝撃波（いちばん強い音に）
+meteorAt(t)   // 隕石がちょうど t 秒に地面へ落ちる（プレイヤーの今いる所をねらう）
+```
+
 ### 5-2. チャージ（警告→発射）＝ `delay`
 
 今回いちばん大事な新機能です。
@@ -291,6 +299,10 @@ spawn({ x: 600, y: 200, vy: 180, r: 10, delay: 0.8 });
 | `geyser({ x, count, gap, speed, r, delay })` | **噴水**。地面の `x` から弾が縦一列に吹き上がる（`x: playerXY().x` で足元をねらえる） |
 | `curtain({ y, gapX, gapW, spacing, vy, r, delay })` | **すき間のある横一列**。画面の幅いっぱいに降ってきて、`gapX` のまわりだけ穴があく |
 | `homing({ x, y, speed, turn, seek, r, delay })` | **追尾弾**。`seek` 秒のあいだプレイヤーの方へ曲がる（`turn`=曲がる強さ）。そのあとはまっすぐ |
+| `meteor({ x, y, fall, r, wave, delay })` | **隕石**。巨大な弾がまっすぐ落ちて、地面に当たると左右へ衝撃波＋上へ破片。画面も光る |
+| `sweep({ x, y, count, speed, aim, swing, swings, gap, r, delay })` | **首ふり連射**。向きを左右にふりながら1発ずつ撃つ（`aim`=真ん中の向き、`swing`=ふれ幅） |
+| `closeIn({ x, y, count, size, speed, spin, r, delay })` | **せまってくる輪**。(x,y) を囲む輪が回りながら縮み、真ん中で消える。すき間から外へ逃げる |
+| `flash(amount)` | 画面を白く光らせる（0〜1）。強い音の演出に |
 | `aimVel(x, y, speed)` | (x,y)から**プレイヤーを狙う**速度 `{vx, vy}` を返す |
 | `playerXY()` | 今のプレイヤーの中心 `{ x, y }` |
 | `rand(min, max)` | min〜maxのランダムな数 |

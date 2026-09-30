@@ -14,6 +14,15 @@
   --radius: 12px;
 }
 * { box-sizing: border-box; }
+/* No text selection / long-press menu / magnifier anywhere in the game.
+   Holding a touch button used to start iOS text selection, which grabbed the
+   pause button or the arrows and swallowed further touches. */
+html, body, button, canvas {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
 html, body {
   margin: 0;
   height: 100%;
@@ -179,6 +188,7 @@ details.settings-group[open] > summary { margin-bottom: 4px; }
   letter-spacing: 2px;
   background: rgba(27, 34, 53, 0.75);
   z-index: 5;
+  touch-action: manipulation;
 }
 
 /* ---- On-screen touch controls ----
@@ -195,6 +205,7 @@ details.settings-group[open] > summary { margin-bottom: 4px; }
   border-radius: 12px;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   touch-action: none;
 }
 .tbtn.pressed { background: rgba(91, 140, 255, 0.6); }
