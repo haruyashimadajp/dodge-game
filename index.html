@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dodge Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,12 +24,29 @@
       <!-- Pause toggle (works with click & tap) -->
       <button class="pause-btn hidden" id="pauseBtn" aria-label="pause">II</button>
 
-      <!-- Title / Game over screen -->
-      <div class="overlay" id="overlay">
-        <h1 id="ovTitle">Dodge Game</h1>
-        <p id="ovSub">Avoid the circles. Survive as long as you can.</p>
-        <div class="mount" id="mountTitle"></div>
-        <button id="startBtn">Start</button>
+      <!-- Title / result screen (the canvas behind it is animated) -->
+      <div class="overlay title-screen" id="overlay">
+        <div class="title-box">
+          <div class="kicker">RHYTHM · DODGE · SURVIVE</div>
+          <h1 class="logo" id="ovTitle" data-text="DODGE">DODGE</h1>
+          <div class="song-tag"><span class="note">♪</span> the EmpErroR</div>
+          <p class="ov-sub" id="ovSub"></p>
+
+          <div class="result-box" id="resultBox">
+            <div class="res"><span>TIME</span><b id="resTime">0.0s</b></div>
+            <div class="res"><span>BEST</span><b id="resBest">0.0s</b></div>
+            <div class="res"><span>HITS</span><b id="resHits">0</b></div>
+          </div>
+
+          <button id="startBtn" class="start-btn">START</button>
+          <div class="title-links">
+            <button id="settingsToggle" class="link-btn">⚙ 設定</button>
+            <button id="toTitleBtn2" class="link-btn result-only">タイトルへ</button>
+            <span class="best-tag title-only">BEST <b id="titleBest">0.0s</b></span>
+          </div>
+          <div class="mount settings-drawer hidden" id="mountTitle"></div>
+          <p class="press-hint title-only">Enter / Space でスタート</p>
+        </div>
       </div>
 
       <!-- Pause screen -->
@@ -77,6 +97,10 @@
           <span class="setting-label">音量 <b id="volVal"></b></span>
           <input type="range" id="volume" min="0" max="100" step="1">
         </label>
+        <label class="setting">
+          <span class="setting-label">画面演出（ゆれ・ズーム・光） <b id="fxVal"></b></span>
+          <input type="range" id="fxAmount" min="0" max="100" step="5">
+        </label>
       </div>
 
       <details class="settings-group debug">
@@ -109,6 +133,8 @@
     </div>
   </template>
 
+  <script src="song-data.js"></script>
   <script src="game.js"></script>
+  <script src="visuals.js"></script>
 </body>
 </html>
