@@ -517,6 +517,34 @@ body[data-theme="night"] .start-btn {
 }
 body[data-theme="night"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(255, 244, 214, 0.95), 0 0 48px rgba(92, 242, 164, 0.5); }
 body[data-theme="night"] .seg-btn.active { background: linear-gradient(90deg, #c2405e, #3a8fb8); }
+
+/* ---- モラトリウム: a clock tower at dusk (amber / rose / cream) ---- */
+body[data-theme="dusk"] {
+  --accent: #ff9f6b;
+  --accent-2: #ffd27a;
+  --text-dim: #d8b9b0;
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(255, 164, 94, 0.14), transparent 60%),
+    radial-gradient(ellipse at 50% 0%, rgba(120, 70, 160, 0.14), transparent 60%),
+    #140b1c;
+}
+body[data-theme="dusk"] .stat { background: rgba(36, 18, 34, 0.85); }
+body[data-theme="dusk"] canvas { box-shadow: 0 0 0 1px rgba(255,210,122,0.12), 0 20px 60px rgba(0,0,0,0.6), 0 0 80px rgba(255, 164, 94, 0.08); }
+body[data-theme="dusk"] .logo { text-shadow: 0 0 18px rgba(255, 210, 122, 0.8), 0 0 48px rgba(255, 122, 168, 0.45); }
+body[data-theme="dusk"] .logo::before { color: #ffd27a; }
+body[data-theme="dusk"] .logo::after  { color: #ff7aa8; }
+body[data-theme="dusk"] .kicker { color: #ffd27a; text-shadow: 0 0 10px rgba(255, 210, 122, 0.6); }
+body[data-theme="dusk"] .song-tag { font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; letter-spacing: 0.14em; color: #fff1d6; background: rgba(36, 18, 34, 0.6); border-color: rgba(255, 210, 122, 0.4); }
+body[data-theme="dusk"] .song-arrow,
+body[data-theme="dusk"] .link-btn { background: rgba(36, 18, 34, 0.75); border-color: rgba(255, 210, 122, 0.3); color: #fff1d6; }
+body[data-theme="dusk"] .start-btn {
+  background: linear-gradient(90deg, #ff9f6b, #ffd27a, #ff7aa8, #ff9f6b);
+  background-size: 300% 100%;
+  color: #3a1626;
+  box-shadow: 0 0 calc(18px + var(--kick, 0) * 22px) rgba(255, 164, 94, 0.6), inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+}
+body[data-theme="dusk"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(255, 241, 214, 0.95), 0 0 48px rgba(255, 164, 94, 0.55); }
+body[data-theme="dusk"] .seg-btn.active { background: linear-gradient(90deg, #c96a4a, #b8507a); }
 .ov-sub { font-size: 15px; color: #ffd166; font-weight: 700; letter-spacing: 0.1em; min-height: 0; }
 .ov-sub:empty { display: none; }
 

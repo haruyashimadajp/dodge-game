@@ -4,10 +4,11 @@ A 2D dodge game built with plain HTML / CSS / JavaScript (Canvas).
 Mario-like platformer controls — run, jump between platforms, and dodge
 bullets fired in time with the music. Survive to the end of the song to clear it.
 
-Two songs, each with its own chart and look (pick one on the title screen with ◀ ▶):
+Three songs, each with its own chart and look (pick one on the title screen with ◀ ▶):
 
 - **the EmpErroR** — 120 BPM, neon shapes, fireworks, meteors
 - **Re:Unknown X** — 190 BPM, a moonlit night with red / green / blue UFOs, searchlights and danmaku-style bullets; the effects grow with the song's intensity
+- **モラトリウム** (Moratorium) — an original 150 BPM song made for this game (composed and synthesized in `songs/moratorium-compose.py`); a clock tower at dusk with time stops, rewinds, pendulums, clock-hand beams and melody notes that land exactly when they sound
 
 ## Play
 
@@ -27,6 +28,8 @@ Open `index.html` in a web browser.
 | `songs/*-env.js` | Per-band loudness of each song (generated), used by the audio-reactive visuals |
 | `visuals.js` | Rendering & effects — beat-synced camera, particles, title animation, the neon theme, graphics quality |
 | `visuals-night.js` | The night / UFO theme used by Re:Unknown X |
+| `visuals-dusk.js` | The dusk / clock-tower theme used by モラトリウム |
+| `songs/moratorium-compose.py` | Composes and renders モラトリウム (Python + numpy/scipy) and writes its note timings |
 | `style.css` | Colors and layout |
 | `MANUAL.md` | Guide for editing the code and authoring bullet patterns (Japanese) |
 

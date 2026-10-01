@@ -9,6 +9,7 @@
    曲ごとに「見た目のセット」（song.theme）があり、描き方を切りかえる:
        neon  … the EmpErroR: ネオンの図形・光の柱・丸い弾・白い光（このファイル）
        night … Re:Unknown X: 月夜・三色の UFO・探照灯・弾幕らしい弾（visuals-night.js）
+       dusk  … モラトリウム: 夕暮れの時計塔・歯車・振り子・音符の弾（visuals-dusk.js）
    セットは THEMES に「ここだけ描き方を変える」関数を登録するしくみ。
    登録されていない所は、このファイルの描き方（neon）がそのまま使われる。
 
@@ -92,6 +93,8 @@ const fx = {
   clearT: -1, clearNext: 0,
   stars: null,
   blips: [],        // ブリンク弾が瞬間移動した跡
+  freeze: 0,        // 時間停止の見た目の強さ（0〜1）
+  rewindT: 0,       // 巻き戻しの演出の残り時間
 };
 const PART_CAP = () => [150, 500, 1200][gfx];          // 火花の上限（画質しだい）
 
@@ -101,6 +104,7 @@ function fxReset() {
   fx.shake = fx.punch = fx.glitch = fx.hurt = 0;
   fx.banner = null; fx.secIdx = -1; fx.lastBar = -99;
   fx.deathT = -1; fx.clearT = -1;
+  fx.freeze = 0; fx.rewindT = 0;
   if (theme().reset) theme().reset();
 }
 
@@ -167,6 +171,12 @@ function fxDeath() {
 }
 function fxClear() { fx.clearT = 0; fx.clearNext = 0; flash(0.8); }
 function fxSongChange() { flash(0.6); glitch(0.4); }   // タイトルで曲を切りかえた
+// 時間停止した / 巻き戻した（game.js の timeStop / rewind から呼ばれる）
+function fxTimeStop() {
+  shockRing(W / 2, H * 0.36, { color: '#cfe0ff', size: 900, life: 0.9, width: 6 });
+  punch(0.05); shake(6);
+}
+function fxRewind() { fx.rewindT = 0.8; shake(5); }
 
 // ---- セクション（曲の場面）ごとの見た目 --------------------------------
 // タイトル画面の見た目は、選んでいる曲の titleLook（songs/*.js）
@@ -283,6 +293,9 @@ function updateFx(dt) {
   fx.rings = fx.rings.filter(r => r.life > 0);
 
   if (fx.deathT >= 0) fx.deathT += dt;
+  const frozenNow = scene === 'play' && typeof timeFrozen === 'function' && timeFrozen();
+  fx.freeze = clamp01(fx.freeze + (frozenNow ? dt * 5 : -dt * 3));
+  fx.rewindT = Math.max(0, fx.rewindT - dt);
 
   // クリア: 花火が次々と上がる
   if (fx.clearT >= 0) {
@@ -543,6 +556,24 @@ function drawBullets(T, look, k) {
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r * p, 0, TAU); ctx.fill();
   }
 
+  // 振り子のひも（予告中は、ゆれる道すじを点線で見せる）
+  for (const b of bullets) {
+    if (!b.pivot) continue;
+    const c = bulletColor(b);
+    if (b.delay > 0) {
+      ctx.strokeStyle = rgba(c, 0.35);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath(); ctx.arc(b.pivot.x, b.pivot.y, b.len, Math.PI / 2 - b.amp, Math.PI / 2 + b.amp); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.strokeStyle = rgba(mixC(c, [255, 255, 255], 0.3), b.delay > 0 ? 0.3 : 0.8);
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(b.pivot.x, b.pivot.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.fillStyle = rgba(c, 1);
+    ctx.beginPath(); ctx.arc(b.pivot.x, b.pivot.y, 5, 0, TAU); ctx.fill();
+  }
+
   // ブリンク弾の跡（輪が少し広がって消える）
   ctx.globalCompositeOperation = 'lighter';
   ctx.lineWidth = 2;
@@ -632,6 +663,13 @@ function drawLaser(b, T, k) {
     return;
   }
   const fade = b.safe ? clamp01(1 - (b.age - b.hold) / 0.3) : 1;
+  if (b.gx != null && !b.safe) {                        // 時計の針: 次に止まる場所
+    ctx.strokeStyle = rgba(c, 0.35);
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([8, 8]);
+    ctx.beginPath(); ctx.moveTo(b.gx1, b.gy1); ctx.lineTo(b.gx, b.gy); ctx.stroke();
+    ctx.setLineDash([]);
+  }
   const w = b.r * 2 * (b.safe ? fade : 1 + 0.1 * Math.sin(b.age * 80));
   ctx.lineCap = 'round';
   ctx.globalCompositeOperation = 'lighter';
@@ -808,6 +846,26 @@ function drawScreenFx(T, look, k) {
       ctx.fillRect(0, Math.random() * H, W, 2 + Math.random() * 6);
     }
     ctx.globalCompositeOperation = 'source-over';
+  }
+
+  // 時間停止: 色が抜けて青白くなる（弾は止まっていても当たる）
+  if (fx.freeze > 0.01) {
+    ctx.globalCompositeOperation = 'saturation';
+    ctx.fillStyle = `rgba(0,0,0,${(0.75 * fx.freeze).toFixed(3)})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = `rgba(120,150,255,${(0.10 * fx.freeze).toFixed(3)})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+  // 巻き戻し: 横に流れる線 ＋ ◀◀
+  if (fx.rewindT > 0) {
+    const a = fx.rewindT / 0.8;
+    ctx.fillStyle = `rgba(255,255,255,${(0.12 * a).toFixed(3)})`;
+    for (let i = 0; i < 6; i++) ctx.fillRect(0, (i * 137 + fx.rewindT * 900) % H, W, 2 + (i % 3));
+    ctx.font = '800 26px system-ui, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = `rgba(255,255,255,${(0.9 * a).toFixed(3)})`;
+    ctx.fillText('◀◀ REWIND', 24, 44);
   }
 
   // やられた: 色が抜けて暗くなる

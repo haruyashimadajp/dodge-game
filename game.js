@@ -57,6 +57,7 @@ function beatPos(t)  { return song.beatPos(t); }       // beat number at time t 
 // 1 right on a beat, decaying to 0 before the next one (per = beats per pulse)
 function beatKick(t, per = 1) { const p = beatPos(t) / per; return Math.exp(-(p - Math.floor(p)) * 5); }
 let songTime = 0;          // current position in the song (s); drives bullets & visuals
+let freezeUntil = -1;      // 時間停止 (timeStop) が終わる曲の時刻
 
 // ---- World layout -------------------------------------------------------
 const GROUND_H = 56;                 // thickness of the bottom ground
@@ -188,6 +189,7 @@ function reset() {
   livesLeft = startLives;
   invuln = 0;
   flashT = 0;
+  freezeUntil = -1;
   hitsTaken = 0;
   songTime = 0;
   updateLivesHud();
@@ -266,7 +268,9 @@ function updateBullets(dt) {
   songTime = (bgm && !bgm.paused) ? bgm.currentTime : elapsed;
   runChart(songTime);
 
+  const frozen = songTime < freezeUntil;     // 時間停止中: 弾はその場で止まる（当たり判定は残る）
   for (const b of bullets) {
+    if (frozen && !b.noFreeze) { b.px = b.x; b.py = b.y; continue; }
     const e = dt * bulletSpeedMul * b.spd;   // effective step (弾の速さ knob × the song's speed at spawn)
     if (b.delay > 0) {                                // charging: a warning ring
       b.delay -= dt;
@@ -1367,6 +1371,79 @@ function ufo({ x, y, path, life = 4, every = 1, color = '#ff4d6d', size = 1, sho
       if (b.age > b.life) b.dead = true;
     },
   });
+}
+
+/* ---- ここから下は「モラトリウム」で生まれた形態（時計・時間）---------------- */
+
+// ★時間停止★ dur 秒のあいだ、画面の弾がすべてその場で止まる（止まった弾にも当たる）。
+// プレイヤーは動けるので、止まっているうちにすき間へ移動する
+function timeStop(dur) {
+  freezeUntil = Math.max(freezeUntil, songTime + dur);
+  if (typeof fxTimeStop === 'function') fxTimeStop(dur);
+}
+const timeFrozen = () => songTime < freezeUntil;
+
+// ★巻き戻し★ まっすぐ飛んでいる弾が、いっせいに来た道を逆向きに戻る
+function rewind() {
+  for (const b of bullets) {
+    if (b.delay > 0 || b.kind || b.move !== straight || b.step) continue;
+    b.vx = -b.vx; b.vy = -b.vy;
+    if (typeof blip === 'function') blip(b.x, b.y, b);
+  }
+  if (typeof fxRewind === 'function') fxRewind();
+}
+
+// 振り子: (px, py) からつるした重い玉が左右にゆれる。いちばん下では地面すれすれ → 跳び越える
+//   len = ひもの長さ / amp = ふれ幅（ラジアン）/ beats = 片道にかかる拍数（下を通るのは片道のまん中）
+//   life = いる秒数
+function pendulum({ px, py = 110, len = GROUND_Y - 24 - 110, amp = 0.75, beats = 4, life = 8, r = 20, delay = 0.8, color }) {
+  const T = beats * BEAT_SEC;
+  return spawn({
+    x: px + Math.sin(amp) * len, y: py + Math.cos(amp) * len, r, delay, color, life, pivot: { x: px, y: py }, len, amp, T, noTrail: true,
+    spd: 1,                                  // 拍にぴったり合わせるので、曲の速さ倍率は使わない
+    move(b) {
+      const th = b.amp * Math.cos(Math.PI * b.age / (b.T * bulletSpeedMul * b.spd));
+      b.x = b.pivot.x + Math.sin(th) * b.len;
+      b.y = b.pivot.y + Math.cos(th) * b.len;
+      if (b.age > b.life) b.dead = true;
+    },
+  });
+}
+
+// 時計の針: (cx, cy) を中心に回るビーム。1拍ごとに step（ラジアン）ずつ「カチッ」と進む。
+// 次に止まる場所はうすい線で見える。len が長いと下を通るとき地面に届く → 跳び越える
+function clockHand({ cx, cy, len = 400, a0 = -Math.PI / 2, step = Math.PI / 12, width = 14, life = 8, delay = 0.8, color, hub = 34 }) {
+  const at = a => ({ x1: cx + Math.cos(a) * hub, y1: cy + Math.sin(a) * hub, x2: cx + Math.cos(a) * len, y2: cy + Math.sin(a) * len });
+  const p = at(a0);
+  const hand = laser({
+    ...p, width, delay, hold: life, color,
+    move(b) {
+      const n = b.age / (BEAT_SEC * bulletSpeedMul * b.spd), k = Math.floor(n);
+      const ang = a0 + step * (k + Math.min(1, (n - k) * 5));       // 拍の頭ですばやく進んで止まる
+      Object.assign(b, at(ang));
+      b.x = (b.x1 + b.x2) / 2; b.y = (b.y1 + b.y2) / 2;
+      const g = at(a0 + step * (k + 1));
+      b.gx = g.x2; b.gy = g.y2; b.gx1 = g.x1; b.gy1 = g.y1;        // 次の位置（予告の線）
+    },
+  });
+  hand.spd = 1;                              // 拍にぴったり合わせる
+  return hand;
+}
+
+// 音符の雨: 旋律の音が、ちょうどその音が鳴る瞬間に地面へ落ちてくる弾
+//   t = 地面に着く時刻 / x = 落ちる場所 / v = 落ちる速さ
+function noteDrop(t, x, v = 420, { r = 8, color, warn = 0.35 } = {}) {
+  const top = -16, travel = (GROUND_Y - r - top) / v;
+  return { at: t - travel - warn, go: () => spawn({
+    x, y: top, vy: v, r, delay: warn, color, style: 'note', spd: 1, lane: [0, 1], noFreeze: false,
+    move(b, dt) {
+      b.y += b.vy * dt;
+      if (b.vy > 0 && b.y >= GROUND_Y - b.r) {               // 地面に着いた: はじけて消える
+        if (typeof sparks === 'function') sparks(b.x, GROUND_Y - 2, { n: 6, color: b.color || '#ffd9a0', speed: 160, life: 0.35, size: 2.5, gravity: 400, dir: -Math.PI / 2, spread: 2.4 });
+        b.dead = true;
+      }
+    },
+  }) };
 }
 
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。

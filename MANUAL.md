@@ -20,9 +20,14 @@ dodge-game/
 │   ├── emperror.js      ← 曲①「the EmpErroR」の拍・場面・譜面 ★よく編集する★
 │   ├── unknown.js       ← 曲②「Re:Unknown X」の拍・場面・譜面 ★よく編集する★
 │   ├── emperror-env.js  ← 曲①の音量データ（演出用に自動生成。さわらない）
-│   └── unknown-env.js   ← 曲②の音量データ（同上）
+│   ├── unknown-env.js   ← 曲②の音量データ（同上）
+│   ├── moratorium.js    ← 曲③「モラトリウム」（オリジナル曲）の拍・場面・譜面 ★よく編集する★
+│   ├── moratorium-score.js   ← 曲③の楽譜データ（音符・太鼓の時刻。自動で書き出したもの）
+│   ├── moratorium-env.js     ← 曲③の音量データ
+│   └── moratorium-compose.py ← 曲③を作曲・合成するプログラム（Python）
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
+├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔・歯車・振り子）
 ├── style.css    ← 色やレイアウト（タイトル画面・ボタンの見た目）
 ├── the EmpErroR.mp3 / Re-Unknown_X.mp3 ← 曲
 └── MANUAL.md    ← この説明書
@@ -493,6 +498,28 @@ firewall({ gapX, gapW: 130, steps: 6 })      // 穴が1つの横のビームが�
 
 自分でレーザーを作るときは、`spawn` に `hits: b => segmentHitsPlayer(...)` のような
 「当たったかどうかを答える関数」を渡すと、丸以外の当たり判定にできます（`laser` の中身が見本）。
+
+---
+
+### 5-6. 曲③「モラトリウム」で生まれた形態（時計・時間）
+
+```js
+timeStop(秒)                       // 時間停止: 画面の弾がすべてその場で止まる（止まった弾にも当たる。自分は動ける）
+rewind()                           // 巻き戻し: まっすぐ飛んでいる弾が、いっせいに来た道を戻る
+pendulum({ px, py, amp, beats })   // 振り子: いちばん下では地面すれすれ → 跳び越える。beats = 片道の拍数
+clockHand({ cx, cy, len, step })   // 時計の針のビーム: 1拍ごとに step（ラジアン）ずつカチッと回る。次の位置がうすく見える
+noteDrop(時刻, x, 速さ)            // 音符の雨: ちょうど「時刻」に地面へ着く音符。{ at, go } を返すので burst(d.at, d.go) で使う
+```
+
+曲③は自分で作った曲なので、旋律の音符の時刻が全部分かっています（`SCORE_MORATORIUM`）。
+`SCORE_MORATORIUM.chorus` は `[拍, 長さ, 高さ]` の並びで、譜面ではこれを `noteDrop` に渡して
+「鳴る瞬間に地面に着く音符」を降らせています（高い音ほど右に落ちる）。
+
+#### 曲③を作り直す（上級者向け）
+`songs/moratorium-compose.py` が作曲と音の合成をしています（Python と numpy / scipy が必要）。
+旋律は8分音符ごとに音名を並べた文字列（例: `'B4 . A4 B4 D5 - B4 A4'`。`-` はのばす、`.` は休み）で書いてあります。
+実行すると `moratorium.wav`（曲）と `score.json`（音符の時刻）ができるので、
+wav を mp3 にして `Moratorium.mp3` と置きかえ、score.json の中身を `moratorium-score.js` に写せば反映されます。
 
 ---
 
