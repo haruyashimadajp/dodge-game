@@ -41,22 +41,22 @@ const MORA_SECTIONS = [
   { t: 122.1, tier: 1,   name: 'DAWN',       sub: '夜明け',                 sky: ['#3a3a6c', '#ffcf96'], color: '#fff1c4', pulse: 0.006, sway: 0.3, stars: 6 },
 ];
 
-// 弾の速さ: 盛り上がりに合わせて 0.85倍（静か）〜 1.4倍（最後のサビ）
+// 弾の速さ: 盛り上がりに合わせて 0.95倍（静か）〜 1.55倍（最後のサビ）。難しめの設定
 function moraSpeedAt(t) {
   let i = 0;
   while (i + 1 < MORA_SECTIONS.length && MORA_SECTIONS[i + 1].t <= t) i++;
-  return 0.85 + 0.11 * MORA_SECTIONS[i].tier;
+  return 0.95 + 0.12 * MORA_SECTIONS[i].tier;
 }
 
 /* ---- 譜面 -------------------------------------------------------------------
    時刻は「拍」で書いている（beat(n) = n拍目の秒数、bar(k) = k小節目の頭）。
      0〜 12小節  イントロ   オルゴールの音で時計から玉 → 振り子が現れる → 鐘のリング
-    12〜 20      砂時計     上から砂がこぼれ続ける（落ちる場所がゆっくり左右に動く）
-    20〜 28      振り子     大きな振り子 ＋ 旋律の音符が落ちてくる
+    12〜 20      砂時計     上から2本の砂がこぼれ続ける（落ちる場所がゆっくり左右に動く）
+    20〜 28      振り子     2つの振り子（逆向き）＋ 旋律の音符が落ちてくる
     28〜 36      時計の針   針のビームが1拍ごとにカチッと回る。最後の1拍だけ時間が止まる
-    36〜 52      サビ       音符の雨 ＋ 小節ごとのリング ＋ 4小節ごとに巻き戻し
+    36〜 52      サビ       音符の雨 ＋ 小節ごとのリング ＋ 自機狙いの扇 ＋ 振り子 ＋ 2小節ごとに巻き戻し
     52〜 60      間奏       曲が止まる音と同時に「時間停止」→ 2小節後に動き出す → 巻き戻し
-    60〜 76      最後のサビ 2本の針 ＋ 速い音符の雨 ＋ 巻き戻し
+    60〜 76      最後のサビ 2本の針 ＋ 速い音符の雨 ＋ 自機狙いの扇 ＋ 振り子 ＋ 巻き戻し
     76〜 80      アウトロ   最後の鐘
    -------------------------------------------------------------------------- */
 function moratoriumChart() {
@@ -89,74 +89,97 @@ function moratoriumChart() {
   const corner = (t, left, v = 210, color = AMBER) =>
     fire(t, 0.4, delay => { const x = left ? 30 : W - 30, a = aimVel(x, 30, v); spawn({ x, y: 30, vx: a.vx, vy: a.vy, r: 8, delay, color }); });
 
-  // ===== TICK TOCK 0〜4小節 ｜ オルゴールの音ごとに、時計から玉がひとつ ============
-  inRange(SC.box, 0, 16).forEach(([b, m]) =>
-    fire(beat(b), 0.3, delay => fromClock(delay, Math.PI / 2 + (m - 74) * 0.09, 110, 7, CREAM)));
+  // 時計から自機狙いの扇（n 発、spread ずつ開く）
+  const clockFan = (t, n, spread, v, color = ROSE, warn = 0.3) => fire(t, warn, delay => {
+    const p = playerXY(), base = Math.atan2(p.y - CY, p.x - CX);
+    for (let j = 0; j < n; j++) fromClock(delay, base + (j - (n - 1) / 2) * spread, v, 7, color);
+  });
 
-  // ===== WIND-UP 4〜12小節 ｜ キックで狙い撃ち・振り子が現れる・鐘のリング ===========
-  SC.kick.filter(b => b >= 16 && b < 40).forEach((b, i) => corner(beat(b), i % 2 === 0, 200));
-  fire(bar(6), 1.2, delay => pendulum({ px: CX, py: 110, amp: 0.7, beats: 4, life: 6 * 4 * MORA_BEAT - 0.4, delay, color: GOLD }));
-  SC.snare.filter(b => b >= 44 && b < 48).forEach((b, i) =>      // スネアの連打: 時計からぐるっと
-    fire(beat(b), 0.3, delay => fromClock(delay, -Math.PI / 2 + i * 0.55, 150 + i * 6, 7, AMBER)));
+  // ===== TICK TOCK 0〜4小節 ｜ オルゴールの音ごとに、時計から玉（プレイヤーのほうへ）====
+  inRange(SC.box, 0, 16).forEach(([b, m], i) =>
+    fire(beat(b), 0.3, delay => {
+      const p = playerXY(), base = Math.atan2(p.y - CY, p.x - CX);
+      fromClock(delay, base + (m - 74) * 0.06, 140, 7, CREAM);
+    }));
+
+  // ===== WIND-UP 4〜12小節 ｜ キックで両すみから狙い撃ち・振り子・鐘のリング ===========
+  SC.kick.filter(b => b >= 16 && b < 40).forEach((b, i) => { corner(beat(b), i % 2 === 0, 240); if (b % 4 === 0) corner(beat(b), i % 2 !== 0, 240, GOLD); });
+  fire(bar(6), 1.2, delay => pendulum({ px: CX, py: 110, amp: 0.75, beats: 4, life: 6 * 4 * MORA_BEAT - 0.4, delay, color: GOLD }));
+  SC.snare.filter(b => b >= 44 && b < 48).forEach((b, i) =>      // スネアの連打: 時計からぐるっと2重
+    fire(beat(b), 0.3, delay => { for (const o of [0, Math.PI]) fromClock(delay, -Math.PI / 2 + i * 0.55 + o, 170 + i * 8, 7, AMBER); }));
   hit(bar(12), 0.6);
-  chime(bar(12), { n: 16 });
+  chime(bar(12), { n: 20, v: 180 });
 
-  // ===== SANDGLASS 12〜20小節 ｜ 砂時計: 砂がこぼれ続ける ＋ スネアで狙い撃ち ==========
+  // ===== SANDGLASS 12〜20小節 ｜ 砂時計: 2本の砂の流れ ＋ スネアで3方向の扇 ===========
   for (let b = 48; b < 80; b += 0.5) {
-    const x = CX + Math.sin(Math.PI * (b - 48) / 8) * 300;          // 2小節で左右を往復
-    burst(beat(b), () => spawn({ x: x + rand(-14, 14), y: -6, vy: rand(230, 290), vx: rand(-15, 15), r: 4.5, color: '#fff6dc' }));
+    const dx = Math.sin(Math.PI * (b - 48) / 8) * 300;             // 2小節で左右を往復（2本は鏡うつし）
+    for (const x of [CX + dx, CX - dx * 0.6]) {
+      burst(beat(b), () => spawn({ x: x + rand(-14, 14), y: -6, vy: rand(260, 330), vx: rand(-15, 15), r: 4.5, color: '#fff6dc' }));
+    }
   }
-  SC.snare.filter(b => b >= 48 && b < 80 && b % 2 === 1).forEach(b =>
-    fire(beat(b), 0.35, delay => { const v = aimVel(CX, CY, 230); spawn({ x: CX, y: CY, vx: v.vx, vy: v.vy, r: 8, delay, color: AMBER }); }));
+  SC.snare.filter(b => b >= 48 && b < 80 && b % 2 === 1).forEach(b => clockFan(beat(b), 3, 0.22, 240, AMBER, 0.35));
 
-  // ===== PENDULUM 20〜28小節 ｜ 大きな振り子 ＋ 旋律の音符 ============================
-  fire(bar(20), 1.2, delay => pendulum({ px: CX, py: 100, amp: 0.8, beats: 4, life: 8 * 4 * MORA_BEAT - 0.3, r: 22, delay, color: AMBER }));
-  notes(SC.verse, 380, (b, i) => WARM[i % 4]);
-  for (let k = 20; k < 28; k += 2) { corner(bar(k + 0.5), true); corner(bar(k + 1.5), false); }
+  // ===== PENDULUM 20〜28小節 ｜ 2つの振り子（逆向き）＋ 旋律の音符 ＋ 狙い撃ち ==========
+  fire(bar(20), 1.2, delay => pendulum({ px: CX - 170, py: 100, amp: 0.65, beats: 4, life: 8 * 4 * MORA_BEAT - 0.3, r: 22, delay, color: AMBER }));
+  fire(bar(20) + 2 * MORA_BEAT, 1.2, delay => pendulum({ px: CX + 170, py: 100, amp: 0.65, beats: 4, life: 8 * 4 * MORA_BEAT - 1.1, r: 22, delay, color: ROSE }));
+  notes(SC.verse, 420, (b, i) => WARM[i % 4]);
+  for (let k = 20; k < 28; k++) corner(bar(k + 0.5), k % 2 === 0, 250);
 
-  // ===== COUNTDOWN 28〜36小節 ｜ 時計の針 ＋ 音符 ＋ 最後の1拍だけ時間が止まる =========
-  fire(bar(28), 1.0, delay => clockHand({ cx: CX, cy: CY, len: 430, a0: -Math.PI / 2, step: Math.PI / 12, life: 7.5 * 4 * MORA_BEAT, delay, color: ROSE }));
-  fire(bar(32), 1.0, delay => clockHand({ cx: CX, cy: CY, len: 300, a0: -Math.PI / 2, step: -Math.PI / 8, life: 3.5 * 4 * MORA_BEAT, width: 10, delay, color: VIOLET }));
-  notes(SC.pre, 400, (b, i) => (i % 2 ? ROSE : GOLD));
-  SC.snare.filter(b => b >= 136 && b < 144).forEach((b, i) =>     // サビ前の連打: 時計からうず
-    fire(beat(b), 0.3, delay => fromClock(delay, i * 0.62, 170 + i * 5, 7, ROSE)));
+  // ===== COUNTDOWN 28〜36小節 ｜ 2本の針 ＋ 音符 ＋ 最後の1拍だけ時間が止まる ==========
+  fire(bar(28), 1.0, delay => clockHand({ cx: CX, cy: CY, len: 430, a0: -Math.PI / 2, step: Math.PI / 10, life: 7.5 * 4 * MORA_BEAT, delay, color: ROSE }));
+  fire(bar(30), 1.0, delay => clockHand({ cx: CX, cy: CY, len: 320, a0: -Math.PI / 2, step: -Math.PI / 8, life: 5.5 * 4 * MORA_BEAT, width: 10, delay, color: VIOLET }));
+  notes(SC.pre, 440, (b, i) => (i % 2 ? ROSE : GOLD));
+  for (let k = 28; k < 34; k++) clockFan(bar(k + 0.5), 3, 0.25, 230, GOLD);
+  SC.snare.filter(b => b >= 136 && b < 144).forEach((b, i) =>     // サビ前の連打: 時計から2重のうず
+    fire(beat(b), 0.3, delay => { for (const o of [0, Math.PI]) fromClock(delay, i * 0.62 + o, 190 + i * 6, 7, ROSE); }));
   burst(beat(143), () => timeStop(MORA_BEAT * 0.95));               // 「ため」の1拍: 時間が止まる
 
-  // ===== CHIME 36〜52小節 ｜ 音符の雨 ＋ 小節ごとのリング ＋ 巻き戻し ==================
-  notes(SC.chorus, 440, b => WARM[Math.floor(b / 4) % 4]);
+  // ===== CHIME 36〜52小節 ｜ 音符の雨 ＋ リング ＋ スネアで扇 ＋ 振り子 ＋ 巻き戻し =====
+  notes(SC.chorus, 500, b => WARM[Math.floor(b / 4) % 4]);
   for (let k = 36; k < 52; k++) {
-    if (k % 4 === 0) { chime(bar(k), { n: 14, v: 165, color: CREAM, start: k * 0.2 }); hit(bar(k), 0.7); }
-    else fire(bar(k), 0.4, delay => ring({ x: CX, y: CY, count: 10, speed: 140, r: 7, start: k * 0.37, delay, color: WARM[k % 4] }));
+    if (k % 4 === 0) { chime(bar(k), { n: 18, v: 185, color: CREAM, start: k * 0.2 }); hit(bar(k), 0.7); }
+    else fire(bar(k), 0.4, delay => ring({ x: CX, y: CY, count: 14, speed: 160, r: 7, start: k * 0.37, delay, color: WARM[k % 4] }));
+    clockFan(bar(k + 0.75), 3, 0.2, 260, ROSE);                     // 4拍目: 自機狙い
   }
-  for (const k of [39, 43, 47]) burst(bar(k + 0.5), () => rewind());   // 4小節ごとの「巻き戻し」
-  fire(beat(206), 0.4, delay => ring({ x: CX, y: CY, count: 24, speed: 210, r: 8, delay, color: CREAM }));
+  fire(bar(44), 1.2, delay => pendulum({ px: CX, py: 100, amp: 0.8, beats: 4, life: 8 * 4 * MORA_BEAT - 0.3, r: 22, delay, color: GOLD }));
+  for (const k of [37, 39, 41, 43, 45, 47, 49]) burst(bar(k + 0.5), () => rewind());   // 2小節ごとの「巻き戻し」
+  fire(beat(206), 0.4, delay => { ring({ x: CX, y: CY, count: 28, speed: 230, r: 8, delay, color: CREAM }); ring({ x: CX, y: CY, count: 14, speed: 150, r: 11, start: 0.11, delay, color: ROSE }); });
 
   // ===== MORATORIUM 52〜60小節 ｜ 曲が止まる → 時間停止 → 動き出す → 巻き戻し =========
   burst(bar(52), () => { timeStop(2 * 4 * MORA_BEAT); flash(0.5); });   // 2小節のあいだ、すべてが止まる
   hit(bar(54), 0.6);                                                  // 時は動き出す
   inRange(SC.box, 216, 232).forEach(([b, m]) =>
-    fire(beat(b), 0.3, delay => fromClock(delay, Math.PI / 2 + (m - 76) * 0.09, 130, 7, SKY)));
-  SC.kick.filter(b => b >= 232 && b < 240).forEach((b, i) => corner(beat(b), i % 2 === 0, 230, ROSE));
+    fire(beat(b), 0.3, delay => {
+      const p = playerXY(), base = Math.atan2(p.y - CY, p.x - CX);
+      for (const o of [-0.3, 0, 0.3]) fromClock(delay, base + o + (m - 76) * 0.05, 160, 7, SKY);
+    }));
+  SC.kick.filter(b => b >= 232 && b < 240).forEach((b, i) => { corner(beat(b), true, 260, ROSE); corner(beat(b), false, 260, GOLD); });
   SC.snare.filter(b => b >= 236 && b < 240).forEach((b, i) =>
-    fire(beat(b), 0.25, delay => fromClock(delay, i * 0.4, 200, 7, CREAM)));
+    fire(beat(b), 0.25, delay => { for (const o of [0, Math.PI]) fromClock(delay, i * 0.4 + o, 220, 7, CREAM); }));
   burst(beat(238), () => rewind());                                    // 巻き戻しの音と同時に
 
-  // ===== ETERNITY 60〜76小節 ｜ 最後のサビ。2本の針 ＋ 速い音符の雨 ＋ 巻き戻し =======
-  fire(bar(60), 1.0, delay => clockHand({ cx: CX, cy: CY, len: 430, a0: -Math.PI / 2, step: Math.PI / 16, life: 15.5 * 4 * MORA_BEAT, delay, color: ROSE }));
-  fire(bar(64), 1.0, delay => clockHand({ cx: CX, cy: CY, len: 330, a0: Math.PI / 2, step: -Math.PI / 12, life: 11.5 * 4 * MORA_BEAT, width: 10, delay, color: VIOLET }));
-  notes(SC.final, 480, b => WARM[Math.floor(b / 4) % 4]);
+  // ===== ETERNITY 60〜76小節 ｜ 最後のサビ。2本の針 ＋ 速い音符 ＋ 振り子 ＋ 巻き戻し ====
+  fire(bar(60), 1.0, delay => clockHand({ cx: CX, cy: CY, len: 430, a0: -Math.PI / 2, step: Math.PI / 12, life: 15.5 * 4 * MORA_BEAT, delay, color: ROSE }));
+  fire(bar(62), 1.0, delay => clockHand({ cx: CX, cy: CY, len: 340, a0: Math.PI / 2, step: -Math.PI / 10, life: 13.5 * 4 * MORA_BEAT, width: 10, delay, color: VIOLET }));
+  notes(SC.final, 540, b => WARM[Math.floor(b / 4) % 4]);
   for (let k = 60; k < 76; k++) {
-    if (k % 4 === 0) { chime(bar(k), { n: 16, v: 175, color: CREAM, start: k * 0.2 }); hit(bar(k), 0.8); }
-    else fire(bar(k), 0.4, delay => ring({ x: CX, y: CY, count: 10, speed: 150, r: 7, start: k * 0.37, delay, color: WARM[k % 4] }));
+    if (k % 4 === 0) { chime(bar(k), { n: 20, v: 195, color: CREAM, start: k * 0.2 }); hit(bar(k), 0.8); }
+    else fire(bar(k), 0.4, delay => ring({ x: CX, y: CY, count: 14, speed: 170, r: 7, start: k * 0.37, delay, color: WARM[k % 4] }));
+    clockFan(bar(k + 0.25), 3, 0.2, 280, ROSE);                     // 2拍目と4拍目: 自機狙い
+    clockFan(bar(k + 0.75), 3, 0.2, 280, GOLD);
   }
-  for (const k of [63, 67, 71]) burst(bar(k + 0.5), () => rewind());
+  fire(bar(68), 1.2, delay => pendulum({ px: CX, py: 100, amp: 0.85, beats: 4, life: 8 * 4 * MORA_BEAT - 0.3, r: 22, delay, color: AMBER }));
+  for (const k of [61, 63, 65, 67, 69, 71, 73]) burst(bar(k + 0.5), () => rewind());
 
   // ===== DAWN 76〜80小節 ｜ 最後の鐘 → オルゴール ======================================
   hit(bar(76), 1);
-  chime(bar(76), { n: 24, v: 150, r: 11, color: CREAM });
+  chime(bar(76), { n: 30, v: 170, r: 11, color: CREAM });
   burst(bar(76), () => { shake(14); punch(0.06); });
   inRange(SC.box, 304, 320).forEach(([b, m]) =>
-    fire(beat(b), 0.3, delay => fromClock(delay, Math.PI / 2 + (m - 76) * 0.09, 100, 7, CREAM)));
+    fire(beat(b), 0.3, delay => {
+      const p = playerXY(), base = Math.atan2(p.y - CY, p.x - CX);
+      fromClock(delay, base + (m - 76) * 0.06, 150, 7, CREAM);
+    }));
 
   return cues.sort((a, b) => a.t - b.t);
 }

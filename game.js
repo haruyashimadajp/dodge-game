@@ -1386,8 +1386,10 @@ const timeFrozen = () => songTime < freezeUntil;
 // ★巻き戻し★ まっすぐ飛んでいる弾が、いっせいに来た道を逆向きに戻る
 function rewind() {
   for (const b of bullets) {
-    if (b.delay > 0 || b.kind || b.move !== straight || b.step) continue;
+    if (b.delay > 0 || b.kind || b.move !== straight || b.step || b.rewound) continue;
+    if (b.x < -20 || b.x > W + 20 || b.y < -20 || b.y > H + 20) continue;   // 画面の外の弾はそのまま
     b.vx = -b.vx; b.vy = -b.vy;
+    b.rewound = true;                                  // 1つの弾が戻るのは1回だけ（行ったり来たりしない）
     if (typeof blip === 'function') blip(b.x, b.y, b);
   }
   if (typeof fxRewind === 'function') fxRewind();
