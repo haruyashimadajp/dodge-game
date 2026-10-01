@@ -7,7 +7,7 @@ bullets fired in time with the music. Survive to the end of the song to clear it
 Two songs, each with its own chart and look (pick one on the title screen with ◀ ▶):
 
 - **the EmpErroR** — 120 BPM, neon shapes, fireworks, meteors
-- **Re:Unknown X** — 190 BPM, data blocks, lasers, glyph rain, color-inverting X strikes
+- **Re:Unknown X** — 190 BPM, a moonlit night with red / green / blue UFOs, searchlights and danmaku-style bullets; the effects grow with the song's intensity
 
 ## Play
 
@@ -25,7 +25,8 @@ Open `index.html` in a web browser.
 | `game.js` | Game code — character, physics, collision, song select, and the bullet tools |
 | `songs/*.js` | One file per song: beat grid, sections (looks) and chart (bullets) |
 | `songs/*-env.js` | Per-band loudness of each song (generated), used by the audio-reactive visuals |
-| `visuals.js` | Rendering & effects — per-song themes, beat-synced camera, particles, title animation |
+| `visuals.js` | Rendering & effects — beat-synced camera, particles, title animation, the neon theme, graphics quality |
+| `visuals-night.js` | The night / UFO theme used by Re:Unknown X |
 | `style.css` | Colors and layout |
 | `MANUAL.md` | Guide for editing the code and authoring bullet patterns (Japanese) |
 

@@ -128,6 +128,15 @@
           <span class="setting-label">画面演出（ゆれ・ズーム・光） <b id="fxVal"></b></span>
           <input type="range" id="fxAmount" min="0" max="100" step="5">
         </label>
+        <div class="setting">
+          <span class="setting-label">画質（重いときは下げる） <b id="gfxVal"></b></span>
+          <div class="seg seg-4">
+            <button class="seg-btn" data-gfx="auto">自動</button>
+            <button class="seg-btn" data-gfx="2">高</button>
+            <button class="seg-btn" data-gfx="1">中</button>
+            <button class="seg-btn" data-gfx="0">低</button>
+          </div>
+        </div>
       </div>
 
       <details class="settings-group debug">
@@ -167,5 +176,6 @@
   <script src="songs/emperror.js"></script>
   <script src="songs/unknown.js"></script>
   <script src="visuals.js"></script>
+  <script src="visuals-night.js"></script>
 </body>
 </html>

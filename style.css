@@ -490,35 +490,33 @@ button { font-family: inherit; }
 .song-arrow:active { transform: scale(0.92); }
 .song-arrow.hidden { visibility: hidden; }
 
-/* ---- Re:Unknown X: green / cyan / red "terminal" colors for the menus ---- */
-body[data-theme="cyber"] {
-  --accent: #39ff88;
-  --accent-2: #00e5ff;
-  --text-dim: #8fb8a6;
+/* ---- Re:Unknown X: moonlit night, red / green / blue UFO lights ---- */
+body[data-theme="night"] {
+  --accent: #ff4d6d;
+  --accent-2: #8fd3ff;
+  --text-dim: #b3acd6;
   background:
-    radial-gradient(ellipse at 50% 0%, rgba(57, 255, 136, 0.08), transparent 60%),
-    radial-gradient(ellipse at 50% 100%, rgba(255, 42, 109, 0.07), transparent 60%),
-    #020806;
+    radial-gradient(ellipse at 70% 0%, rgba(255, 244, 214, 0.08), transparent 55%),
+    radial-gradient(ellipse at 50% 100%, rgba(76, 201, 240, 0.08), transparent 60%),
+    #05041a;
 }
-body[data-theme="cyber"] .stat { background: rgba(3, 16, 11, 0.85); font-family: ui-monospace, "Menlo", "Consolas", monospace; }
-body[data-theme="cyber"] #livesHud { color: #ff2a6d; }
-body[data-theme="cyber"] canvas { box-shadow: 0 0 0 1px rgba(57,255,136,0.12), 0 20px 60px rgba(0,0,0,0.6), 0 0 80px rgba(57, 255, 136, 0.07); }
-body[data-theme="cyber"] .logo { text-shadow: 0 0 18px rgba(57, 255, 136, 0.85), 0 0 48px rgba(0, 229, 255, 0.4); }
-body[data-theme="cyber"] .logo::before { color: #00e5ff; }
-body[data-theme="cyber"] .logo::after  { color: #ff2a6d; }
-body[data-theme="cyber"] .kicker { text-shadow: 0 0 10px rgba(0, 229, 255, 0.7); }
-body[data-theme="cyber"] .song-tag { font-family: ui-monospace, "Menlo", "Consolas", monospace; letter-spacing: 0.12em; color: #d6ffe9; background: rgba(3, 16, 11, 0.6); border-radius: 4px; border-color: rgba(57, 255, 136, 0.4); }
-body[data-theme="cyber"] .song-arrow,
-body[data-theme="cyber"] .link-btn { background: rgba(3, 16, 11, 0.75); border-color: rgba(57, 255, 136, 0.3); color: #d6ffe9; }
-body[data-theme="cyber"] .start-btn {
-  border-radius: 6px;
-  color: #02140b;
-  background: linear-gradient(90deg, #39ff88, #00e5ff, #39ff88, #ff2a6d, #39ff88);
+body[data-theme="night"] .stat { background: rgba(12, 10, 38, 0.85); }
+body[data-theme="night"] canvas { box-shadow: 0 0 0 1px rgba(200,190,255,0.10), 0 20px 60px rgba(0,0,0,0.6), 0 0 80px rgba(143, 211, 255, 0.07); }
+body[data-theme="night"] .logo { text-shadow: 0 0 18px rgba(255, 244, 214, 0.75), 0 0 48px rgba(143, 160, 255, 0.45); }
+body[data-theme="night"] .logo::before { color: #4cc9f0; }
+body[data-theme="night"] .logo::after  { color: #ff4d6d; }
+body[data-theme="night"] .kicker { text-shadow: 0 0 10px rgba(143, 211, 255, 0.7); }
+body[data-theme="night"] .song-tag { font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; letter-spacing: 0.14em; color: #fbf7ff; background: rgba(12, 10, 38, 0.6); border-color: rgba(255, 244, 214, 0.35); }
+body[data-theme="night"] .song-arrow,
+body[data-theme="night"] .link-btn { background: rgba(12, 10, 38, 0.75); border-color: rgba(200, 190, 255, 0.28); color: #eee8ff; }
+body[data-theme="night"] .start-btn {
+  background: linear-gradient(90deg, #ff4d6d, #5cf2a4, #4cc9f0, #ff4d6d);
   background-size: 300% 100%;
-  box-shadow: 0 0 calc(18px + var(--kick, 0) * 22px) rgba(57, 255, 136, 0.65), inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 calc(18px + var(--kick, 0) * 22px) rgba(143, 211, 255, 0.6), inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
 }
-body[data-theme="cyber"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(57, 255, 136, 0.95), 0 0 48px rgba(0, 229, 255, 0.5); }
-body[data-theme="cyber"] .seg-btn.active { background: linear-gradient(90deg, #1fbf6a, #00a8c4); }
+body[data-theme="night"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(255, 244, 214, 0.95), 0 0 48px rgba(92, 242, 164, 0.5); }
+body[data-theme="night"] .seg-btn.active { background: linear-gradient(90deg, #c2405e, #3a8fb8); }
 .ov-sub { font-size: 15px; color: #ffd166; font-weight: 700; letter-spacing: 0.1em; min-height: 0; }
 .ov-sub:empty { display: none; }
 

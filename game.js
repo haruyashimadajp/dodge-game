@@ -162,6 +162,8 @@ let paused = false;
 let scene = 'title';       // 'title' | 'play' | 'over' | 'clear'  (what visuals.js draws)
 let hitsTaken = 0;
 let fxScale = 1;           // 画面演出 setting: scales shake / zoom / flash / glitch
+let gfx = 2;               // 画質 being drawn now: 2 = 高, 1 = 中, 0 = 低 (visuals.js reads it)
+let renderScale = 1;       // 低 draws the canvas at 70% resolution (fewer pixels to fill)
 let elapsed = 0;
 let best = 0;              // best time of the selected song (loaded by selectSong)
 
@@ -382,6 +384,7 @@ let lastT = 0;
 function loop(t) {
   let dt = (t - lastT) / 1000;
   lastT = t;
+  autoGfx(dt);
   if (dt > 0.05) dt = 0.05;          // clamp big frame gaps (tab switches)
   if (dt < 0) dt = 0;
   if (!paused) {                     // when paused: freeze time, keep last frame
@@ -580,6 +583,38 @@ function setControlMode(m) {
 }
 modeBtns.forEach(b => b.addEventListener('click', () => setControlMode(b.dataset.mode)));
 setControlMode(controlMode);
+
+// 画質 (graphics quality): 自動 / 高 / 中 / 低.
+// 自動 starts at 高 and steps down while playing if frames keep taking too long.
+let gfxSetting = store.get('dodge_gfx') || 'auto';
+const gfxBtns = settingsPanel.querySelectorAll('.seg-btn[data-gfx]');
+const gfxVal = settingsPanel.querySelector('#gfxVal');
+function applyGfx(level) {
+  gfx = level;
+  const s = level === 0 ? 0.7 : 1;
+  if (s !== renderScale) {                  // resize the canvas; drawing stays in 800×750 units
+    renderScale = s;
+    cv.width = Math.round(W * s);
+    cv.height = Math.round(H * s);
+  }
+  gfxVal.textContent = gfxSetting === 'auto' ? `（いま: ${['低', '中', '高'][gfx]}）` : '';
+}
+function setGfx(v) {
+  gfxSetting = v;
+  store.set('dodge_gfx', v);
+  gfxBtns.forEach(b => b.classList.toggle('active', b.dataset.gfx === v));
+  slowT = 0;
+  applyGfx(v === 'auto' ? 2 : Number(v));
+}
+let slowT = 0;                              // how long frames have been slow (s)
+function autoGfx(dt) {
+  if (gfxSetting !== 'auto' || gfx === 0 || scene !== 'play' || paused || elapsed < 1.5) return;
+  if (dt > 1 / 45 && dt < 0.25) slowT += dt;              // slower than ~45 fps
+  else slowT = Math.max(0, slowT - dt * 0.5);
+  if (slowT > 2) { slowT = 0; applyGfx(gfx - 1); }        // 2 s of slow frames → one step lower
+}
+gfxBtns.forEach(b => b.addEventListener('click', () => setGfx(b.dataset.gfx)));
+setGfx(gfxSetting);
 
 // Move control type (big ◀ ▶ pad / analog stick) for mobile controls
 let moveCtl = store.get('dodge_moveCtl') || 'buttons';
@@ -853,6 +888,8 @@ document.addEventListener('DOMContentLoaded', () => {
    ● move の中で b.dead = true にすると、その弾は消える（花火の破裂などに）
    ● step: 1 をつけると、拍に合わせて「カクッ、カクッ」と進む（0.5 なら8分音符ごと）
    ● color: '#ffcc00' で弾の色を変えられる（書かなければ場面の色）
+   ● style: 'rice'（米つぶ形・進む向きを向く）/ 'star'（星）/ 'big'（大玉）で見た目を変えられる
+     （当たり判定はどれも同じ丸。曲②の見た目のセットで使う）
 
    角度のはなし: x = cos(角度), y = sin(角度)。y は下向きなので、
    角度が大きくなるほど画面では「時計回り」。0=右, π/2=下, π=左。
@@ -918,10 +955,10 @@ function straight(b, dt) {            // まっすぐ進む（spawn の初期設
 // まとめて出す道具（中身は全部 spawn を呼んでいるだけ）--------------------
 
 // 円形に同時発射（まっすぐ外向き）
-function ring({ x, y, count, speed, r = 6, delay = 0, start = 0, step = 0, color }) {
+function ring({ x, y, count, speed, r = 6, delay = 0, start = 0, step = 0, color, style }) {
   for (let i = 0; i < count; i++) {
     const a = start + (i / count) * TAU;
-    spawn({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, delay, step, color });
+    spawn({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, delay, step, color, style });
   }
 }
 
@@ -1134,9 +1171,8 @@ function orbitMove(b) {
   b.y = my + Math.sin(ang) * rad;
 }
 
-/* ---- ここから下は「Re:Unknown X」で生まれた形態（データ・レーザー系）------
-   shape: 'block' をつけた弾は、丸ではなく回る四角（データのかたまり）で描かれる。
-   当たり判定はどれも今までと同じ「丸」。
+/* ---- ここから下は「Re:Unknown X」で生まれた形態（UFO・光線・正体不明の弾）---
+   当たり判定はどれも今までと同じ「丸」（光線だけは線）。
    -------------------------------------------------------------------------- */
 
 // 拍の番号（発射のちょうどその拍を確実に数えるため、少しだけ前にずらして数える）
@@ -1146,7 +1182,7 @@ const beatIndex = (t, per = 1) => Math.floor(beatPos(t) / per + 0.05);
 // 次に移る場所はうっすら四角で予告される。vx, vy = 速さ（px/秒、平均）/ step = 何拍ごとに跳ぶか
 function blink({ x, y, vx = 0, vy = 160, r = 9, step = 1, delay = 0, color }) {
   spawn({
-    x, y, vx, vy, r, delay, color, every: step, shape: 'block', noTrail: true,
+    x, y, vx, vy, r, delay, color, every: step, noTrail: true,
     move(b) {
       const n = beatIndex(songTime, b.every);
       if (b.n0 == null) { b.n0 = n; b.ox = b.x; b.oy = b.y; }
@@ -1158,11 +1194,11 @@ function blink({ x, y, vx = 0, vy = 160, r = 9, step = 1, delay = 0, color }) {
   });
 }
 
-// 分裂ブロック: 大きなブロックが、every 拍ごとに X の形（ななめ4方向）に割れる。gen 回まで割れる
-//   speed = 割れた破片の速さ / start = 割れる向き（π/4 で X、0 で ＋）
-function splitter({ x, y, vx = 0, vy = 120, r = 18, gen = 2, every = 2, speed = 150, start = Math.PI / 4, delay = 0, color }) {
+// 分裂弾: 大きな玉が、every 拍ごとに X の形（ななめ4方向）に割れる。gen 回まで割れる
+//   speed = 割れた破片の速さ / start = 割れる向き（π/4 で X、0 で ＋）/ bits = 破片の見た目（'star' など）
+function splitter({ x, y, vx = 0, vy = 120, r = 18, gen = 2, every = 2, speed = 150, start = Math.PI / 4, delay = 0, color, style, bits = style }) {
   spawn({
-    x, y, vx, vy, r, delay, gen, every, speed, start, color, shape: 'block',
+    x, y, vx, vy, r, delay, gen, every, speed, start, color, style, bits,
     move(b, dt) {
       b.x += b.vx * dt;
       b.y += b.vy * dt;
@@ -1172,7 +1208,7 @@ function splitter({ x, y, vx = 0, vy = 120, r = 18, gen = 2, every = 2, speed = 
         for (let i = 0; i < 4; i++) {
           const a = b.start + i * (TAU / 4);
           splitter({ x: b.x, y: b.y, vx: Math.cos(a) * b.speed, vy: Math.sin(a) * b.speed, r: b.r * 0.62,
-                     gen: b.gen - 1, every: b.every, speed: b.speed * 1.15, start: b.start + Math.PI / 4, color: b.color });
+                     gen: b.gen - 1, every: b.every, speed: b.speed * 1.15, start: b.start + Math.PI / 4, color: b.color, style: b.bits, bits: b.bits });
         }
         shockRing(b.x, b.y, { color: b.color || '#ffffff', size: b.r * 4, life: 0.3, width: 3 });
         b.dead = true;
@@ -1185,7 +1221,7 @@ function splitter({ x, y, vx = 0, vy = 120, r = 18, gen = 2, every = 2, speed = 
 // hops 回進んだら、あとは1マスずつ下へ落ちていく。cell = 1マスの大きさ(px)
 function router({ x, y, cell = 56, hops = 8, r = 9, delay = 0, color }) {
   spawn({
-    x, y, r, delay, cell, hops, color, shape: 'block',
+    x, y, r, delay, cell, hops, color,
     move(b) {
       const f = beatPos(songTime) + 0.05, n = Math.floor(f);
       if (b.cur == null) { b.cur = n; b.hop = 0; b.fx0 = b.tx = b.x; b.fy0 = b.ty = b.y; }
@@ -1207,21 +1243,21 @@ function router({ x, y, cell = 56, hops = 8, r = 9, delay = 0, color }) {
   });
 }
 
-// データの滝: x の列に、ブロックが縦一列で並んで落ちてくる（step 拍ごとにガクッと進む）
-function stream({ x, count = 5, gap = 34, vy = 260, r = 8, step = 0.5, delay = 0, color }) {
+// 光の滝: x の列に、米つぶ弾が縦一列で並んで落ちてくる（step 拍ごとにガクッと進む）
+function stream({ x, count = 5, gap = 34, vy = 260, r = 8, step = 0.5, delay = 0, color, style = 'rice' }) {
   for (let i = 0; i < count; i++) {
-    spawn({ x, y: -20 - i * gap, vy, r, delay, step, color, shape: 'block', lane: i === 0 ? [0, 1] : null });
+    spawn({ x, y: -20 - i * gap, vy, r, delay, step, color, style, lane: i === 0 ? [0, 1] : null });
   }
 }
 
-// 回る X: 中心から4本の腕（X の形）にブロックを並べて、まるごと回す。
+// 回る X: 中心から4本の腕（X の形）に弾を並べて、まるごと回す。
 //   per = 1本の腕の弾の数 / gap = 弾の間隔 / spin = 回る速さ
 //   snap = 1拍ごとに回る角度（これを使うと「カクッ、カクッ」と拍で回る。spin より優先）
-function spinX({ x, y, arms = 4, per = 4, gap = 26, inner = 18, spin = 1.6, snap = 0, vx = 0, vy = 0, r = 7, start = Math.PI / 4, pulse = 0, delay = 0, color }) {
+function spinX({ x, y, arms = 4, per = 4, gap = 26, inner = 18, spin = 1.6, snap = 0, vx = 0, vy = 0, r = 7, start = Math.PI / 4, pulse = 0, delay = 0, color, style }) {
   for (let a = 0; a < arms; a++) {
     for (let j = 0; j < per; j++) {
       spawn({
-        x, y, r, delay, color, shape: 'block',
+        x, y, r, delay, color, style,
         cx: x, cy: y, vx, vy, corner: start + a * (TAU / arms), size: inner + j * gap, spin, snap, grow: 0, pulse,
         move: orbitMove,
       });
@@ -1229,16 +1265,16 @@ function spinX({ x, y, arms = 4, per = 4, gap = 26, inner = 18, spin = 1.6, snap
   }
 }
 
-// 文字の形に並んだブロック（'X' と '?'）。cell = 1マスの大きさ。まとめて vx, vy で動く
+// 文字の形に並んだ弾（'X' と '?'）。cell = 1マスの大きさ。まとめて vx, vy で動く
 const GLYPHS = {
   'X': ['10001', '01010', '00100', '01010', '10001'],
   '?': ['01110', '10001', '00010', '00100', '00000', '00100'],
 };
-function glyph({ ch = 'X', x, y, cell = 22, vx = 0, vy = 90, r = 7, step = 0, delay = 0, color }) {
+function glyph({ ch = 'X', x, y, cell = 22, vx = 0, vy = 90, r = 7, step = 0, delay = 0, color, style }) {
   const rows = GLYPHS[ch];
   rows.forEach((row, j) => [...row].forEach((on, i) => {
     if (on !== '1') return;
-    spawn({ x: x + (i - (row.length - 1) / 2) * cell, y: y + (j - (rows.length - 1) / 2) * cell, vx, vy, r, step, delay, color, shape: 'block' });
+    spawn({ x: x + (i - (row.length - 1) / 2) * cell, y: y + (j - (rows.length - 1) / 2) * cell, vx, vy, r, step, delay, color, style });
   }));
 }
 
@@ -1257,7 +1293,7 @@ function laser({ x1, y1, x2, y2, width = 16, delay = 0.6, hold = 0.25, color, mo
   });
 }
 
-// X の字のレーザー: (x, y) を通るななめ2本。この曲のいちばんの見せ場
+// X の字のレーザー: (x, y) を通るななめ2本（交差する探照灯）
 function xStrike({ x, y, len = 1100, width = 18, delay = 0.6, hold = 0.25, color = '#ff2a6d' }) {
   for (const a of [Math.PI / 4, -Math.PI / 4]) {
     const dx = Math.cos(a) * len / 2, dy = Math.sin(a) * len / 2;
@@ -1265,7 +1301,7 @@ function xStrike({ x, y, len = 1100, width = 18, delay = 0.6, hold = 0.25, color
   }
 }
 
-// 縦の柱: 画面を n 列に分けて、cols に書いた列（0 = 左はし）に上から下までのビーム
+// 縦の柱: 画面を n 列に分けて、cols に書いた列（0 = 左はし）に上から下までのビーム（UFO の光線）
 function columns({ cols, n = 8, delay = 0.6, hold = 0.25, color }) {
   const cw = W / n;
   for (const c of cols) {
@@ -1309,6 +1345,25 @@ function firewall({ gapX, gapW = 120, y0 = 60, y1 = GROUND_Y - 12, steps = 6, st
       },
     });
   }
+}
+
+// ★UFO★ 空を飛びながら、拍に合わせて弾を撃つ円盤（UFO そのものには当たらない）
+//   path(t) = 出てから t 秒後の位置 {x, y}（書かなければその場に浮かぶ）/ life = いる時間（秒）
+//   every = 何拍ごとに撃つか / shot(u, n) = 撃つ中身（u.x, u.y が今の位置。n = 何回目か）
+function ufo({ x, y, path, life = 4, every = 1, color = '#ff4d6d', size = 1, shot }) {
+  return spawn({
+    kind: 'ufo', x, y, r: 20 * size, size, safe: true, life, every, color, path, shot,
+    move(b) {
+      if (b.path) { const p = b.path(b.age); b.x = p.x; b.y = p.y; }
+      const n = beatIndex(songTime, b.every);
+      if (b.n0 == null) { b.n0 = b.lastN = n; }
+      if (n > b.lastN) {
+        b.lastN = n;
+        if (b.shot && b.age < b.life - 0.2) { b.shot(b, n - b.n0); b.firedAt = b.age; }
+      }
+      if (b.age > b.life) b.dead = true;
+    },
+  });
 }
 
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
