@@ -29,7 +29,15 @@
         <div class="title-box">
           <div class="kicker">RHYTHM · DODGE · SURVIVE</div>
           <h1 class="logo" id="ovTitle" data-text="DODGE">DODGE</h1>
-          <div class="song-tag"><span class="note">♪</span> the EmpErroR</div>
+          <!-- Song select: ◀ ▶ (or ← → keys) switch songs and play a preview -->
+          <div class="song-select">
+            <button class="song-arrow" id="songPrev" aria-label="前の曲">◀</button>
+            <div class="song-info">
+              <div class="song-tag"><span class="note">♪</span> <span id="songName">the EmpErroR</span></div>
+              <div class="song-meta" id="songMeta"></div>
+            </div>
+            <button class="song-arrow" id="songNext" aria-label="次の曲">▶</button>
+          </div>
           <p class="ov-sub" id="ovSub"></p>
 
           <div class="result-box" id="resultBox">
@@ -44,7 +52,7 @@
             <button id="toTitleBtn2" class="link-btn result-only">タイトルへ</button>
             <span class="best-tag title-only">BEST <b id="titleBest">0.0s</b></span>
           </div>
-          <p class="press-hint title-only">Enter / Space でスタート</p>
+          <p class="press-hint title-only">Enter / Space でスタート · ← → で曲を選ぶ</p>
         </div>
       </div>
 
@@ -152,8 +160,12 @@
     </div>
   </template>
 
-  <script src="song-data.js"></script>
+  <!-- Order matters: song data → engine → songs (they call addSong) → visuals -->
+  <script src="songs/emperror-env.js"></script>
+  <script src="songs/unknown-env.js"></script>
   <script src="game.js"></script>
+  <script src="songs/emperror.js"></script>
+  <script src="songs/unknown.js"></script>
   <script src="visuals.js"></script>
 </body>
 </html>

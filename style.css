@@ -471,6 +471,54 @@ button { font-family: inherit; }
   background: rgba(18, 13, 36, 0.55);
 }
 .song-tag .note { color: var(--accent); display: inline-block; transform: translateY(calc(var(--kick, 0) * -4px)); }
+
+/* Song select */
+.song-select { display: flex; align-items: center; gap: 10px; max-width: 100%; }
+.song-info { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+.song-meta { font-size: 12px; letter-spacing: 0.12em; color: var(--text-dim); white-space: nowrap; }
+.song-arrow {
+  width: 40px; height: 40px; flex: none;
+  border-radius: 50%;
+  font-size: 15px;
+  color: #fff;
+  background: rgba(18, 13, 36, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  display: grid; place-items: center;
+  padding: 0;
+}
+.song-arrow:hover { border-color: var(--accent); box-shadow: 0 0 14px var(--accent); }
+.song-arrow:active { transform: scale(0.92); }
+.song-arrow.hidden { visibility: hidden; }
+
+/* ---- Re:Unknown X: green / cyan / red "terminal" colors for the menus ---- */
+body[data-theme="cyber"] {
+  --accent: #39ff88;
+  --accent-2: #00e5ff;
+  --text-dim: #8fb8a6;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(57, 255, 136, 0.08), transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(255, 42, 109, 0.07), transparent 60%),
+    #020806;
+}
+body[data-theme="cyber"] .stat { background: rgba(3, 16, 11, 0.85); font-family: ui-monospace, "Menlo", "Consolas", monospace; }
+body[data-theme="cyber"] #livesHud { color: #ff2a6d; }
+body[data-theme="cyber"] canvas { box-shadow: 0 0 0 1px rgba(57,255,136,0.12), 0 20px 60px rgba(0,0,0,0.6), 0 0 80px rgba(57, 255, 136, 0.07); }
+body[data-theme="cyber"] .logo { text-shadow: 0 0 18px rgba(57, 255, 136, 0.85), 0 0 48px rgba(0, 229, 255, 0.4); }
+body[data-theme="cyber"] .logo::before { color: #00e5ff; }
+body[data-theme="cyber"] .logo::after  { color: #ff2a6d; }
+body[data-theme="cyber"] .kicker { text-shadow: 0 0 10px rgba(0, 229, 255, 0.7); }
+body[data-theme="cyber"] .song-tag { font-family: ui-monospace, "Menlo", "Consolas", monospace; letter-spacing: 0.12em; color: #d6ffe9; background: rgba(3, 16, 11, 0.6); border-radius: 4px; border-color: rgba(57, 255, 136, 0.4); }
+body[data-theme="cyber"] .song-arrow,
+body[data-theme="cyber"] .link-btn { background: rgba(3, 16, 11, 0.75); border-color: rgba(57, 255, 136, 0.3); color: #d6ffe9; }
+body[data-theme="cyber"] .start-btn {
+  border-radius: 6px;
+  color: #02140b;
+  background: linear-gradient(90deg, #39ff88, #00e5ff, #39ff88, #ff2a6d, #39ff88);
+  background-size: 300% 100%;
+  box-shadow: 0 0 calc(18px + var(--kick, 0) * 22px) rgba(57, 255, 136, 0.65), inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+body[data-theme="cyber"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(57, 255, 136, 0.95), 0 0 48px rgba(0, 229, 255, 0.5); }
+body[data-theme="cyber"] .seg-btn.active { background: linear-gradient(90deg, #1fbf6a, #00a8c4); }
 .ov-sub { font-size: 15px; color: #ffd166; font-weight: 700; letter-spacing: 0.1em; min-height: 0; }
 .ov-sub:empty { display: none; }
 
@@ -514,7 +562,8 @@ button { font-family: inherit; }
 .overlay.result .result-only { display: inline-block; }
 .overlay.result .title-only,
 .overlay.result .kicker,
-.overlay.result .song-tag { display: none; }
+.overlay.result .song-arrow,
+.overlay.result .song-meta { display: none; }
 
 .result-box { gap: 10px; margin: 4px 0; animation: ov-in 0.5s ease-out; }
 .res {
@@ -557,6 +606,8 @@ button { font-family: inherit; }
   .title-box { gap: 7px; }
   .kicker, .press-hint { display: none; }
   .song-tag { font-size: 12px; padding: 3px 12px; }
+  .song-meta { display: none; }
+  .song-arrow { width: 32px; height: 32px; font-size: 13px; }
   .start-btn { font-size: 16px; padding: 10px 32px 10px 38px; margin-top: 2px; }
   .link-btn { padding: 6px 14px; font-size: 13px; }
   .res { min-width: 76px; padding: 6px 10px; }

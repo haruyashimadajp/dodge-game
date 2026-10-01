@@ -3,7 +3,8 @@
 /* =========================================================================
    ENGINE  —  character, physics, ground/platforms, collision, game loop.
    You normally don't need to touch this part.
-   Scroll down to the "弾幕" section at the bottom to author your bullets.
+   Each song's chart lives in songs/*.js; the bullet tools it uses are in the
+   "弾幕" section at the bottom of this file.
    All drawing / effects (camera, particles, title animation) live in visuals.js.
    ========================================================================= */
 
@@ -41,17 +42,18 @@ const resHits = document.getElementById('resHits');
 const titleBest = document.getElementById('titleBest');
 const toTitleBtn2 = document.getElementById('toTitleBtn2');
 
-// ---- The song's beat grid ------------------------------------------------
-// 120 BPM: one beat = 0.5 s, first bar starts at 0.865 s. Around 106 s the
-// beat shifts ~0.12 s earlier, so the grid switches base there.
-const BEAT_SEC = 0.5;
-const SONG_END = 128.8;
-function beatTime(n) { return (n <= 210 ? 0.865 : 0.75) + n * BEAT_SEC; }   // time of beat n
-function beatPos(t) {                                                         // beat number at time t (fractional)
-  if (t <= 105.865) return (t - 0.865) / BEAT_SEC;
-  if (t < 106.25) return 210 + (t - 105.865) / 0.385;
-  return (t - 0.75) / BEAT_SEC;
-}
+// ---- Songs ----------------------------------------------------------------
+// Each file in songs/ calls addSong({...}) with its music file, beat grid,
+// sections (looks) and chart (bullets). The title screen picks one; the
+// globals below always describe the song that is currently selected.
+const SONGS = [];
+function addSong(s) { SONGS.push(s); }
+let song = null;           // the selected song object
+let BEAT_SEC = 0.5;        // seconds per beat      (copied from the song)
+let SONG_END = 128.8;      // survive to here = clear
+let SECTIONS = [];         // the song's sections table (colors, banners, camera)
+function beatTime(n) { return song.beatTime(n); }      // time of beat n
+function beatPos(t)  { return song.beatPos(t); }       // beat number at time t (fractional)
 // 1 right on a beat, decaying to 0 before the next one (per = beats per pulse)
 function beatKick(t, per = 1) { const p = beatPos(t) / per; return Math.exp(-(p - Math.floor(p)) * 5); }
 let songTime = 0;          // current position in the song (s); drives bullets & visuals
@@ -161,9 +163,7 @@ let scene = 'title';       // 'title' | 'play' | 'over' | 'clear'  (what visuals
 let hitsTaken = 0;
 let fxScale = 1;           // 画面演出 setting: scales shake / zoom / flash / glitch
 let elapsed = 0;
-let best = parseFloat(store.get('dodge_best') || '0') || 0;
-bestEl.textContent = best.toFixed(1) + 's';
-titleBest.textContent = best.toFixed(1) + 's';
+let best = 0;              // best time of the selected song (loaded by selectSong)
 
 // Settings-driven values (defaults; overwritten when settings load below)
 let startLives = 3;        // 残機 (debug setting)
@@ -283,16 +283,44 @@ function updateBullets(dt) {
     (b.x > -b.r - W && b.x < W * 2 + b.r &&
      b.y > -b.r - H && b.y < H * 2 + b.r)));
 
-  // Collision: bullet (circle) vs player (rect).
+  // Collision: bullet (circle) vs player (rect). A bullet with its own
+  // hits(b) test (lasers) uses that instead; b.safe = just for show.
   if (invuln <= 0) {
     for (const b of bullets) {
-      if (b.delay > 0) continue;            // warning rings don't hit you
-      const nx = Math.max(player.x, Math.min(b.x, player.x + player.w));
-      const ny = Math.max(player.y, Math.min(b.y, player.y + player.h));
-      const dx = b.x - nx, dy = b.y - ny;
-      if (dx * dx + dy * dy < b.r * b.r) { hitPlayer(); return; }
+      if (b.delay > 0 || b.safe) continue;  // warnings don't hit you
+      if (b.hits ? b.hits(b) : circleHitsPlayer(b.x, b.y, b.r)) { hitPlayer(); return; }
     }
   }
+
+  // Reached the end of the song = clear (also works if the music is blocked)
+  if (songTime >= SONG_END) winGame();
+}
+
+function circleHitsPlayer(x, y, r) {
+  const nx = Math.max(player.x, Math.min(x, player.x + player.w));
+  const ny = Math.max(player.y, Math.min(y, player.y + player.h));
+  const dx = x - nx, dy = y - ny;
+  return dx * dx + dy * dy < r * r;
+}
+
+// Does the thick line (x1,y1)-(x2,y2) with half-width r touch the player?
+function segmentHitsPlayer(x1, y1, x2, y2, r) {
+  const L = player.x, T = player.y, R = player.x + player.w, B = player.y + player.h;
+  // distance from a point to the segment
+  const segDist = (px, py) => {
+    const dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy || 1;
+    const k = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2));
+    return Math.hypot(px - (x1 + dx * k), py - (y1 + dy * k));
+  };
+  // distance from a point to the player box
+  const boxDist = (px, py) => Math.hypot(Math.max(L - px, 0, px - R), Math.max(T - py, 0, py - B));
+  // the segment crosses the box? (sample along it — boxes are small, lines are long)
+  const n = Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 8);
+  for (let i = 0; i <= n; i++) {
+    const k = i / n;
+    if (boxDist(x1 + (x2 - x1) * k, y1 + (y2 - y1) * k) < r) return true;
+  }
+  return Math.min(segDist(L, T), segDist(R, T), segDist(L, B), segDist(R, B)) < r;
 }
 
 function moveAndCollide(dt) {
@@ -370,8 +398,8 @@ let audioCtx = null;
 let masterVol = 0.7;
 
 // Background music. The bullet timeline is synced to this track's playback
-// time. (The file is named .mp3 but is actually AAC/MP4 — browsers play it.)
-const bgm = new Audio(encodeURI('the EmpErroR.mp3'));
+// time. selectSong() points it at the chosen song's file.
+const bgm = new Audio();
 bgm.preload = 'auto';
 bgm.volume = masterVol;
 // Survive to the end of the song = clear.
@@ -407,6 +435,8 @@ function start() {
   pauseOverlay.classList.add('hidden');
   pauseBtn.classList.remove('hidden');
   updateTouchControls();
+  stopPreview();
+  bgm.volume = masterVol;
   bgm.currentTime = 0;
   bgm.play().catch(() => {});                    // play from the top (user gesture)
 }
@@ -432,6 +462,7 @@ function showTitle() {
   paused = false;
   scene = 'title';
   clearTimeout(resultTimer);
+  stopPreview();
   bgm.pause(); bgm.currentTime = 0;
   bullets = [];
   player.x = W / 2 - player.w / 2; player.y = GROUND_Y - player.h;
@@ -445,7 +476,6 @@ function showTitle() {
   setOverlayTitle('DODGE');
   ovSub.textContent = '';
   startBtn.textContent = 'START';
-  titleBest.textContent = best.toFixed(1) + 's';
   overlay.classList.remove('hidden');
   updateTouchControls();
 }
@@ -463,14 +493,14 @@ function endRun(kind) {
   const newBest = elapsed > best;
   if (newBest) {
     best = elapsed;
-    store.set('dodge_best', String(best));
-    bestEl.textContent = best.toFixed(1) + 's';
+    store.set(song.bestKey, String(best));
+    showBest();
   }
   resultTimer = setTimeout(() => {
     overlay.classList.remove('over', 'clear');
     overlay.classList.add('result', kind);
     setOverlayTitle(kind === 'clear' ? 'CLEAR' : 'GAME OVER');
-    ovSub.textContent = kind === 'clear' ? '最後まで生き残った！' : (newBest ? 'NEW BEST!' : '');
+    ovSub.textContent = kind === 'clear' ? (song.clearText || '最後まで生き残った！') : (newBest ? 'NEW BEST!' : '');
     resTime.textContent = elapsed.toFixed(1) + 's';
     resBest.textContent = best.toFixed(1) + 's';
     resHits.textContent = hitsTaken;
@@ -725,14 +755,88 @@ pauseBtn.addEventListener('click', () => { paused ? resumeGame() : pauseGame(); 
 
 setMoveCtl(moveCtl);
 
-// Boot up on the title screen. The loop starts once every script (the chart
-// below, visuals.js) has run — DOMContentLoaded waits for all of them.
-showTitle();
-document.addEventListener('DOMContentLoaded', () => requestAnimationFrame(t => { lastT = t; loop(t); }));
+// ---- Song select (title screen) -------------------------------------------
+const songPrev = document.getElementById('songPrev');
+const songNext = document.getElementById('songNext');
+const songName = document.getElementById('songName');
+const songMeta = document.getElementById('songMeta');
+
+function showBest() {
+  bestEl.textContent = best.toFixed(1) + 's';
+  titleBest.textContent = best.toFixed(1) + 's';
+}
+function selectSong(i) {
+  const n = SONGS.length;
+  song = SONGS[((i % n) + n) % n];
+  store.set('dodge_song', song.id);
+  BEAT_SEC = song.beat;
+  SONG_END = song.end;
+  SECTIONS = song.sections;
+  if (bgm.dataset.src !== song.file) {        // load the new track (keeps the old one if same)
+    bgm.dataset.src = song.file;
+    bgm.src = encodeURI(song.file);
+  }
+  best = parseFloat(store.get(song.bestKey) || '0') || 0;
+  showBest();
+  songName.textContent = song.title;
+  songMeta.textContent = song.meta;
+  document.body.dataset.theme = song.theme;    // CSS colors of the menus follow the song
+  songPrev.classList.toggle('hidden', n < 2);
+  songNext.classList.toggle('hidden', n < 2);
+}
+function changeSong(d) {
+  if (running || SONGS.length < 2) return;
+  selectSong(SONGS.indexOf(song) + d);
+  if (typeof fxReset === 'function') fxReset();
+  if (typeof fxSongChange === 'function') fxSongChange();
+  playPreview();                               // a click = user gesture, so audio may play
+}
+
+// A short loop from the song's catchiest part, while choosing on the title
+let previewTimer = 0;
+function playPreview() {
+  stopPreview();
+  if (masterVol <= 0) return;
+  const t0 = song.preview || 0;
+  const seek = () => { try { bgm.currentTime = t0; } catch (e) { /* not loaded yet */ } };
+  if (bgm.readyState >= 1) seek(); else bgm.addEventListener('loadedmetadata', seek, { once: true });
+  bgm.volume = 0;
+  bgm.play().catch(() => {});
+  const began = performance.now();
+  previewTimer = setInterval(() => {            // fade in, play ~12 s, fade out, repeat
+    const e = (performance.now() - began) / 1000 % 14;
+    if (e < 0.1 && bgm.currentTime > t0 + 2) bgm.currentTime = t0;
+    const v = e < 1 ? e : e > 12 ? Math.max(0, 13 - e) : 1;
+    bgm.volume = masterVol * 0.8 * v;
+  }, 50);
+}
+function stopPreview() {
+  if (!previewTimer) return;
+  clearInterval(previewTimer);
+  previewTimer = 0;
+  bgm.pause();
+  bgm.volume = masterVol;
+}
+songPrev.addEventListener('click', () => changeSong(-1));
+songNext.addEventListener('click', () => changeSong(1));
+window.addEventListener('keydown', e => {
+  if (scene !== 'title' || running || settingsOpen() || e.target instanceof HTMLInputElement) return;
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') changeSong(-1);
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') changeSong(1);
+});
+
+// Boot up on the title screen once every script (songs/*.js, visuals.js) has
+// run — DOMContentLoaded waits for all of them. Then start the loop.
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = SONGS.findIndex(s => s.id === store.get('dodge_song'));
+  selectSong(Math.max(0, saved));
+  showTitle();
+  requestAnimationFrame(t => { lastT = t; loop(t); });
+});
 
 
 /* =========================================================================
-   弾幕（だんまく）  —  ここがあなたの編集エリア
+   弾幕（だんまく）の道具  —  どの曲の譜面（songs/*.js）からでも使える
    =========================================================================
 
    弾は ただのオブジェクト。 spawn(...) で画面に出ます。
@@ -1012,317 +1116,205 @@ function spinShape({ x, y, count = 4, size = 36, spin = 2.5, grow = 0, vx = 0, v
     spawn({
       x, y, r, delay,
       cx: x, cy: y, vx, vy, corner, size, spin, grow, pulse, color,
-      move(b, dt) {
-        const mx = b.cx + b.vx * b.age;          // ① 中心が進む
-        const my = b.cy + b.vy * b.age;
-        const ang = b.corner + b.spin * b.age;   // ② 全体が回る
-        const rad = b.size + b.grow * b.age      // ③ だんだん広がる
-                  + b.pulse * beatKick(songTime); //    ＋ 拍のたびにふくらむ
-        b.x = mx + Math.cos(ang) * rad;          // ④ 中心＋回転した角
-        b.y = my + Math.sin(ang) * rad;
+      move: orbitMove,
+    });
+  }
+}
+// spinShape / spinX の弾の動き（どちらも同じ計算）
+function orbitMove(b) {
+  const mx = b.cx + b.vx * b.age;          // ① 中心が進む
+  const my = b.cy + b.vy * b.age;
+  const turn = b.snap                      // ② 全体が回る（snap: 拍ごとにカクッと）
+    ? b.snap * stepTime(b, 1) / (BEAT_SEC * bulletSpeedMul)
+    : b.spin * b.age;
+  const ang = b.corner + turn;
+  const rad = b.size + b.grow * b.age      // ③ だんだん広がる
+            + b.pulse * beatKick(songTime); //    ＋ 拍のたびにふくらむ
+  b.x = mx + Math.cos(ang) * rad;          // ④ 中心＋回転した角
+  b.y = my + Math.sin(ang) * rad;
+}
+
+/* ---- ここから下は「Re:Unknown X」で生まれた形態（データ・レーザー系）------
+   shape: 'block' をつけた弾は、丸ではなく回る四角（データのかたまり）で描かれる。
+   当たり判定はどれも今までと同じ「丸」。
+   -------------------------------------------------------------------------- */
+
+// 拍の番号（発射のちょうどその拍を確実に数えるため、少しだけ前にずらして数える）
+const beatIndex = (t, per = 1) => Math.floor(beatPos(t) / per + 0.05);
+
+// ブリンク: なめらかに動かず、拍のたびに「パッ」と瞬間移動して進む。
+// 次に移る場所はうっすら四角で予告される。vx, vy = 速さ（px/秒、平均）/ step = 何拍ごとに跳ぶか
+function blink({ x, y, vx = 0, vy = 160, r = 9, step = 1, delay = 0, color }) {
+  spawn({
+    x, y, vx, vy, r, delay, color, every: step, shape: 'block', noTrail: true,
+    move(b) {
+      const n = beatIndex(songTime, b.every);
+      if (b.n0 == null) { b.n0 = n; b.ox = b.x; b.oy = b.y; }
+      const hop = b.every * BEAT_SEC * bulletSpeedMul;          // 1回の瞬間移動で進む「時間」
+      const nx = b.ox + b.vx * (n - b.n0) * hop, ny = b.oy + b.vy * (n - b.n0) * hop;
+      if (nx !== b.x || ny !== b.y) { blip(b.x, b.y, b); b.x = nx; b.y = ny; }
+      b.nx = b.x + b.vx * hop; b.ny = b.y + b.vy * hop;         // 次の位置（予告の四角）
+    },
+  });
+}
+
+// 分裂ブロック: 大きなブロックが、every 拍ごとに X の形（ななめ4方向）に割れる。gen 回まで割れる
+//   speed = 割れた破片の速さ / start = 割れる向き（π/4 で X、0 で ＋）
+function splitter({ x, y, vx = 0, vy = 120, r = 18, gen = 2, every = 2, speed = 150, start = Math.PI / 4, delay = 0, color }) {
+  spawn({
+    x, y, vx, vy, r, delay, gen, every, speed, start, color, shape: 'block',
+    move(b, dt) {
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      const n = beatIndex(songTime, b.every);
+      if (b.n0 == null) b.n0 = n;
+      if (n > b.n0 && b.gen > 0) {                              // 拍が来た → 割れる
+        for (let i = 0; i < 4; i++) {
+          const a = b.start + i * (TAU / 4);
+          splitter({ x: b.x, y: b.y, vx: Math.cos(a) * b.speed, vy: Math.sin(a) * b.speed, r: b.r * 0.62,
+                     gen: b.gen - 1, every: b.every, speed: b.speed * 1.15, start: b.start + Math.PI / 4, color: b.color });
+        }
+        shockRing(b.x, b.y, { color: b.color || '#ffffff', size: b.r * 4, life: 0.3, width: 3 });
+        b.dead = true;
+      }
+    },
+  });
+}
+
+// 経路パケット: 拍ごとに「横」「縦」と交互に1マスずつカクッと進んで、プレイヤーへ近づく。
+// hops 回進んだら、あとは1マスずつ下へ落ちていく。cell = 1マスの大きさ(px)
+function router({ x, y, cell = 56, hops = 8, r = 9, delay = 0, color }) {
+  spawn({
+    x, y, r, delay, cell, hops, color, shape: 'block',
+    move(b) {
+      const f = beatPos(songTime) + 0.05, n = Math.floor(f);
+      if (b.cur == null) { b.cur = n; b.hop = 0; b.fx0 = b.tx = b.x; b.fy0 = b.ty = b.y; }
+      if (n > b.cur) {                                          // 次の拍: 行き先を決める
+        b.cur = n;
+        b.fx0 = b.tx; b.fy0 = b.ty;
+        const p = playerXY(), dx = p.x - b.tx, dy = p.y - b.ty;
+        const c = b.cell * bulletSpeedMul;
+        if (b.hop >= b.hops) b.ty += c;                          // 追いかけ終わり → 下へ
+        else if (b.hop % 2 === 0) b.tx += Math.abs(dx) < c / 2 ? 0 : Math.sign(dx) * c;
+        else b.ty += dy > c / 2 ? c : 0;                         // 縦は下にだけ進む
+        b.hop++;
+        if (b.ty > H + 40) b.dead = true;
+      }
+      const e = 1 - Math.pow(1 - Math.min(1, (f - n) * 3), 3);   // 拍の頭ですばやく動いて止まる
+      b.x = b.fx0 + (b.tx - b.fx0) * e;
+      b.y = b.fy0 + (b.ty - b.fy0) * e;
+    },
+  });
+}
+
+// データの滝: x の列に、ブロックが縦一列で並んで落ちてくる（step 拍ごとにガクッと進む）
+function stream({ x, count = 5, gap = 34, vy = 260, r = 8, step = 0.5, delay = 0, color }) {
+  for (let i = 0; i < count; i++) {
+    spawn({ x, y: -20 - i * gap, vy, r, delay, step, color, shape: 'block', lane: i === 0 ? [0, 1] : null });
+  }
+}
+
+// 回る X: 中心から4本の腕（X の形）にブロックを並べて、まるごと回す。
+//   per = 1本の腕の弾の数 / gap = 弾の間隔 / spin = 回る速さ
+//   snap = 1拍ごとに回る角度（これを使うと「カクッ、カクッ」と拍で回る。spin より優先）
+function spinX({ x, y, arms = 4, per = 4, gap = 26, inner = 18, spin = 1.6, snap = 0, vx = 0, vy = 0, r = 7, start = Math.PI / 4, pulse = 0, delay = 0, color }) {
+  for (let a = 0; a < arms; a++) {
+    for (let j = 0; j < per; j++) {
+      spawn({
+        x, y, r, delay, color, shape: 'block',
+        cx: x, cy: y, vx, vy, corner: start + a * (TAU / arms), size: inner + j * gap, spin, snap, grow: 0, pulse,
+        move: orbitMove,
+      });
+    }
+  }
+}
+
+// 文字の形に並んだブロック（'X' と '?'）。cell = 1マスの大きさ。まとめて vx, vy で動く
+const GLYPHS = {
+  'X': ['10001', '01010', '00100', '01010', '10001'],
+  '?': ['01110', '10001', '00010', '00100', '00000', '00100'],
+};
+function glyph({ ch = 'X', x, y, cell = 22, vx = 0, vy = 90, r = 7, step = 0, delay = 0, color }) {
+  const rows = GLYPHS[ch];
+  rows.forEach((row, j) => [...row].forEach((on, i) => {
+    if (on !== '1') return;
+    spawn({ x: x + (i - (row.length - 1) / 2) * cell, y: y + (j - (rows.length - 1) / 2) * cell, vx, vy, r, step, delay, color, shape: 'block' });
+  }));
+}
+
+// ★レーザー★ 線の形の攻撃。delay（＝予告）秒のあいだ細い予告線が点滅し、
+// そのあと hold 秒だけ太いビームになって当たる。消えていく光には当たらない。
+//   (x1,y1)-(x2,y2) = 線の両はし / width = 太さ / move = ビームを動かしたいとき（下の scanner）
+function laser({ x1, y1, x2, y2, width = 16, delay = 0.6, hold = 0.25, color, move }) {
+  return spawn({
+    kind: 'laser', x: (x1 + x2) / 2, y: (y1 + y2) / 2, r: width / 2, x1, y1, x2, y2, delay, hold, color, slide: move,
+    move(b, dt) {
+      if (b.slide) b.slide(b, dt);
+      if (b.age >= b.hold) b.safe = true;
+      if (b.age >= b.hold + 0.3) b.dead = true;
+    },
+    hits: b => segmentHitsPlayer(b.x1, b.y1, b.x2, b.y2, b.r),
+  });
+}
+
+// X の字のレーザー: (x, y) を通るななめ2本。この曲のいちばんの見せ場
+function xStrike({ x, y, len = 1100, width = 18, delay = 0.6, hold = 0.25, color = '#ff2a6d' }) {
+  for (const a of [Math.PI / 4, -Math.PI / 4]) {
+    const dx = Math.cos(a) * len / 2, dy = Math.sin(a) * len / 2;
+    laser({ x1: x - dx, y1: y - dy, x2: x + dx, y2: y + dy, width, delay, hold, color });
+  }
+}
+
+// 縦の柱: 画面を n 列に分けて、cols に書いた列（0 = 左はし）に上から下までのビーム
+function columns({ cols, n = 8, delay = 0.6, hold = 0.25, color }) {
+  const cw = W / n;
+  for (const c of cols) {
+    const x = (c + 0.5) * cw;
+    laser({ x1: x, y1: -40, x2: x, y2: GROUND_Y + 30, width: cw - 12, delay, hold, color });
+  }
+}
+
+// 床のビーム: 地面すれすれを横一面に走る。ちょうどその拍に空中（か足場の上）にいればセーフ
+function floorStrike({ delay = 0.6, hold = 0.18, color = '#ff2a6d' }) {
+  laser({ x1: -40, y1: GROUND_Y - 9, x2: W + 40, y2: GROUND_Y - 9, width: 18, delay, hold, color }).label = '▲ JUMP ▲';
+}
+
+// スキャナー: 縦のビームが横へ走る。y1〜y2 の高さだけに当たる
+//   低いもの（地面〜50px）→ 跳び越える / 高いもの（上〜地面の60px上）→ 跳ばずに地面にいる
+function scanner({ fromLeft = true, y1, y2, speed = 420, width = 12, delay = 0.6, color }) {
+  const x = fromLeft ? -10 : W + 10, vx = fromLeft ? speed : -speed;
+  const b = laser({
+    x1: x, y1, x2: x, y2, width, delay, hold: 99, color,
+    move(b, dt) {
+      b.x1 += b.vx * dt; b.x2 = b.x1; b.x = b.x1;
+      if (b.x1 < -30 || b.x1 > W + 30) b.dead = true;
+    },
+  });
+  b.vx = vx;
+  b.lane = [Math.sign(vx), 0];
+  return b;
+}
+
+// ファイアウォール: 1か所だけ穴の空いた横のビームが、拍ごとにガクッと下りてくる。
+//   gapX, gapW = 穴の場所と幅 / steps = 何回で下までくるか / step = 何拍ごとに下りるか
+function firewall({ gapX, gapW = 120, y0 = 60, y1 = GROUND_Y - 12, steps = 6, step = 1, delay = 0.6, color }) {
+  const parts = [[-40, gapX - gapW / 2], [gapX + gapW / 2, W + 40]];
+  for (const [a, z] of parts) {
+    if (z - a < 10) continue;
+    laser({
+      x1: a, y1: y0, x2: z, y2: y0, width: 14, delay, hold: (steps + 1) * step * BEAT_SEC, color,
+      move(b) {
+        const k = Math.min(steps, stepTime(b, step) / (step * BEAT_SEC * bulletSpeedMul));
+        b.y1 = b.y2 = b.y = y0 + (y1 - y0) * k / steps;
       },
     });
   }
 }
 
-/* ---- 場面（セクション）ごとの見た目 -----------------------------------
-   曲の場面が変わると、画面の色・背景の図形・カメラの動きが切りかわり、
-   上に場面の名前（バナー）が出ます。visuals.js がこの表を読んで描きます。
-     t      … 始まる時刻（秒）            name / sub … バナーの文字
-     sky    … 空の色 [上, 下]             color      … 弾と光の色
-     shape  … 背景で回る図形の角の数（0 で無し）
-     pulse  … 拍ごとのズーム（0.01 = 1%）  sway … 画面がゆっくり傾く角度（度）
-     zoom   … [始め, 終わり] だんだんズーム  beams … 光の柱   stars … 星の流れる速さ
-   -------------------------------------------------------------------------- */
-const SECTIONS = [
-  { t: 0,       name: 'INTRO',       sub: 'すみからの狙い撃ち',   sky: ['#1a0f3a', '#07050f'], color: '#ff4d6d', shape: 3,  pulse: 0.006, stars: 25 },
-  { t: 8.865,   name: 'HEXAGON',     sub: '回る六角形',           sky: ['#0b2447', '#050b1a'], color: '#4cc9f0', shape: 6,  pulse: 0.010, stars: 45 },
-  { t: 16.865,  name: 'FIREWORKS',   sub: '花火',                 sky: ['#2b1045', '#0b0514'], color: '#ffd166', shape: 5,  pulse: 0.010, stars: 45 },
-  { t: 24.865,  name: 'CROSSFIRE',   sub: '跳ぶ弾・跳ばない弾',   sky: ['#0f2e2b', '#04100e'], color: '#2ef2b1', shape: 4,  pulse: 0.008, stars: 35 },
-  { t: 32.865,  name: 'BOUNCE',      sub: 'はね玉',               sky: ['#1d2b53', '#070b19'], color: '#7aa2ff', shape: 8,  pulse: 0.010, stars: 40 },
-  { t: 40.865,  name: 'VORTEX',      sub: 'サビ ─ 渦',            sky: ['#3a0a2e', '#10030c'], color: '#ff3ea5', shape: 6,  pulse: 0.020, stars: 90,  beams: true },
-  { t: 48.865,  name: 'SWEEP',       sub: '首ふり連射',           sky: ['#2d0b45', '#0c0318'], color: '#b388ff', shape: 7,  pulse: 0.018, stars: 90,  beams: true, sway: 0.8 },
-  { t: 56.865,  name: 'HUNTER',      sub: '追尾弾',               sky: ['#40120c', '#120403'], color: '#ff7b3d', shape: 3,  pulse: 0.018, stars: 90,  beams: true },
-  { t: 63.8,    name: '',            sub: '',                     sky: ['#07070d', '#000000'], color: '#8888aa', shape: 0,  pulse: 0,     stars: 8 },
-  { t: 65.865,  name: 'METEOR',      sub: '隕石',                 sky: ['#3b1204', '#0e0402'], color: '#ffb347', shape: 3,  pulse: 0.012, stars: 60 },
-  { t: 72.865,  name: 'CURTAIN',     sub: 'すき間をくぐれ',       sky: ['#06283d', '#020b12'], color: '#47e5ff', shape: 4,  pulse: 0.010, stars: 50 },
-  { t: 80.865,  name: 'RISE',        sub: 'ななめの雨',           sky: ['#1b1b3a', '#06060f'], color: '#9d4edd', shape: 5,  pulse: 0.012, stars: 80,  zoom: [1, 1.025] },
-  { t: 88.865,  name: 'GEYSER',      sub: '足元に注意',           sky: ['#062b27', '#010a09'], color: '#00f5d4', shape: 6,  pulse: 0.014, stars: 120, zoom: [1.025, 1.07] },
-  { t: 96.865,  name: 'CHORUS II',   sub: '逆回転の渦',           sky: ['#4a0d1f', '#12030a'], color: '#ff2e63', shape: 6,  pulse: 0.022, stars: 140, beams: true, sway: 1.6 },
-  { t: 104.865, name: 'BLOOM',       sub: '花と花火',             sky: ['#3d0b3f', '#0f0312'], color: '#ff8fe5', shape: 8,  pulse: 0.020, stars: 140, beams: true, sway: 1.2 },
-  { t: 112.75,  name: 'CLOSING IN',  sub: 'せまる輪から逃げろ',   sky: ['#0a1a2f', '#02060d'], color: '#e0e7ff', shape: 12, pulse: 0.014, stars: 70,  sway: 0.6 },
-  { t: 120.25,  name: 'FADE',        sub: '',                     sky: ['#0b0b1a', '#000000'], color: '#a0a8ff', shape: 3,  pulse: 0.004, stars: 20 },
-];
-
-/* ---- 譜面（曲のどの時間に弾を出すか）-----------------------------------
-   "the EmpErroR.mp3"  全長128.8秒 / 120 BPM（1拍0.5秒・1小節=4拍=2秒）
-   最初の小節の頭 = 0.865秒。曲は 8秒（4小節）ごとにフレーズが変わります。
-
-   ● フレーズごとに「主役の攻撃」を変えています（同じ主役は2回使わない）
-       0.9〜  8.9  イントロ   … すみからの大玉狙い撃ち
-       8.9〜 16.9  A1         … 回る六角形 ＋ 雨
-      16.9〜 24.9  A2         … 花火 ＋ 3方向の狙い撃ち
-      24.9〜 32.9  B1         … 横から「低い弾(跳ぶ)」「高い弾(跳ばない)」
-      32.9〜 40.9  B2         … はね玉 ＋ 揺れる弾
-      40.9〜 48.9  サビ1-1    … 真ん中からの渦
-      48.9〜 56.9  サビ1-2    … 上すみからの首ふり連射
-      56.9〜 63.8  サビ1-3    … 追尾弾 ＋ 裏拍の扇
-      63.8〜 65.9  ブレイク   … ゆっくり落ちる大玉だけ
-      65.9〜 72.9  C1         … 隕石（強いキックのたびに落ちてくる）
-      72.9〜 80.9  C2         … すき間のある横一列
-      80.9〜 88.9  盛り上げ1  … ななめに交差する雨
-      88.9〜 96.9  盛り上げ2  … 足元からの噴水 ＋ 細かい雨
-      96.9〜104.9  サビ2-1    … 左右の逆回転の渦
-     104.9〜112.7  サビ2-2    … 広がる花 ＋ 花火
-     112.7〜120.2  アウトロ   … せまってくる輪
-     120.2〜128.8  フェード   … ゆっくりの雪
-
-   ● 強い音（解析で目立った瞬間）には特別な弾幕
-       impact(t) … 画面が光る ＋ 真ん中から大きなリング ＋ 地面の衝撃波（いちばん強い音）
-       meteor    … 隕石がちょうどその音で地面に落ちる（強い音）
-       hit(t)    … 画面が少し光るだけ
-
-   タイムラインは曲の再生時刻で動くので、キューは拍にそろって発動します。
-       burst(時刻, () => { spawn(...) });          ← その時刻に1回だけ実行
-       fire(時刻, 警告秒, delay => ring({ ..., delay }));
-                                                  ← 警告を出して、ちょうど「時刻」に発射
-       beat(n) = n拍目の時刻 / bar(k) = k小節目の頭の時刻
-
-   ● 曲に合わせて動く弾
-       step: 1    … 拍ごとに「グッ」と進む（イントロの大玉・CURTAIN の横一列・CLOSING IN の輪）
-       step: 0.5  … 8分音符ごと（VORTEX の渦）
-       pulse: 12  … 拍のたびにふくらむ図形（HEXAGON・38.9秒の3重リング・BLOOM の花）
-   -------------------------------------------------------------------------- */
-function buildScript() {
-  const cues = [];
-  const cx = W / 2, cy = H / 3;          // 上の方の中心（ここから撃つ）
-
-  // 時刻 t に弾を出す命令を予約する（時間順は最後の sort が直してくれる）
-  const burst = (t, fn) => cues.push({ t, fn });
-
-  // 拍の時刻（エンジンの beatTime と同じ。106秒あたりで拍のずれを直している）
-  const beat = beatTime;                                     // n拍目（0始まり、小数もOK）
-  const bar  = k => beat(k * 4);                             // k小節目の頭
-
-  // ちょうど t 秒に「発射」させる: warn 秒前に召喚して、警告リングを warn 秒出す。
-  const fire = (t, warn, fn) => burst(t - warn, () => fn(warn));
-
-  // この譜面でよく使う部品 -------------------------------------------------
-  // 上から降る雨つぶ（大きさ・速さは少しランダム）
-  const drop = (delay, { rMin = 7, rMax = 12, vMin = 180, vMax = 240 } = {}) => {
-    const r = rand(rMin, rMax);
-    spawn({ x: rand(r, W - r), y: 20, vy: rand(vMin, vMax), r, delay });
-  };
-  // 画面の横はしから地面ぞいに飛んでくる弾
-  //   LOW = 地面すれすれ → ジャンプでよける / MID = 頭の上 → 跳ばずにやりすごす
-  const LOW = GROUND_Y - 10, MID = GROUND_Y - 70;
-  const wall = (fromLeft, y, speed, delay) =>
-    spawn({ x: fromLeft ? 10 : W - 10, y, vx: fromLeft ? speed : -speed, r: 10, delay, lane: [fromLeft ? 1 : -1, 0] });
-
-  // ---- 強い音用の特別な弾幕 ----
-  // 画面が光って、少しズームする
-  const hit = (t, amount = 0.5) => burst(t, () => { flash(amount); punch(0.02 * amount); });
-  // いちばん強い音: 光る・ゆれる・ノイズ ＋ 真ん中から大きなリング ＋ 地面を左右に走る衝撃波
-  const impact = (t, { count = 32, speed = 230 } = {}) => {
-    hit(t, 1);
-    burst(t, () => {
-      shake(20); punch(0.08); glitch(0.8);
-      shockRing(cx, cy, { color: '#ffffff', size: 520, life: 0.8, width: 10 });
-      sparks(cx, cy, { n: 60, color: '#ffffff', speed: 520, life: 0.8, size: 3, gravity: 0 });
-    });
-    fire(t, 0.8, delay => ring({ x: cx, y: cy, count, speed, r: 7, delay }));
-    fire(t, 0.8, delay => { wall(true, LOW, 230, delay); wall(false, LOW, 230, delay); });
-  };
-  // 隕石がちょうど t 秒に地面へ落ちる（プレイヤーの今いる所をねらう）
-  const METEOR_FALL = 1000, METEOR_TIME = (GROUND_Y - 28 - 40) / METEOR_FALL;
-  const meteorAt = (t, warn = 0.6) =>
-    fire(t - METEOR_TIME, warn, delay => meteor({ x: playerXY().x, y: 40, fall: METEOR_FALL, r: 28, delay }));
-
-  // ===== イントロ 0.9〜8.9秒 ｜ すみからの大玉狙い撃ち ======================
-  hit(bar(0), 0.8);                                                  // 0.9s 曲の始まり（光るだけ）
-  for (let k = 1; k < 4; k++) {
-    const x = k % 2 === 0 ? 120 : W - 120;
-    // step: 1 → 拍に合わせて「ドン、ドン」と迫ってくる
-    fire(bar(k), 0.6, delay => { const v = aimVel(x, 40, 260); spawn({ x, y: 40, vx: v.vx, vy: v.vy, r: 16, delay, step: 1 }); });
-    fire(beat(k * 4 + 2), 0.4, delay => drop(delay, { rMin: 6, rMax: 8 }));
-  }
-  // 7.0〜8.9秒 ドラムの連打 → 渦がぐるっと1周 ＋ 7.9s の強いキックで隕石
-  fire(7.0, 0.5, delay => spiral({ x: cx, y: cy, count: 24, speed: 180, r: 6, turns: 1, gap: 1.86 / 24, delay }));
-  meteorAt(7.87);
-
-  // ===== A1 8.9〜16.9秒 ｜ 回る六角形 ＋ 雨 =================================
-  hit(bar(4), 0.7);                                                  // 8.9s Aメロ突入
-  for (let k = 4; k < 8; k++) {
-    for (let i = 0; i < 4; i++) fire(beat(k * 4 + i), 0.35, delay => drop(delay));   // 毎拍の雨
-    const left = k % 2 === 0;                                        // 毎小節、左右交互・回転も逆
-    fire(bar(k), 0.5, delay => spinShape({ x: left ? W * 0.3 : W * 0.7, y: -40, vy: 200, count: 6, size: 42, spin: left ? 2.6 : -2.6, pulse: 12, delay }));
-  }
-
-  // ===== A2 16.9〜24.9秒 ｜ 花火 ＋ 3方向の狙い撃ち =========================
-  for (let k = 8; k < 12; k++) {
-    const x = k % 2 === 0 ? W * 0.25 : W * 0.75;                     // 地面から打ち上がって空中で破裂
-    fire(bar(k), 0.6, delay => firework({ x, y: GROUND_Y - 12, vx: k % 2 === 0 ? 60 : -60, vy: -560, fuse: 0.9, count: 16, speed: 150, delay }));
-    for (const i of [1, 3]) {
-      fire(beat(k * 4 + i), 0.4, delay => fan({ x: rand(100, W - 100), y: 30, count: 3, spread: 0.35, speed: 230, r: 7, delay }));
-    }
-    fire(beat(k * 4 + 2), 0.35, delay => drop(delay, { rMin: 6, rMax: 9 }));
-  }
-
-  // ===== B1 24.9〜32.9秒 ｜ 横から低い弾・高い弾 ============================
-  // 低い弾（跳ぶ）と高い弾（跳ばない）が交互に来る。足場の上は安全地帯。
-  for (let k = 12; k < 16; k++) {
-    const L = k % 2 === 0;                                           // 小節ごとに左右を入れかえ
-    fire(bar(k),          0.5, delay => wall(L,  LOW, 240, delay));
-    fire(beat(k * 4 + 2), 0.5, delay => wall(!L, MID, 240, delay));
-    // 足場にずっといられないように、回りながら降ってくる正方形
-    if (k % 2 === 1) fire(bar(k), 0.5, delay => spinShape({ x: rand(150, W - 150), y: -40, count: 4, size: 38, spin: 2.4, vy: 210, delay }));
-  }
-  meteorAt(beat(52));                                                // 26.9s 強いキック
-
-  // ===== B2 32.9〜40.9秒 ｜ はね玉 ＋ 揺れる弾 ===============================
-  hit(bar(16), 0.7);                                                 // 32.9s
-  fire(bar(16), 0.5, delay => bouncer({ x: 40,     y: 60, vx:  170, hop: 640, r: 13, life: 7, delay }));
-  fire(bar(18), 0.5, delay => bouncer({ x: W - 40, y: 60, vx: -170, hop: 640, r: 13, life: 6, delay }));
-  fire(bar(17), 0.5, delay => bouncer({ x: cx,     y: 60, vx: rand(-120, 120), hop: 700, r: 11, life: 6, delay }));
-  for (let k = 16; k < 19; k++) {
-    for (let i = 0; i < 4; i++) fire(beat(k * 4 + i), 0.4, delay => wave({ x: rand(80, W - 80), y: 20, fall: 150, amp: 50, freq: 4, r: 8, delay }));
-  }
-  // 38.9s サビ前のため: 回りながら広がる3重リング
-  for (const [spin, grow] of [[0.5, 95], [0.6, 90], [0.7, 85]]) {
-    fire(bar(19), 0.6, delay => spinShape({ x: cx, y: cy, count: 14, size: 0, spin, grow, r: 6, pulse: 14, delay }));
-  }
-
-  // ===== サビ1-1 40.9〜48.9秒 ｜ 真ん中からの渦 ==============================
-  impact(bar(20));                                                   // 40.9s サビ突入
-  for (let k = 21; k < 24; k++) {
-    // 16分音符ごとに1発、1小節で1周する渦（小節ごとに回る向きが逆）
-    // step: 0.5 → 8分音符ごとに全部の弾がそろって「グッ」と進む
-    fire(bar(k), 0.4, delay => spiral({ x: cx, y: cy, count: 16, speed: 190, r: 6, turns: k % 2 ? -1 : 1, gap: 0.125, start: k * 0.4, step: 0.5, delay }));
-    for (const i of [1, 3]) fire(beat(k * 4 + i), 0.35, delay => drop(delay, { rMin: 6, rMax: 10 }));
-  }
-
-  // ===== サビ1-2 48.9〜56.9秒 ｜ 上すみからの首ふり連射 ======================
-  for (let k = 24; k < 28; k++) {
-    const left = k % 2 === 0;                                        // 小節ごとに左すみ / 右すみ
-    fire(bar(k), 0.5, delay => sweep({
-      x: left ? 40 : W - 40, y: 40, count: 16, speed: 230, r: 7, gap: 0.125,
-      aim: left ? 1.0 : Math.PI - 1.0, swing: 0.6, swings: 1, delay,
-    }));
-    fire(beat(k * 4 + 2), 0.35, delay => drop(delay, { rMin: 6, rMax: 9 }));
-  }
-  meteorAt(beat(108));                                               // 54.9s 強い音
-
-  // ===== サビ1-3 56.9〜63.8秒 ｜ 追尾弾 ＋ 裏拍の扇 ==========================
-  for (let k = 28; k < 31; k++) {
-    fire(bar(k), 0.5, delay => homing({ x: k % 2 ? 60 : W - 60, y: 40, speed: 170, turn: 1.6, seek: 2.2, r: 10, delay }));
-    fire(beat(k * 4 + 1.5), 0.4, delay => fan({ x: 60,     y: 40, count: 3, spread: 0.3, speed: 240, r: 7, delay }));
-    fire(beat(k * 4 + 3.5), 0.4, delay => fan({ x: W - 60, y: 40, count: 3, spread: 0.3, speed: 240, r: 7, delay }));
-  }
-  fire(bar(31), 0.6, delay => ring({ x: cx, y: cy, count: 30, speed: 150, r: 9, delay }));   // 62.9s サビ1のしめ
-
-  // ===== ブレイク 63.8〜65.9秒（音が消える）｜ ゆっくり落ちる大玉だけ ======
-  [[128, 0.2], [129, 0.8]].forEach(([n, fx]) =>
-    fire(beat(n), 0.5, delay => spawn({ x: W * fx, y: -10, vy: 110, r: 22, delay })));
-
-  // ===== C1 65.9〜72.9秒 ｜ 隕石 ============================================
-  impact(beat(130), { count: 28, speed: 200 });                      // 65.9s 音が戻る（いちばん強い音）
-  // 67.9 / 69.9 / 71.9s: 強いキックのたびに隕石が落ちてくる。その間は揺れる弾
-  for (const n of [134, 138, 142]) {
-    meteorAt(beat(n));
-    fire(beat(n + 1), 0.4, delay => wave({ x: rand(80, W / 2 - 40),     y: 20, fall: 160, amp: 50, freq: 4, r: 8, delay }));
-    fire(beat(n + 2), 0.4, delay => wave({ x: rand(W / 2 + 40, W - 80), y: 20, fall: 160, amp: 50, freq: 4, r: 8, delay }));
-  }
-  hit(beat(134), 0.8);                                               // 67.9s はとくに強いので強めに光る
-
-  // ===== C2 72.9〜80.9秒 ｜ すき間のある横一列 ==============================
-  // 2小節ごとに、穴がひとつだけ空いた横一列が拍ごとにガクッ、ガクッと降りてくる → 穴の下に入る
-  for (const k of [36, 38]) {
-    fire(bar(k), 0.6, delay => curtain({ y: 20, gapX: rand(150, W - 150), gapW: 120, spacing: 30, vy: 150, r: 9, step: 1, delay }));
-  }
-  // 73.2〜73.9s ドラムのフィル: 素早い狙い撃ち4連
-  [73.24, 73.49, 73.72, 73.86].forEach(t =>
-    fire(t, 0.3, delay => { const v = aimVel(cx, -10, 300); spawn({ x: cx, y: -10, vx: v.vx, vy: v.vy, r: 8, delay }); }));
-  // 73.9 / 75.9 / 77.9 / 79.9s の強いキック: 光って、左右の上すみから小さなリング
-  [146, 150, 154, 158].forEach((n, i) => {
-    hit(beat(n), 0.5);
-    fire(beat(n), 0.5, delay => ring({ x: i % 2 ? W - 60 : 60, y: 60, count: 12, speed: 170, r: 7, start: i * 0.3, delay }));
-  });
-
-  // ===== 盛り上げ1 80.9〜88.9秒 ｜ ななめに交差する雨 ========================
-  impact(beat(162), { count: 36, speed: 240 });                      // 81.9s いちばん強い一撃
-  for (let n = 164; n < 176; n++) {                                  // 毎拍、左上と右上から交互にななめの雨
-    const fromLeft = n % 2 === 0;
-    fire(beat(n), 0.35, delay => {
-      for (let j = 0; j < 2; j++) {
-        const x = fromLeft ? rand(0, W * 0.5) : rand(W * 0.5, W);
-        spawn({ x, y: 20, vx: fromLeft ? 110 : -110, vy: 210, r: rand(7, 10), delay });
-      }
-    });
-  }
-
-  // ===== 盛り上げ2 88.9〜96.9秒 ｜ 足元からの噴水 ＋ 細かい雨 ================
-  for (let k = 44; k < 47; k++) {
-    for (let i = 0; i < 8; i++) fire(beat(k * 4 + i / 2), 0.3, delay => drop(delay, { rMin: 5, rMax: 8, vMin: 200, vMax: 260 }));
-    fire(bar(k), 0.7, delay => geyser({ x: playerXY().x, count: 7, gap: 0.08, speed: 520, r: 10, delay }));
-  }
-  fire(beat(183), 0.5, delay => ring({ x: W * 0.25, y: cy, count: 14, speed: 180, r: 7, delay }));  // 92.4s
-  fire(beat(187), 0.5, delay => ring({ x: W * 0.75, y: cy, count: 14, speed: 180, r: 7, delay }));  // 94.4s
-  // 94.9〜95.9s サビ直前: 2周する渦の連発
-  [188, 189].forEach((n, i) =>
-    fire(beat(n), 0.5, delay => spiral({ x: cx, y: cy, count: 36, speed: 220, r: 6, turns: 2, gap: 0.015, start: i * 1.1, delay })));
-
-  // ===== サビ2-1 96.9〜104.9秒 ｜ 左右の逆回転の渦 ===========================
-  impact(bar(48), { count: 30, speed: 200 });                        // 96.9s サビ2突入
-  for (let k = 49; k < 52; k++) {
-    const dir = k % 2 ? 1 : -1;                                      // 8分音符ごと、左右の2か所から逆向きに
-    fire(bar(k), 0.4, delay => spiral({ x: W * 0.25, y: cy, count: 8, speed: 180, r: 6, turns:  dir, gap: 0.25, start: k * 0.5, delay }));
-    fire(bar(k), 0.4, delay => spiral({ x: W * 0.75, y: cy, count: 8, speed: 180, r: 6, turns: -dir, gap: 0.25, start: k * 0.5, delay }));
-    for (const i of [1, 3]) fire(beat(k * 4 + i), 0.35, delay => drop(delay));
-  }
-  meteorAt(bar(50));                                                 // 100.9s 強い音
-
-  // ===== サビ2-2 104.9〜112.7秒 ｜ 広がる花 ＋ 花火 ==========================
-  for (let k = 52; k < 56; k++) {
-    if (k % 2 === 0) {
-      fire(bar(k), 0.5, delay => spinShape({ x: cx, y: cy, count: 10, size: 0, spin:  1.2, grow: 110, r: 7, pulse: 16, delay }));
-      fire(bar(k), 0.5, delay => spinShape({ x: cx, y: cy, count: 10, size: 0, spin: -1.2, grow: 110, r: 7, start: Math.PI / 10, pulse: 16, delay }));
-    } else {
-      fire(bar(k), 0.6, delay => firework({ x: W * 0.15, y: GROUND_Y - 12, vx:  140, vy: -600, fuse: 0.8, count: 14, speed: 160, delay }));
-      fire(bar(k), 0.6, delay => firework({ x: W * 0.85, y: GROUND_Y - 12, vx: -140, vy: -600, fuse: 0.8, count: 14, speed: 160, delay }));
-    }
-    fire(beat(k * 4 + 2), 0.5, delay => wall(k % 2 === 0, LOW, 280, delay));
-    for (const i of [1, 3]) fire(beat(k * 4 + i), 0.35, delay => drop(delay));
-  }
-  meteorAt(beat(214));                                               // 107.8s 強い音
-
-  // ===== アウトロ 112.7〜120.2秒 ｜ せまってくる輪 ===========================
-  // 112.7s フィナーレ: 2周の大きな渦
-  hit(bar(56), 0.8);
-  fire(bar(56), 0.6, delay => spiral({ x: cx, y: cy, count: 48, speed: 200, r: 7, turns: 2, gap: 0.03, delay }));
-  // 114.8 / 115.8 / 117.8s の強い音: プレイヤーを囲む輪が拍ごとにグッとせまってくる → すき間から外へ出る
-  [228, 230, 234].forEach((n, i) => {
-    hit(beat(n), 0.6);
-    fire(beat(n), 0.7, delay => {
-      const p = playerXY();
-      closeIn({ x: p.x, y: p.y, count: 14, size: 380, speed: 130, spin: i % 2 ? 0.5 : -0.5, r: 8, delay });
-    });
-  });
-  fire(beat(236), 0.5, delay => bouncer({ x: 40, y: 60, vx: 150, hop: 600, r: 14, life: 5, delay }));  // 118.8s
-
-  // ===== フェードアウト 120.2〜128.8秒 ｜ ゆっくりの雪 ======================
-  fire(beat(239), 0.8, delay => ring({ x: cx, y: cy, count: 12, speed: 120, r: 10, delay }));  // 最後の一発
-  // あとは雪のようにゆっくり降るだけ（曲の最後まで生き残ればクリア）
-  for (let t = beat(242); t < 126; t += 1.0) {
-    burst(t, () => spawn({ x: rand(20, W - 20), y: -10, vy: rand(70, 100), r: 5 }));
-  }
-
-  return cues.sort((a, b) => a.t - b.t);
-}
-
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
 let chart = [];
 let chartIndex = 0;
-function resetChart() { chart = buildScript(); chartIndex = 0; }
+function resetChart() { chart = song.build(); chartIndex = 0; }
 function runChart(t) {
   while (chartIndex < chart.length && chart[chartIndex].t <= t) {
     chart[chartIndex].fn();
