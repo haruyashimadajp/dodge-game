@@ -266,8 +266,8 @@ function updateBullets(dt) {
   songTime = (bgm && !bgm.paused) ? bgm.currentTime : elapsed;
   runChart(songTime);
 
-  const e = dt * bulletSpeedMul;            // effective step (the 弾の速さ knob)
   for (const b of bullets) {
+    const e = dt * bulletSpeedMul * b.spd;   // effective step (弾の速さ knob × the song's speed at spawn)
     if (b.delay > 0) {                                // charging: a warning ring
       b.delay -= dt;
       if (b.delay <= 0) fxFire(b);                    // just fired: a little pop
@@ -914,7 +914,7 @@ function stepTime(b, step = 1) {
   const ease = x => { const n = Math.floor(x); return n + 1 - Math.pow(1 - (x - n), 3); };
   const now = beatPos(songTime) / step;
   if (b.s0 == null) b.s0 = now;                   // 発射した瞬間を覚えておく
-  return (ease(now) - ease(b.s0)) * step * BEAT_SEC * bulletSpeedMul;
+  return (ease(now) - ease(b.s0)) * step * BEAT_SEC * bulletSpeedMul * (b.spd || 1);
 }
 
 // 画面を白く光らせる（強い音の演出）。amount = 0〜1
@@ -930,6 +930,8 @@ function spawn(b) {
   if (b.move == null) b.move = straight;   // 何も指定しなければ「まっすぐ」
   b.age = 0;
   b.delay = b.delay || 0;
+  // 曲が決める速さの倍率（盛り上がる所ほど速い）。発射する瞬間の値で決まり、途中では変わらない
+  if (b.spd == null) b.spd = song.speedAt ? song.speedAt(songTime + b.delay) : 1;
   b.delayMax = b.delay;
   bullets.push(b);
   return b;
@@ -1162,7 +1164,7 @@ function orbitMove(b) {
   const mx = b.cx + b.vx * b.age;          // ① 中心が進む
   const my = b.cy + b.vy * b.age;
   const turn = b.snap                      // ② 全体が回る（snap: 拍ごとにカクッと）
-    ? b.snap * stepTime(b, 1) / (BEAT_SEC * bulletSpeedMul)
+    ? b.snap * stepTime(b, 1) / (BEAT_SEC * bulletSpeedMul * (b.spd || 1))
     : b.spin * b.age;
   const ang = b.corner + turn;
   const rad = b.size + b.grow * b.age      // ③ だんだん広がる
@@ -1186,7 +1188,7 @@ function blink({ x, y, vx = 0, vy = 160, r = 9, step = 1, delay = 0, color }) {
     move(b) {
       const n = beatIndex(songTime, b.every);
       if (b.n0 == null) { b.n0 = n; b.ox = b.x; b.oy = b.y; }
-      const hop = b.every * BEAT_SEC * bulletSpeedMul;          // 1回の瞬間移動で進む「時間」
+      const hop = b.every * BEAT_SEC * bulletSpeedMul * b.spd;  // 1回の瞬間移動で進む「時間」
       const nx = b.ox + b.vx * (n - b.n0) * hop, ny = b.oy + b.vy * (n - b.n0) * hop;
       if (nx !== b.x || ny !== b.y) { blip(b.x, b.y, b); b.x = nx; b.y = ny; }
       b.nx = b.x + b.vx * hop; b.ny = b.y + b.vy * hop;         // 次の位置（予告の四角）
@@ -1229,7 +1231,7 @@ function router({ x, y, cell = 56, hops = 8, r = 9, delay = 0, color }) {
         b.cur = n;
         b.fx0 = b.tx; b.fy0 = b.ty;
         const p = playerXY(), dx = p.x - b.tx, dy = p.y - b.ty;
-        const c = b.cell * bulletSpeedMul;
+        const c = b.cell * bulletSpeedMul * b.spd;
         if (b.hop >= b.hops) b.ty += c;                          // 追いかけ終わり → 下へ
         else if (b.hop % 2 === 0) b.tx += Math.abs(dx) < c / 2 ? 0 : Math.sign(dx) * c;
         else b.ty += dy > c / 2 ? c : 0;                         // 縦は下にだけ進む
@@ -1340,7 +1342,7 @@ function firewall({ gapX, gapW = 120, y0 = 60, y1 = GROUND_Y - 12, steps = 6, st
     laser({
       x1: a, y1: y0, x2: z, y2: y0, width: 14, delay, hold: (steps + 1) * step * BEAT_SEC, color,
       move(b) {
-        const k = Math.min(steps, stepTime(b, step) / (step * BEAT_SEC * bulletSpeedMul));
+        const k = Math.min(steps, stepTime(b, step) / (step * BEAT_SEC * bulletSpeedMul * b.spd));
         b.y1 = b.y2 = b.y = y0 + (y1 - y0) * k / steps;
       },
     });
@@ -1352,7 +1354,7 @@ function firewall({ gapX, gapW = 120, y0 = 60, y1 = GROUND_Y - 12, steps = 6, st
 //   every = 何拍ごとに撃つか / shot(u, n) = 撃つ中身（u.x, u.y が今の位置。n = 何回目か）
 function ufo({ x, y, path, life = 4, every = 1, color = '#ff4d6d', size = 1, shot }) {
   return spawn({
-    kind: 'ufo', x, y, r: 20 * size, size, safe: true, life, every, color, path, shot,
+    kind: 'ufo', x, y, r: 20 * size, size, safe: true, life, every, color, path, shot, spd: 1,
     move(b) {
       if (b.path) { const p = b.path(b.age); b.x = p.x; b.y = p.y; }
       const n = beatIndex(songTime, b.every);
