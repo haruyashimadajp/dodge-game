@@ -534,6 +534,18 @@ button { font-family: inherit; }
 /* Pause overlay: match the neon look */
 #pauseOverlay h1 { font-family: "Orbitron", system-ui, sans-serif; letter-spacing: 0.25em; text-shadow: 0 0 16px rgba(76, 201, 240, 0.8); }
 
+/* Phone held upright: game at the top, controls in the space below it.
+   The canvas is capped so its bottom stays above the controls (~210px). */
+@media (orientation: portrait) and (pointer: coarse) {
+  .wrap { justify-content: flex-start; padding: 8px 8px 0; gap: 6px; min-height: 100vh; }
+  .hud { justify-content: center; gap: 6px; }
+  .hint { display: none; }
+  .stat { padding: 4px 10px; }
+  .stat .value { font-size: 16px; }
+  .stage { width: min(100%, calc((100vh - 270px) * 1.0667)); }
+  .move-zone { width: min(56vw, 250px); height: 180px; }
+}
+
 /* Short screens (phones held sideways): squeeze the title so it fits */
 .overlay h1.logo { font-size: clamp(34px, min(13vw, 17vh), 118px); }
 @media (max-height: 560px) {
