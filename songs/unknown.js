@@ -10,7 +10,7 @@
        0.9〜 16.1  イントロ     しずか → 盛り上がって 11.0 秒でバンドが入る
       16.1〜 36.3  Aメロ        同じフレーズ4回
       36.3〜 56.5  サビ         （46.4〜51.4 だけ少し変化）
-      56.5〜 66.6  Aメロ 2
+      56.5〜 66.6  Aメロ 2（追いかけてくる X の光線）
       66.6〜 76.7  サビ 2
       76.7〜 86.8  転調したサビ ← 最初の山場
       86.8〜 96.9  ブレイク     ほぼ無音。ピアノがぽつぽつ
@@ -97,14 +97,15 @@ function unknownChart() {
   // 画面が光る（場面の色。山場では三色）
   const hit = (t, amount = 0.5) => burst(t, () => { flash(amount); punch(0.02 * amount); });
   // ★強い音★ プレイヤーの位置（横も高さも）で交差する2本の探照灯（X の字）＋ 交点から三色の星が飛ぶ
-  const crash = (t, { at = 'player', stars = 6 } = {}) => {
+  //   light: true = 光とゆれを控えめに（連打するときに使う）
+  const crash = (t, { at = 'player', stars = 6, light = false } = {}) => {
     let p = null;                                     // X の交点（予告を出した瞬間に決まる）
     fire(t, B2, delay => {
       p = at === 'player' ? playerXY() : { x: cx, y: H * 0.42 };   // プレイヤーの横の位置も高さも追う
       xStrike({ x: p.x, y: p.y, delay, color: MOON });
     });
     burst(t, () => {
-      flash(0.8); shake(14); punch(0.05);
+      if (light) { flash(0.25); shake(6); } else { flash(0.8); shake(14); punch(0.05); }
       for (let i = 0; p && i < stars; i++) {
         const a = Math.PI / 4 + (i % 4) * (Math.PI / 2) + (i >= 4 ? Math.PI / 4 : 0), v = i < 4 ? 240 : 170;
         spawn({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 8, style: 'star', color: TRI[i % 3] });
@@ -213,12 +214,13 @@ function unknownChart() {
     fire(bar(k), B2, delay => spinX({ x: left ? 40 : W - 40, y: -30, vx: left ? 150 : -150, vy: 150, per: 3, gap: 24, inner: 16, snap: Math.PI / 4, r: 8, delay, color: TRI[k % 3] }));
   }
 
-  // ===== DRIFT II 56.5〜66.6 ｜ tier 2: Aメロ 2。縦横にカクカク追いかける光 =======
+  // ===== DRIFT II 56.5〜66.6 ｜ tier 2: Aメロ 2。追いかけてくる X の光線 ===============
+  // 探照灯の X がプレイヤーを追いかける: 前半は1小節ごと、後半は2拍ごと。
+  // 立ち止まると当たるので、拍に合わせて動き続ける。すき間に光の滝
   for (let k = 44; k < 52; k++) {
-    const left = k % 2 === 0;
-    if (k % 2 === 0) fire(bar(k), B2, delay => router({ x: left ? 60 : W - 60, y: 40, cell: 56, hops: 8, r: 10, delay, color: VIOLET }));
-    if (k % 2 === 1) fire(bar(k + 0.5), B2, delay => side(left, anyH(), delay, GREEN));
-    fire(bar(k + 0.75), B2, delay => stream({ x: rand(60, W - 60), count: 3, vy: 300, delay, color: GREEN }));
+    crash(bar(k), { stars: 4, light: true });
+    if (k >= 48) crash(bar(k + 0.5), { stars: 0, light: true });
+    if (k % 2 === 1) fire(bar(k + 0.25), B2, delay => stream({ x: rand(60, W - 60), count: 3, vy: 300, delay, color: GREEN }));
   }
   hit(beat(189), 0.4); hit(beat(193), 0.5);                          // 60.0s / 61.2s
 
@@ -251,13 +253,13 @@ function unknownChart() {
 
   // ===== …… 86.8〜96.9 ｜ tier 0: 音が消える。ゆっくりの玉が夜空にどんどん現れる ======
   // 拍ごとに、空のあちこち（プレイヤーから離れた所）に玉がふわっと現れて、ゆっくり漂いながら落ちる。
-  // 数は多いけれど遅いので、すき間を見て歩いてよける。ピアノの音では大きな「?」
+  // 数が多く、そこそこの速さで漂う。すき間を見てよける。ピアノの音では大きな「?」
   for (let n = 0; n < 31; n++) {
     fire(beat(276 + n), 0.6, delay => {
-      for (let j = 0; j < (n % 2 ? 2 : 1); j++) {
+      for (let j = 0; j < (n % 2 ? 3 : 2); j++) {
         let x, y, tries = 0;
         do { x = rand(30, W - 30); y = rand(40, GROUND_Y - 260); } while (Math.hypot(x - playerXY().x, y - playerXY().y) < 220 && ++tries < 8);
-        const a = Math.PI / 2 + rand(-0.9, 0.9), v = rand(35, 65);
+        const a = Math.PI / 2 + rand(-0.9, 0.9), v = rand(70, 120);
         spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: rand(7, 12), delay, color: ['#b8c2e8', '#c4b5fd', '#8fd3ff'][n % 3] });
       }
     });
