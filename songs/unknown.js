@@ -10,7 +10,7 @@
        0.9〜 16.1  イントロ     しずか → 盛り上がって 11.0 秒でバンドが入る
       16.1〜 36.3  Aメロ        同じフレーズ4回
       36.3〜 56.5  サビ         （46.4〜51.4 だけ少し変化）
-      56.5〜 66.6  Aメロ 2（追いかけてくる X の光線）
+      56.5〜 66.6  Aメロ 2（決まった場所で交差する X の光線）
       66.6〜 76.7  サビ 2
       76.7〜 86.8  転調したサビ ← 最初の山場
       86.8〜 96.9  ブレイク     ほぼ無音。ピアノがぽつぽつ
@@ -43,7 +43,7 @@ const UNKNOWN_SECTIONS = [
   { t: 33.75,  tier: 2.5, name: '',             sub: '',                     sky: ['#140c33', '#291848'], color: '#ffd166', pulse: 0.012, sway: 0.5, stars: 22, zoom: [1, 1.03] },
   { t: 36.28,  tier: 3.5, name: 'UFO',          sub: 'サビ ─ 三色の円盤',     sky: ['#1a0b38', '#33164e'], color: '#ff4d6d', pulse: 0.018, sway: 0.7, stars: 40 },
   { t: 46.38,  tier: 3,   name: 'PHANTOM',      sub: 'サビ ─ 正体不明',       sky: ['#120a36', '#26154c'], color: '#c4b5fd', pulse: 0.016, sway: 0.7, stars: 34 },
-  { t: 56.49,  tier: 2,   name: 'DRIFT II',     sub: 'Aメロ ─ 追いかける光', sky: ['#0a1030', '#14203f'], color: '#5cf2a4', pulse: 0.008, sway: 0.4, stars: 14 },
+  { t: 56.49,  tier: 2,   name: 'DRIFT II',     sub: 'Aメロ ─ 交差する光', sky: ['#0a1030', '#14203f'], color: '#5cf2a4', pulse: 0.008, sway: 0.4, stars: 14 },
   { t: 66.59,  tier: 3.5, name: 'UFO II',       sub: 'サビ ─ 光線の雨',       sky: ['#081236', '#11254d'], color: '#4cc9f0', pulse: 0.018, sway: 0.7, stars: 40 },
   { t: 76.70,  tier: 4.5, name: 'ASCENSION',    sub: '転調 ─ 最初の山場',     sky: ['#220a33', '#40164a'], color: '#ffb347', pulse: 0.024, sway: 1.0, stars: 70, zoom: [1, 1.04] },
   { t: 86.80,  tier: 0,   name: '……',         sub: '静寂',                 sky: ['#05051a', '#0c0a24'], color: '#9aa4c8', pulse: 0,     sway: 0.15, stars: 4 },
@@ -96,12 +96,14 @@ function unknownChart() {
   const orb = (delay, o = {}) => spawn({ x: o.x ?? rand(60, W - 60), y: -16, vy: o.vy || 90, r: o.r || 14, delay, color: o.color || MOON, lane: [0, 1] });
   // 画面が光る（場面の色。山場では三色）
   const hit = (t, amount = 0.5) => burst(t, () => { flash(amount); punch(0.02 * amount); });
-  // ★強い音★ プレイヤーの位置（横も高さも）で交差する2本の探照灯（X の字）＋ 交点から三色の星が飛ぶ
+  // ★強い音★ 交差する2本の探照灯（X の字）＋ 交点から三色の星が飛ぶ。予告は4拍（約1.3秒）
+  //   at: 'player' = プレイヤーの位置（横も高さも）/ 'center' = 画面の真ん中 / { x, y } = その場所
   //   light: true = 光とゆれを控えめに（連打するときに使う）
+  const XWARN = B * 4;
   const crash = (t, { at = 'player', stars = 6, light = false } = {}) => {
     let p = null;                                     // X の交点（予告を出した瞬間に決まる）
-    fire(t, B2, delay => {
-      p = at === 'player' ? playerXY() : { x: cx, y: H * 0.42 };   // プレイヤーの横の位置も高さも追う
+    fire(t, XWARN, delay => {
+      p = at === 'player' ? playerXY() : at === 'center' ? { x: cx, y: H * 0.42 } : at;
       xStrike({ x: p.x, y: p.y, delay, color: MOON });
     });
     burst(t, () => {
@@ -214,14 +216,19 @@ function unknownChart() {
     fire(bar(k), B2, delay => spinX({ x: left ? 40 : W - 40, y: -30, vx: left ? 150 : -150, vy: 150, per: 3, gap: 24, inner: 16, snap: Math.PI / 4, r: 8, delay, color: TRI[k % 3] }));
   }
 
-  // ===== DRIFT II 56.5〜66.6 ｜ tier 2: Aメロ 2。追いかけてくる X の光線 ===============
-  // 探照灯の X がプレイヤーを追いかける: 前半は1小節ごと、後半は2拍ごと。
-  // 立ち止まると当たるので、拍に合わせて動き続ける。すき間に光の滝
-  for (let k = 44; k < 52; k++) {
-    crash(bar(k), { stars: 4, light: true });
-    if (k >= 48) crash(bar(k + 0.5), { stars: 0, light: true });
-    if (k % 2 === 1) fire(bar(k + 0.25), B2, delay => stream({ x: rand(60, W - 60), count: 3, vy: 300, delay, color: GREEN }));
-  }
+  // ===== DRIFT II 56.5〜66.6 ｜ tier 2: Aメロ 2。決まった場所で交差する X の光線 =========
+  // プレイヤーは狙わない。地面すれすれで交差する X（交点の近くが危ない）と、
+  // 高い所で交差する X（ななめの線が地面に届く2か所が危ない）が、場所を変えながら続く。
+  // 前半は1小節に1つ、後半は2拍ごとに2つ同時。すき間に光の滝
+  const G0 = GROUND_Y - 30, GH = GROUND_Y - 250;
+  const firstHalf = [{ x: 200, y: G0 }, { x: 600, y: G0 }, { x: 400, y: GH }, { x: 400, y: G0 }];
+  firstHalf.forEach((at, i) => crash(bar(44 + i), { at, stars: 4, light: true }));
+  const sweep = [120, 280, 440, 600, 680, 520, 360, 200];
+  sweep.forEach((x, i) => {
+    crash(bar(48 + i * 0.5), { at: { x, y: G0 }, stars: 0, light: true });
+    crash(bar(48 + i * 0.5), { at: { x: W - x, y: GH }, stars: 0, light: true });
+  });
+  for (let k = 45; k < 52; k += 2) fire(bar(k + 0.25), B2, delay => stream({ x: rand(60, W - 60), count: 3, vy: 300, delay, color: GREEN }));
   hit(beat(189), 0.4); hit(beat(193), 0.5);                          // 60.0s / 61.2s
 
   // ===== UFO II 66.6〜76.7 ｜ tier 3.5: サビ 2。UFO の光線が降る ==================
@@ -259,7 +266,7 @@ function unknownChart() {
       for (let j = 0; j < (n % 2 ? 3 : 2); j++) {
         let x, y, tries = 0;
         do { x = rand(30, W - 30); y = rand(40, GROUND_Y - 260); } while (Math.hypot(x - playerXY().x, y - playerXY().y) < 220 && ++tries < 8);
-        const a = Math.PI / 2 + rand(-0.9, 0.9), v = rand(70, 120);
+        const a = Math.PI / 2 + rand(-0.9, 0.9), v = rand(110, 170);
         spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: rand(7, 12), delay, color: ['#b8c2e8', '#c4b5fd', '#8fd3ff'][n % 3] });
       }
     });

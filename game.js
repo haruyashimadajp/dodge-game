@@ -1340,10 +1340,11 @@ function firewall({ gapX, gapW = 120, y0 = 60, y1 = GROUND_Y - 12, steps = 6, st
   for (const [a, z] of parts) {
     if (z - a < 10) continue;
     laser({
-      x1: a, y1: y0, x2: z, y2: y0, width: 14, delay, hold: (steps + 1) * step * BEAT_SEC, color,
+      x1: a, y1: y0, x2: z, y2: y0, width: 14, delay, hold: 999, color,
       move(b) {
-        const k = Math.min(steps, stepTime(b, step) / (step * BEAT_SEC * bulletSpeedMul * b.spd));
-        b.y1 = b.y2 = b.y = y0 + (y1 - y0) * k / steps;
+        const n = stepTime(b, step) / (step * BEAT_SEC * bulletSpeedMul * b.spd);   // 何回下りたか（拍で数える）
+        b.y1 = b.y2 = b.y = y0 + (y1 - y0) * Math.min(steps, n) / steps;
+        if (n >= steps + 1 && b.hold > b.age) b.hold = b.age;   // 地面で1回ぶん待ってから消える
       },
     });
   }
