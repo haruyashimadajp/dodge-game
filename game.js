@@ -147,6 +147,13 @@ const touchMove = { x: 0, k: 1 };
 let movePointer = null;                   // pointer id holding the move zone
 let jumpPointer = null;                   // pointer id holding the jump button
 
+// Saved settings / best time. Browser storage can be missing or blocked
+// (private windows, embedded pages), so every access is guarded.
+const store = {
+  get(k)    { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* not saved */ } },
+};
+
 // ---- Game state ---------------------------------------------------------
 let running = false;
 let paused = false;
@@ -154,7 +161,7 @@ let scene = 'title';       // 'title' | 'play' | 'over' | 'clear'  (what visuals
 let hitsTaken = 0;
 let fxScale = 1;           // 画面演出 setting: scales shake / zoom / flash / glitch
 let elapsed = 0;
-let best = parseFloat(localStorage.getItem('dodge_best') || '0') || 0;
+let best = parseFloat(store.get('dodge_best') || '0') || 0;
 bestEl.textContent = best.toFixed(1) + 's';
 titleBest.textContent = best.toFixed(1) + 's';
 
@@ -456,7 +463,7 @@ function endRun(kind) {
   const newBest = elapsed > best;
   if (newBest) {
     best = elapsed;
-    localStorage.setItem('dodge_best', String(best));
+    store.set('dodge_best', String(best));
     bestEl.textContent = best.toFixed(1) + 's';
   }
   resultTimer = setTimeout(() => {
@@ -520,24 +527,24 @@ const sliderDefs = [
 for (const d of sliderDefs) {
   const slider = settingsPanel.querySelector('#' + d.id);
   const valEl = settingsPanel.querySelector('#' + d.val);
-  const saved = localStorage.getItem(d.store);
+  const saved = store.get(d.store);
   slider.value = saved !== null ? saved : d.def;
   const apply = () => {
     const v = Number(slider.value);
     d.apply(v);
     valEl.textContent = d.fmt(v);
-    localStorage.setItem(d.store, String(v));
+    store.set(d.store, String(v));
   };
   slider.addEventListener('input', apply);
   apply();
 }
 
 // Control mode (PC / mobile) — only selectable on the title screen
-let controlMode = localStorage.getItem('dodge_controlMode') || 'pc';
+let controlMode = store.get('dodge_controlMode') || 'pc';
 const modeBtns = settingsPanel.querySelectorAll('.seg-btn[data-mode]');
 function setControlMode(m) {
   controlMode = m;
-  localStorage.setItem('dodge_controlMode', m);
+  store.set('dodge_controlMode', m);
   modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === m));
   updateTouchControls();
 }
@@ -545,11 +552,11 @@ modeBtns.forEach(b => b.addEventListener('click', () => setControlMode(b.dataset
 setControlMode(controlMode);
 
 // Move control type (big ◀ ▶ pad / analog stick) for mobile controls
-let moveCtl = localStorage.getItem('dodge_moveCtl') || 'buttons';
+let moveCtl = store.get('dodge_moveCtl') || 'buttons';
 const ctlBtns = settingsPanel.querySelectorAll('.seg-btn[data-ctl]');
 function setMoveCtl(c) {
   moveCtl = c;
-  localStorage.setItem('dodge_moveCtl', c);
+  store.set('dodge_moveCtl', c);
   ctlBtns.forEach(b => b.classList.toggle('active', b.dataset.ctl === c));
   moveZone.classList.toggle('stick', c === 'stick');
   releaseMove();
@@ -558,11 +565,11 @@ function setMoveCtl(c) {
 ctlBtns.forEach(b => b.addEventListener('click', () => setMoveCtl(b.dataset.ctl)));
 
 // Which side the move control sits on (left / right); jump goes on the other
-let dpadSide = localStorage.getItem('dodge_dpadSide') || 'left';
+let dpadSide = store.get('dodge_dpadSide') || 'left';
 const dpadBtns = settingsPanel.querySelectorAll('.seg-btn[data-dpad]');
 function setDpadSide(side) {
   dpadSide = side;
-  localStorage.setItem('dodge_dpadSide', side);
+  store.set('dodge_dpadSide', side);
   dpadBtns.forEach(b => b.classList.toggle('active', b.dataset.dpad === side));
   touchControls.classList.toggle('dpad-right', side === 'right');
 }
@@ -573,11 +580,11 @@ setDpadSide(dpadSide);
 const moveStyleBtns = settingsPanel.querySelectorAll('.seg-btn[data-move]');
 function setMoveStyle(s) {
   slideMove = (s === 'slide');
-  localStorage.setItem('dodge_slideMove', s);
+  store.set('dodge_slideMove', s);
   moveStyleBtns.forEach(b => b.classList.toggle('active', b.dataset.move === s));
 }
 moveStyleBtns.forEach(b => b.addEventListener('click', () => setMoveStyle(b.dataset.move)));
-setMoveStyle(localStorage.getItem('dodge_slideMove') || 'slide');
+setMoveStyle(store.get('dodge_slideMove') || 'slide');
 
 // Show on-screen controls only in mobile mode, while actually playing
 function updateTouchControls() {
