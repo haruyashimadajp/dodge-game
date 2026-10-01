@@ -44,7 +44,6 @@
             <button id="toTitleBtn2" class="link-btn result-only">タイトルへ</button>
             <span class="best-tag title-only">BEST <b id="titleBest">0.0s</b></span>
           </div>
-          <div class="mount settings-drawer hidden" id="mountTitle"></div>
           <p class="press-hint title-only">Enter / Space でスタート</p>
         </div>
       </div>
@@ -52,9 +51,9 @@
       <!-- Pause screen -->
       <div class="overlay hidden" id="pauseOverlay">
         <h1>Paused</h1>
-        <div class="mount" id="mountPause"></div>
         <div class="btn-row">
           <button id="resumeBtn">再開 (Esc)</button>
+          <button id="pauseSettingsBtn" class="btn-sub">⚙ 設定</button>
           <button id="restartBtn" class="btn-sub">やり直す</button>
           <button id="toTitleBtn" class="btn-sub">タイトルへ</button>
         </div>
@@ -62,15 +61,30 @@
 
     </div>
 
-    <!-- On-screen touch controls (below the stage, shown only in mobile mode) -->
+    <!-- On-screen touch controls (shown only in mobile mode, while playing).
+         The move zone is either a big left/right pad or an analog stick. -->
     <div class="touch hidden" id="touchControls">
-      <div class="dpad">
-        <button class="tbtn up"    data-key="ArrowUp"    aria-label="up">▲</button>
-        <button class="tbtn left"  data-key="ArrowLeft"  aria-label="left">◀</button>
-        <button class="tbtn down"  data-key="ArrowDown"  aria-label="down">▼</button>
-        <button class="tbtn right" data-key="ArrowRight" aria-label="right">▶</button>
+      <div class="move-zone" id="moveZone">
+        <div class="lr-pad">
+          <div class="lr left" id="lrLeft">◀</div>
+          <div class="lr right" id="lrRight">▶</div>
+        </div>
+        <div class="stick-base" id="stickBase"><div class="stick-knob" id="stickKnob"></div></div>
       </div>
-      <button class="tbtn jump" data-key=" " aria-label="jump">JUMP</button>
+      <div class="tbtn jump" id="jumpBtn" aria-label="jump">JUMP</div>
+    </div>
+  </div>
+
+  <!-- Settings: its own full-screen page. The header (with ✕) stays put
+       while the body scrolls, so the close button never disappears. -->
+  <div class="modal hidden" id="settingsModal" role="dialog" aria-label="設定">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>設定</h2>
+        <button class="modal-x" id="settingsClose" aria-label="閉じる">✕</button>
+      </div>
+      <div class="modal-body" id="mountSettings"></div>
+      <div class="modal-foot"><button class="done-btn" id="settingsDone">閉じる</button></div>
     </div>
   </div>
 
@@ -84,7 +98,12 @@
           <button class="seg-btn" data-mode="pc">パソコン操作</button>
           <button class="seg-btn" data-mode="mobile">スマホ操作</button>
         </div>
-        <div class="group-title">十字キーの位置（スマホ操作時）</div>
+        <div class="group-title">移動の操作（スマホ操作時）</div>
+        <div class="seg">
+          <button class="seg-btn" data-ctl="buttons">◀ ▶ ボタン</button>
+          <button class="seg-btn" data-ctl="stick">スティック</button>
+        </div>
+        <div class="group-title">移動の操作の位置（スマホ操作時）</div>
         <div class="seg">
           <button class="seg-btn" data-dpad="left">左</button>
           <button class="seg-btn" data-dpad="right">右</button>

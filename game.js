@@ -24,8 +24,14 @@ const restartBtn = document.getElementById('restartBtn');
 const toTitleBtn = document.getElementById('toTitleBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const touchControls = document.getElementById('touchControls');
-const mountTitle = document.getElementById('mountTitle');
-const mountPause = document.getElementById('mountPause');
+const settingsModal = document.getElementById('settingsModal');
+const mountSettings = document.getElementById('mountSettings');
+const moveZone = document.getElementById('moveZone');
+const lrLeft = document.getElementById('lrLeft');
+const lrRight = document.getElementById('lrRight');
+const stickBase = document.getElementById('stickBase');
+const stickKnob = document.getElementById('stickKnob');
+const jumpBtn = document.getElementById('jumpBtn');
 
 const settingsToggle = document.getElementById('settingsToggle');
 const resultBox = document.getElementById('resultBox');
@@ -102,6 +108,7 @@ const JUMP  = e => e === 'ArrowUp'    || e === 'w' || e === 'W' || e === ' ';
 // Core press/release, shared by keyboard AND on-screen touch buttons.
 function onPress(key) {
   if (key === 'Escape') {
+    if (settingsOpen()) { closeSettings(); return; }
     if (running && !paused) pauseGame();
     else if (running && paused) resumeGame();
     return;
@@ -119,8 +126,9 @@ function onRelease(key) {
 }
 
 window.addEventListener('keydown', e => {
-  // Title / result screen: Enter or Space starts (not while a slider has focus)
-  if (!running && !overlay.classList.contains('hidden') && (e.key === 'Enter' || e.key === ' ') &&
+  // Title / result screen: Enter or Space starts (not while a slider has focus
+  // or the settings page is open)
+  if (!running && !settingsOpen() && !overlay.classList.contains('hidden') && (e.key === 'Enter' || e.key === ' ') &&
       !(e.target instanceof HTMLInputElement)) {
     e.preventDefault();
     if (!e.repeat) start();
@@ -132,6 +140,12 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => onRelease(e.key));
 
 const held = pred => Object.keys(keys).some(k => keys[k] && pred(k));
+
+// On-screen move control (mobile). x = -1 left / 0 none / +1 right,
+// k = how hard (0..1; the stick gives less than 1 for a small push).
+const touchMove = { x: 0, k: 1 };
+let movePointer = null;                   // pointer id holding the move zone
+let jumpPointer = null;                   // pointer id holding the jump button
 
 // ---- Game state ---------------------------------------------------------
 let running = false;
@@ -179,6 +193,11 @@ function update(dt) {
   let dir = 0;
   if (held(LEFT))  dir -= 1;
   if (held(RIGHT)) dir += 1;
+  let maxSpeed = PHYS.moveSpeed;
+  if (touchMove.x !== 0) {             // on-screen pad / stick wins over keys
+    dir = touchMove.x;
+    maxSpeed = PHYS.moveSpeed * touchMove.k;
+  }
   if (dir !== 0) player.facing = dir;
 
   if (slideMove) {
@@ -186,7 +205,7 @@ function update(dt) {
     const accel = player.onGround ? PHYS.accel : PHYS.airAccel;
     if (dir !== 0) {
       player.vx += dir * accel * dt;
-      player.vx = Math.max(-PHYS.moveSpeed, Math.min(PHYS.moveSpeed, player.vx));
+      player.vx = Math.max(-maxSpeed, Math.min(maxSpeed, player.vx));
     } else if (player.onGround) {
       const f = PHYS.friction * dt;
       if (Math.abs(player.vx) <= f) player.vx = 0;
@@ -194,7 +213,7 @@ function update(dt) {
     }
   } else {
     // Snappy movement: always a constant speed, instant start/stop (no sliding)
-    player.vx = dir * PHYS.moveSpeed;
+    player.vx = dir * maxSpeed;
   }
 
   // Gravity
@@ -389,14 +408,14 @@ function pauseGame() {
   if (!running || paused) return;
   paused = true;
   bgm.pause();                                   // freeze the music too
-  mountPause.appendChild(settingsPanel);        // settings live here while paused
-  controlModeGroup.classList.add('hidden');     // control mode: title screen only
+  releaseMove(); releaseJump();                  // don't keep running on resume
   pauseOverlay.classList.remove('hidden');
 }
 
 function resumeGame() {
   if (!running || !paused) return;
   paused = false;
+  closeSettings();
   pauseOverlay.classList.add('hidden');
   bgm.play().catch(() => {});
 }
@@ -414,8 +433,7 @@ function showTitle() {
   if (typeof fxReset === 'function') fxReset();
   pauseOverlay.classList.add('hidden');
   pauseBtn.classList.add('hidden');
-  mountTitle.appendChild(settingsPanel);
-  controlModeGroup.classList.remove('hidden');
+  closeSettings();
   overlay.classList.remove('result', 'over', 'clear');
   setOverlayTitle('DODGE');
   ovSub.textContent = '';
@@ -441,9 +459,6 @@ function endRun(kind) {
     localStorage.setItem('dodge_best', String(best));
     bestEl.textContent = best.toFixed(1) + 's';
   }
-  mountTitle.appendChild(settingsPanel);
-  mountTitle.classList.add('hidden');
-  controlModeGroup.classList.remove('hidden');
   resultTimer = setTimeout(() => {
     overlay.classList.remove('over', 'clear');
     overlay.classList.add('result', kind);
@@ -486,7 +501,12 @@ function updateLivesHud() {
 // ---- Settings UI (built once, moved between title & pause) ---------------
 const settingsPanel = document.importNode(
   document.getElementById('settingsTemplate').content.querySelector('#settingsPanel'), true);
-const controlModeGroup = settingsPanel.querySelector('#controlModeGroup');
+mountSettings.appendChild(settingsPanel);       // lives on the settings page for good
+
+// The settings page (title, result and pause screens all open the same one)
+const settingsOpen = () => !settingsModal.classList.contains('hidden');
+function openSettings()  { settingsModal.classList.remove('hidden'); mountSettings.scrollTop = 0; }
+function closeSettings() { settingsModal.classList.add('hidden'); }
 
 // Sliders: { id, value-label id, storage key, default, how to apply, label format }
 const sliderDefs = [
@@ -524,7 +544,19 @@ function setControlMode(m) {
 modeBtns.forEach(b => b.addEventListener('click', () => setControlMode(b.dataset.mode)));
 setControlMode(controlMode);
 
-// D-pad side (left / right) for mobile controls — title screen only
+// Move control type (big ◀ ▶ pad / analog stick) for mobile controls
+let moveCtl = localStorage.getItem('dodge_moveCtl') || 'buttons';
+const ctlBtns = settingsPanel.querySelectorAll('.seg-btn[data-ctl]');
+function setMoveCtl(c) {
+  moveCtl = c;
+  localStorage.setItem('dodge_moveCtl', c);
+  ctlBtns.forEach(b => b.classList.toggle('active', b.dataset.ctl === c));
+  moveZone.classList.toggle('stick', c === 'stick');
+  releaseMove();
+}
+ctlBtns.forEach(b => b.addEventListener('click', () => setMoveCtl(b.dataset.ctl)));
+
+// Which side the move control sits on (left / right); jump goes on the other
 let dpadSide = localStorage.getItem('dodge_dpadSide') || 'left';
 const dpadBtns = settingsPanel.querySelectorAll('.seg-btn[data-dpad]');
 function setDpadSide(side) {
@@ -546,24 +578,89 @@ function setMoveStyle(s) {
 moveStyleBtns.forEach(b => b.addEventListener('click', () => setMoveStyle(b.dataset.move)));
 setMoveStyle(localStorage.getItem('dodge_slideMove') || 'slide');
 
-// Show on-screen buttons only in mobile mode, while actually playing
+// Show on-screen controls only in mobile mode, while actually playing
 function updateTouchControls() {
   const show = controlMode === 'mobile' && running;
   touchControls.classList.toggle('hidden', !show);
+  if (!show) { releaseMove(); releaseJump(); }
 }
 
-// Wire the on-screen touch buttons to the same press/release as the keyboard
-touchControls.querySelectorAll('.tbtn').forEach(btn => {
-  const key = btn.dataset.key;
-  const press = e => { e.preventDefault(); onPress(key); btn.classList.add('pressed'); };
-  const release = e => { e.preventDefault(); onRelease(key); btn.classList.remove('pressed'); };
-  btn.addEventListener('touchstart', press, { passive: false });
-  btn.addEventListener('touchend', release);
-  btn.addEventListener('touchcancel', release);
-  btn.addEventListener('mousedown', press);
-  btn.addEventListener('mouseup', release);
-  btn.addEventListener('mouseleave', e => { if (btn.classList.contains('pressed')) release(e); });
+// ---- Move zone: one big area, tracked by pointer (multi-touch safe) -------
+// ◀ ▶ pad : the half your finger is on decides the direction, so sliding
+//           across switches direction without lifting.
+// Stick   : the stick appears where you touch; push sideways to move, and a
+//           small push moves slower than a full push.
+const STICK_R = 56;                       // how far the knob travels (px)
+let stickO = { x: 0, y: 0 };              // where the stick was put down
+
+function moveFrom(e) {
+  if (moveCtl === 'buttons') {
+    const r = moveZone.getBoundingClientRect();
+    touchMove.x = e.clientX < r.left + r.width / 2 ? -1 : 1;
+    touchMove.k = 1;
+  } else {
+    const dx = e.clientX - stickO.x, dy = e.clientY - stickO.y;
+    const len = Math.hypot(dx, dy), cl = Math.min(len, STICK_R);
+    const kx = len ? dx / len * cl : 0, ky = len ? dy / len * cl : 0;
+    stickKnob.style.transform = `translate(${kx}px, ${ky}px)`;
+    const ax = Math.abs(dx) / STICK_R;
+    if (ax < 0.2) touchMove.x = 0;                                   // dead zone
+    else {
+      touchMove.x = Math.sign(dx);
+      touchMove.k = 0.35 + 0.65 * Math.min(1, (ax - 0.2) / 0.55);   // full speed at ~75%
+    }
+  }
+  lrLeft.classList.toggle('pressed', touchMove.x < 0);
+  lrRight.classList.toggle('pressed', touchMove.x > 0);
+}
+function releaseMove() {
+  movePointer = null;
+  touchMove.x = 0;
+  lrLeft.classList.remove('pressed');
+  lrRight.classList.remove('pressed');
+  stickKnob.style.transform = '';
+  stickBase.classList.remove('active');
+  stickBase.style.left = stickBase.style.top = '';
+}
+moveZone.addEventListener('pointerdown', e => {
+  if (movePointer !== null) return;
+  e.preventDefault();
+  movePointer = e.pointerId;
+  try { moveZone.setPointerCapture(e.pointerId); } catch (_) {}
+  if (moveCtl === 'stick') {
+    const r = moveZone.getBoundingClientRect(), half = stickBase.offsetWidth / 2;
+    const x = Math.max(r.left + half, Math.min(r.right - half, e.clientX));
+    const y = Math.max(r.top + half, Math.min(r.bottom - half, e.clientY));
+    stickO = { x, y };
+    stickBase.style.left = (x - r.left) + 'px';
+    stickBase.style.top = (y - r.top) + 'px';
+    stickBase.classList.add('active');
+  }
+  moveFrom(e);
 });
+moveZone.addEventListener('pointermove', e => { if (e.pointerId === movePointer) moveFrom(e); });
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  moveZone.addEventListener(ev, e => { if (e.pointerId === movePointer) releaseMove(); });
+}
+
+// ---- Jump button ----------------------------------------------------------
+function releaseJump() {
+  if (jumpPointer === null) return;
+  jumpPointer = null;
+  onRelease(' ');
+  jumpBtn.classList.remove('pressed');
+}
+jumpBtn.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (jumpPointer !== null) return;
+  jumpPointer = e.pointerId;
+  try { jumpBtn.setPointerCapture(e.pointerId); } catch (_) {}
+  onPress(' ');
+  jumpBtn.classList.add('pressed');
+});
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  jumpBtn.addEventListener(ev, e => { if (e.pointerId === jumpPointer) releaseJump(); });
+}
 
 // Block the long-press text selection / context menu (iOS & Android). Without
 // this, holding a touch button could start selecting the pause or arrow
@@ -574,7 +671,7 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 // While playing, a touch anywhere outside the menus / pause button never
 // scrolls, zooms or selects (the pause button still needs its click).
 document.addEventListener('touchstart', e => {
-  if (running && !paused && !e.target.closest('.overlay, .pause-btn')) e.preventDefault();
+  if (running && !paused && !e.target.closest('.overlay, .pause-btn, .modal')) e.preventDefault();
 }, { passive: false });
 
 // Buttons
@@ -583,8 +680,14 @@ resumeBtn.addEventListener('click', resumeGame);
 restartBtn.addEventListener('click', start);
 toTitleBtn.addEventListener('click', showTitle);
 toTitleBtn2.addEventListener('click', showTitle);
-settingsToggle.addEventListener('click', () => mountTitle.classList.toggle('hidden'));
+settingsToggle.addEventListener('click', openSettings);
+document.getElementById('pauseSettingsBtn').addEventListener('click', openSettings);
+document.getElementById('settingsClose').addEventListener('click', closeSettings);
+document.getElementById('settingsDone').addEventListener('click', closeSettings);
+settingsModal.addEventListener('click', e => { if (e.target === settingsModal) closeSettings(); });  // tap outside
 pauseBtn.addEventListener('click', () => { paused ? resumeGame() : pauseGame(); });
+
+setMoveCtl(moveCtl);
 
 // Boot up on the title screen. The loop starts once every script (the chart
 // below, visuals.js) has run — DOMContentLoaded waits for all of them.
