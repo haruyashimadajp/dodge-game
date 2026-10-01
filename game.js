@@ -553,6 +553,7 @@ function setMoveCtl(c) {
   ctlBtns.forEach(b => b.classList.toggle('active', b.dataset.ctl === c));
   moveZone.classList.toggle('stick', c === 'stick');
   releaseMove();
+  if (typeof fitStage === 'function') fitStage();
 }
 ctlBtns.forEach(b => b.addEventListener('click', () => setMoveCtl(b.dataset.ctl)));
 
@@ -583,7 +584,26 @@ function updateTouchControls() {
   const show = controlMode === 'mobile' && running;
   touchControls.classList.toggle('hidden', !show);
   if (!show) { releaseMove(); releaseJump(); }
+  fitStage();
 }
+
+// Phone held upright: the controls sit at the bottom of the screen, so shrink
+// the game until its bottom edge is above them. Measured from the real
+// positions, because mobile browsers' toolbars change the usable height.
+function fitStage() {
+  const stageEl = document.querySelector('.stage');
+  stageEl.style.width = '';
+  const portrait = innerHeight > innerWidth;
+  if (touchControls.classList.contains('hidden') || !portrait) return;
+  const ctlTop = Math.min(moveZone.getBoundingClientRect().top, jumpBtn.getBoundingClientRect().top);
+  const top = stageEl.getBoundingClientRect().top;
+  const room = ctlTop - 8 - top;                          // free height above the controls
+  const w = Math.min(stageEl.getBoundingClientRect().width, room * W / H);
+  if (w > 0) stageEl.style.width = Math.floor(w) + 'px';
+}
+window.addEventListener('resize', fitStage);
+window.addEventListener('orientationchange', () => setTimeout(fitStage, 300));
+if (window.visualViewport) visualViewport.addEventListener('resize', fitStage);
 
 // ---- Move zone: one big area, tracked by pointer (multi-touch safe) -------
 // ◀ ▶ pad : the half your finger is on decides the direction, so sliding

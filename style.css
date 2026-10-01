@@ -537,13 +537,17 @@ button { font-family: inherit; }
 /* Phone held upright: game at the top, controls in the space below it.
    The canvas is capped so its bottom stays above the controls (~210px). */
 @media (orientation: portrait) and (pointer: coarse) {
-  .wrap { justify-content: flex-start; padding: 8px 8px 0; gap: 6px; min-height: 100vh; }
+  .wrap { justify-content: flex-start; padding: max(4px, env(safe-area-inset-top)) 6px 0; gap: 4px; min-height: 0; }
   .hud { justify-content: center; gap: 6px; }
   .hint { display: none; }
-  .stat { padding: 4px 10px; }
-  .stat .value { font-size: 16px; }
-  .stage { width: min(100%, calc((100vh - 270px) * 1.0667)); }
-  .move-zone { width: min(56vw, 250px); height: 180px; }
+  .stat { padding: 3px 10px; }
+  .stat .label { font-size: 10px; }
+  .stat .value { font-size: 15px; }
+  /* first guess (svh = height with the browser's toolbars showing);
+     game.js then measures the real button position and fits the game above it */
+  .stage { width: min(100%, calc((100vh - 250px) * 1.0667)); }
+  @supports (height: 100svh) { .stage { width: min(100%, calc((100svh - 250px) * 1.0667)); } }
+  .move-zone { width: min(56vw, 250px); height: 170px; }
 }
 
 /* Short screens (phones held sideways): squeeze the title so it fits */
