@@ -538,10 +538,11 @@ button { font-family: inherit; }
    The canvas is capped so its bottom stays above the controls (~210px). */
 @media (orientation: portrait) and (pointer: coarse) {
   .wrap { justify-content: flex-start; padding: max(14px, env(safe-area-inset-top)) 8px 0; gap: 12px; min-height: 0; }
-  .hud { justify-content: center; gap: 8px; }
+  .hud { justify-content: center; gap: 6px; flex-wrap: nowrap; }
   .hint { display: none; }
-  .stat { padding: 7px 14px; }
-  .stat .value { font-size: 19px; }
+  .stat { padding: 5px 10px; white-space: nowrap; }
+  .stat .label { font-size: 11px; }
+  .stat .value { font-size: 16px; margin-left: 6px; }
   /* first guess (svh = height with the browser's toolbars showing);
      game.js then measures the real button position and fits the game above it */
   .stage { width: min(100%, calc((100vh - 250px) * 1.0667)); }
@@ -561,4 +562,16 @@ button { font-family: inherit; }
   .res { min-width: 76px; padding: 6px 10px; }
   .res b { font-size: 17px; }
   .overlay.over .logo, .overlay.clear .logo { font-size: clamp(30px, min(9vw, 13vh), 80px); }
+}
+
+/* Score numbers: fixed-width digits and a reserved width, so the boxes don't
+   change size (or wrap to a new line) every time the number changes. */
+.stat { white-space: nowrap; }
+.stat .value { display: inline-block; font-variant-numeric: tabular-nums; text-align: right; }
+#score, #best { min-width: 3.9em; }
+@media (max-width: 380px) {
+  .hud { gap: 4px; }
+  .stat { padding: 4px 8px; }
+  .stat .label { font-size: 10px; letter-spacing: 0.06em; }
+  .stat .value { font-size: 14px; margin-left: 4px; }
 }
