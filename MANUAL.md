@@ -24,10 +24,15 @@ dodge-game/
 │   ├── moratorium.js    ← 曲③「モラトリウム」（オリジナル曲）の拍・場面・譜面 ★よく編集する★
 │   ├── moratorium-score.js   ← 曲③の楽譜データ（音符・太鼓の時刻。自動で書き出したもの）
 │   ├── moratorium-env.js     ← 曲③の音量データ
-│   └── moratorium-compose.py ← 曲③を作曲・合成するプログラム（Python）
+│   ├── moratorium-compose.py ← 曲③を作曲・合成するプログラム（Python）
+│   ├── segment.js       ← 曲④「segment」（オリジナル曲）の拍・場面・譜面 ★よく編集する★
+│   ├── segment-score.js      ← 曲④の楽譜データ（ピアノ・鉄琴の音・ガラスの割れる時刻）
+│   ├── segment-env.js        ← 曲④の音量データ
+│   └── segment-compose.py    ← 曲④を作曲・合成するプログラム（Python）
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔・歯車・振り子）
+├── visuals-glass.js ← 曲④の見た目（ガラスの部屋・結晶・鍵盤の床・画面のひび）
 ├── style.css    ← 色やレイアウト（タイトル画面・ボタンの見た目）
 ├── the EmpErroR.mp3 / Re-Unknown_X.mp3 ← 曲
 └── MANUAL.md    ← この説明書
@@ -521,6 +526,22 @@ noteDrop(時刻, x, 速さ)            // 音符の雨: ちょうど「時刻」
 実行すると `moratorium.wav`（曲）と `score.json`（音符の時刻）ができるので、
 wav を mp3 にして `Moratorium.mp3` と置きかえ、score.json の中身を `moratorium-score.js` に写せば反映されます。
 
+### 5-7. 曲④「segment」で生まれた形態（ガラス・ピアノ・鉄琴）
+
+```js
+shard({ x, y, vx, vy, g })          // ガラスの破片（とがった三角の弾）。g = 重力（0 ならまっすぐ）
+pane({ x, y, w, h, at, n, speed })  // ガラスの板: 曲の時刻 at に割れて、n 枚の破片が (hx, hy) から外へ飛び散る。
+                                    //   割れるまでは当たらない（ひびがだんだん広がるのが予告）。at の少し前に呼ぶ
+crack({ x, y, arms, a0, spread, len, speed })   // ひび割れ: 予告のあと、根もとから speed px/秒 で伸びていく線に当たる
+keyDrop(時刻, x, 長さ秒, 速さ)       // 鍵盤ブロック: ちょうど「時刻」に地面に着く。長い音ほど長いブロック。{ at, go } を返す
+prism({ x, y, a, v, turn, every })  // プリズム弾: every 拍ごとに turn（ラジアン）だけカクッと曲がる。次の向きが点線で見える
+```
+
+曲④の譜面では、ピアノの旋律（`SCORE_SEGMENT.chorus` など）を `keyDrop` に、
+鉄琴の旋律（`SCORE_SEGMENT.hook` など）を `prism` に、ガラスの割れる音（`SCORE_SEGMENT.shatter`）を `pane` にしています。
+地面はピアノの鍵盤になっていて、ブロックが着くとその鍵が光ります。
+作り直し方は曲③と同じです（`songs/segment-compose.py` → `segment.wav` と `score.json` → `Segment.mp3` と `segment-score.js`）。
+
 ---
 
 ## 6. 弾幕レシピ集（コピペで使える）
@@ -649,7 +670,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'` か `'night'`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
 4. `index.html` の下の方、`songs/unknown.js` の次の行に `<script src="songs/mysong.js"></script>` を足す
 

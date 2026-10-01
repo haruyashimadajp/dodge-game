@@ -133,7 +133,8 @@ function blip(x, y, b) {
 
 // エンジンからのフック -----------------------------------------------------
 function fxFire(b) {                          // 警告が終わって弾が飛び出した瞬間
-  if (b.kind === 'ufo') return;
+  if (b.kind === 'ufo' || b.kind === 'key') return;
+  if (b.kind === 'crack') { sparks(b.x, b.y, { n: 10, color: bulletColor(b), speed: 220, life: 0.35, size: 2.5, gravity: 0 }); shake(3); return; }
   if (b.kind === 'laser') {                   // ビーム: 両はしで火花、画面が少しゆれる
     const c = bulletColor(b);
     for (const [x, y] of [[b.x1, b.y1], [b.x2, b.y2], [b.x, b.y]]) {
@@ -177,6 +178,18 @@ function fxTimeStop() {
   punch(0.05); shake(6);
 }
 function fxRewind() { fx.rewindT = 0.8; shake(5); }
+function fxShatter(b) {                       // ガラスの板が割れた
+  const s = b.size || 1, c = bulletColor(b);
+  sparks(b.hx, b.hy, { n: Math.round(30 * s), color: '#ffffff', speed: 420, life: 0.6, size: 2.5, gravity: 300 });
+  sparks(b.hx, b.hy, { n: Math.round(16 * s), color: c, speed: 300, life: 0.8, size: 3, gravity: 300 });
+  shockRing(b.hx, b.hy, { color: '#ffffff', size: 160 + 140 * s, life: 0.5, width: 4 });
+  flash(0.2 + 0.25 * s); shake(5 + 7 * s); punch(0.015 * s);
+  if (theme().shatter) theme().shatter(b);
+}
+function fxKey(b) {                           // 鍵盤ブロックが地面（鍵盤）に着いた
+  sparks(b.x, GROUND_Y - 2, { n: 6, color: bulletColor(b), speed: 170, life: 0.35, size: 2.5, gravity: 400, dir: -Math.PI / 2, spread: 2.2 });
+  if (theme().keyHit) theme().keyHit(b);
+}
 
 // ---- セクション（曲の場面）ごとの見た目 --------------------------------
 // タイトル画面の見た目は、選んでいる曲の titleLook（songs/*.js）
@@ -526,6 +539,9 @@ function drawBullets(T, look, k) {
   for (const b of bullets) {
     if (b.kind === 'laser') drawLaser(b, T, k);
     else if (b.kind === 'ufo') drawUfo(b.x, b.y, b.size, bulletColor(b), 1, T, k, b.firedAt != null ? clamp01(1 - (b.age - b.firedAt) * 4) : 0);
+    else if (b.kind === 'pane') drawPane(b, T, k);
+    else if (b.kind === 'crack') drawCrack(b, T, k);
+    else if (b.kind === 'key') drawKey(b, T, k);
   }
 
   // 警告（溜め中）: 回転する3本の弧 ＋ だんだん満ちる中身 ＋ 進む向きのガイド線
@@ -613,6 +629,13 @@ function drawBullets(T, look, k) {
       ctx.fillStyle = 'rgba(255,255,255,0.92)';
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.58, 0, TAU); ctx.fill();
     }
+    if (b.tx != null) {                            // プリズム弾: 次に曲がる向き
+      ctx.strokeStyle = rgba(c, 0.5);
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x + b.tx * 46, b.y + b.ty * 46); ctx.stroke();
+      ctx.setLineDash([]);
+    }
     if (b.nx != null) {                            // ブリンク: 次に跳ぶ場所の予告
       ctx.strokeStyle = rgba(c, 0.45);
       ctx.lineWidth = 1.5;
@@ -677,6 +700,113 @@ function drawLaser(b, T, k) {
   ctx.strokeStyle = rgba(c, 0.8 * fade);  ctx.lineWidth = w; line();
   ctx.strokeStyle = rgba([255, 255, 255], 0.9 * fade); ctx.lineWidth = Math.max(1, w * 0.35); line();
   ctx.globalCompositeOperation = 'source-over';
+}
+
+// ガラスの板: うすい板 ＋ ふちの光 ＋ 中心から広がっていくひび（全部広がったら割れる）。当たらない
+function drawPane(b, T, k) {
+  const c = bulletColor(b), R = b.rect, p = b.p || 0;
+  const jit = p > 0.85 ? (Math.random() - 0.5) * 3 * (p - 0.85) / 0.15 : 0;
+  ctx.save();
+  ctx.translate(jit, jit * 0.5);
+  ctx.fillStyle = rgba(c, 0.05 + 0.07 * p);
+  ctx.fillRect(R.x, R.y, R.w, R.h);
+  ctx.strokeStyle = rgba(mixC(c, [255, 255, 255], 0.5), 0.35 + 0.4 * p);
+  ctx.lineWidth = 2;
+  ctx.strokeRect(R.x, R.y, R.w, R.h);
+  ctx.strokeStyle = rgba([255, 255, 255], 0.12 + 0.1 * p);       // 光の映りこみ（ななめの2本線）
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(R.x + R.w * 0.12, R.y + R.h); ctx.lineTo(R.x + R.w * 0.32, R.y);
+  ctx.moveTo(R.x + R.w * 0.22, R.y + R.h); ctx.lineTo(R.x + R.w * 0.36, R.y);
+  ctx.stroke();
+  // ひび: 進みぐあい p に合わせて、中心から伸びる
+  const reach = p * 7;
+  ctx.strokeStyle = rgba([255, 255, 255], 0.55 + 0.4 * p);
+  ctx.lineWidth = 1.2 + p;
+  ctx.lineJoin = 'miter';
+  ctx.beginPath();
+  for (const pts of b.cracks) {
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length && i - 1 < reach; i++) {
+      const f = Math.min(1, reach - (i - 1));
+      ctx.lineTo(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f);
+    }
+  }
+  b.rings.forEach((ring, j) => {
+    if (p < 0.45 + j * 0.3) return;
+    ring.forEach((q, i) => { if (i === 0) ctx.moveTo(q[0], q[1]); else ctx.lineTo(q[0], q[1]); });
+    ctx.closePath();
+  });
+  ctx.stroke();
+  ctx.fillStyle = rgba([255, 255, 255], 0.5 + 0.5 * p);          // ひびの中心（当たったところ）
+  ctx.beginPath(); ctx.arc(b.hx, b.hy, 3 + 4 * p, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
+// ひび割れ: 予告中はうすいギザギザの線。始まったら根もとから明るい線が伸びる
+function drawCrack(b, T, k) {
+  const c = bulletColor(b);
+  const path = full => {
+    ctx.beginPath();
+    for (const s of b.segs) {
+      if (full) { ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); continue; }
+      if (s[4] >= b.reach) continue;
+      const l = Math.hypot(s[2] - s[0], s[3] - s[1]), f = Math.min(1, (b.reach - s[4]) / l);
+      ctx.moveTo(s[0], s[1]); ctx.lineTo(s[0] + (s[2] - s[0]) * f, s[1] + (s[3] - s[1]) * f);
+    }
+  };
+  ctx.lineCap = 'round';
+  if (b.delay > 0) {
+    const p = b.delayMax > 0 ? 1 - b.delay / b.delayMax : 1, on = p > 0.6 || Math.floor(T * 14) % 2 === 0;
+    ctx.strokeStyle = rgba(c, 0.06 + 0.1 * p); ctx.lineWidth = b.r * 2; path(true); ctx.stroke();
+    ctx.strokeStyle = rgba(c, on ? 0.3 + 0.45 * p : 0.12); ctx.lineWidth = 1.2; path(true); ctx.stroke();
+    ctx.fillStyle = rgba(c, 0.5 + 0.4 * p);
+    ctx.beginPath(); ctx.arc(b.x, b.y, 4 + 3 * p, 0, TAU); ctx.fill();
+    return;
+  }
+  const fade = b.safe ? clamp01(1 - (b.reach - b.reachMax - b.hold * b.speed) / (0.3 * b.speed)) : 1;
+  ctx.globalCompositeOperation = 'lighter';
+  if (gfx > 0) { ctx.strokeStyle = rgba(c, 0.25 * fade); ctx.lineWidth = b.r * 2 + 8; path(false); ctx.stroke(); }
+  ctx.strokeStyle = rgba(c, 0.85 * fade); ctx.lineWidth = b.r * 2 * (b.safe ? fade : 1); path(false); ctx.stroke();
+  ctx.strokeStyle = rgba([255, 255, 255], 0.95 * fade); ctx.lineWidth = Math.max(1, b.r * 0.6); path(false); ctx.stroke();
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// 鍵盤ブロック: 予告中は落ちてくる列がうすく光る。落ちてきたら縦長の光るブロック（地面より下は見えない）
+function drawKey(b, T, k) {
+  const c = bulletColor(b), x0 = b.x - b.w / 2;
+  if (b.delay > 0) {
+    const p = b.delayMax > 0 ? 1 - b.delay / b.delayMax : 1;
+    const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+    g.addColorStop(0, rgba(c, 0.02)); g.addColorStop(1, rgba(c, 0.08 + 0.14 * p));
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, 0, b.w, GROUND_Y);
+    ctx.fillStyle = rgba(c, 0.4 + 0.5 * p);
+    ctx.fillRect(x0 + 3, GROUND_Y - 4, b.w - 6, 3);
+    return;
+  }
+  const top = b.y - b.h, bot = Math.min(b.y, GROUND_Y);
+  if (bot <= top) return;
+  if (gfx > 0) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = rgba(c, 0.16);
+    ctx.fillRect(x0 - 6, top - 6, b.w + 12, bot - top + 6);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  const g = ctx.createLinearGradient(0, top, 0, bot);
+  g.addColorStop(0, rgba(mixC(c, [255, 255, 255], 0.5), 0.95)); g.addColorStop(1, rgba(c, 0.85));
+  ctx.fillStyle = g;
+  roundRect(x0, top, b.w, bot - top, 5);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  if (b.landed) {                                        // 鍵盤が押されている光
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = rgba(c, 0.5);
+    ctx.fillRect(x0 - 4, GROUND_Y - 3, b.w + 8, 6);
+    ctx.globalCompositeOperation = 'source-over';
+  }
 }
 
 // UFO（円盤）: 胴体 ＋ 丸い屋根 ＋ まわりを回るライト。s = 大きさ、a = 濃さ、fire = 撃った瞬間の光(0〜1)

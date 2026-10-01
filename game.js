@@ -1448,6 +1448,136 @@ function noteDrop(t, x, v = 420, { r = 8, color, warn = 0.35 } = {}) {
   }) };
 }
 
+/* ---- ここから下は「segment」で生まれた形態（ガラス・ピアノ・鉄琴）--------------- */
+
+// ガラスの破片（見た目 'shard' = とがった三角）。g = 重力（0 ならまっすぐ飛ぶ）
+function shardFall(b, dt) {
+  b.vy += b.g * dt;
+  b.x += b.vx * dt; b.y += b.vy * dt;
+  if (b.vy > 0 && b.y >= GROUND_Y - 2) {                       // 地面に落ちたら、くだけて消える
+    if (typeof sparks === 'function') sparks(b.x, GROUND_Y - 2, { n: 3, color: b.color || '#dff6ff', speed: 120, life: 0.3, size: 2, gravity: 500, dir: -Math.PI / 2, spread: 2.2 });
+    b.dead = true;
+  }
+}
+function shard({ x, y, vx = 0, vy = 200, g = 0, r = 7, delay = 0, color, spd }) {
+  return spawn({ x, y, vx, vy, g, r, delay, color, spd, style: 'shard', spin: rand(-5, 5), move: g ? shardFall : straight });
+}
+
+// ★ガラスの板★ (x, y) を中心にした w×h の板。曲の時刻 at にパリンと割れて、
+// n 枚の破片がひびの中心 (hx, hy) から外へ飛び散り、重力で落ちる。
+// 割れるまでは当たらない（ひびがだんだん広がっていくのが予告）。譜面では at の warn 秒前に呼ぶ
+function pane({ x, y, w, h, at, hx = x, hy = y, n = 24, speed = 220, g = 260, r = 7, color, size = 1 }) {
+  const L = x - w / 2, T = y - h / 2;
+  const inside = (px, py) => [Math.max(L, Math.min(L + w, px)), Math.max(T, Math.min(T + h, py))];
+  const cracks = [];
+  const arms = 7 + Math.round(size * 3);
+  for (let i = 0; i < arms; i++) {                             // ひび: 中心から放射状に、ギザギザに伸びる
+    let a = (i + rand(-0.3, 0.3)) / arms * TAU, px = hx, py = hy;
+    const pts = [[px, py]];
+    for (let s = 0; s < 7; s++) {
+      a += rand(-0.35, 0.35);
+      [px, py] = inside(px + Math.cos(a) * rand(22, 58) * (0.6 + size * 0.4), py + Math.sin(a) * rand(22, 58) * (0.6 + size * 0.4));
+      pts.push([px, py]);
+    }
+    cracks.push(pts);
+  }
+  const rings = [0.28, 0.55].map(f => Array.from({ length: arms }, (_, i) => cracks[i][Math.round(f * 7)]));   // 輪のようなひび
+  return spawn({
+    kind: 'pane', x: hx, y: hy, r: 4, safe: true, spd: 1, rect: { x: L, y: T, w, h }, at, t0: songTime, cracks, rings,
+    color, n, speed, g, rr: r, hx, hy, size,
+    move(b) {
+      b.p = Math.max(0, Math.min(1, (songTime - b.t0) / Math.max(0.01, b.at - b.t0)));   // 割れるまでの進みぐあい 0〜1
+      if (songTime < b.at) return;
+      const cols = Math.max(1, Math.round(Math.sqrt(b.n * b.rect.w / b.rect.h))), rows = Math.ceil(b.n / cols);
+      for (let i = 0; i < b.n; i++) {                          // 板をます目に分けて、1マスに1枚
+        const sx = b.rect.x + ((i % cols) + rand(0.15, 0.85)) * b.rect.w / cols;
+        const sy = b.rect.y + (Math.floor(i / cols) + rand(0.15, 0.85)) * b.rect.h / rows;
+        const a = Math.atan2(sy - b.hy, sx - b.hx) + rand(-0.25, 0.25);
+        const v = b.speed * rand(0.55, 1.15);
+        shard({ x: sx, y: sy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, g: b.g, r: b.rr * rand(0.8, 1.2), color: b.color });
+      }
+      if (typeof fxShatter === 'function') fxShatter(b);
+      b.dead = true;
+    },
+  });
+}
+
+// ★ひび割れ★ (x, y) からガラスにひびが走る。予告（うすい線）のあと、ひびが根もとから
+// speed px/秒 でギザギザに伸びていき、伸びたところに当たる。伸びきってから hold 秒で消える。
+//   arms = 何本に分かれるか / a0 = まん中の向き / spread = 広がる角度 / len = 1本の長さ
+function crack({ x, y, arms = 3, a0 = Math.PI / 2, spread = 1.2, len = 360, speed = 900, width = 8, delay = 0.7, hold = 0.35, color }) {
+  const segs = [];                                               // [x1, y1, x2, y2, 根もとからの距離]
+  const grow = (sx, sy, a, d, left, depth) => {
+    while (left > 1) {
+      const l = Math.min(left, rand(34, 62));
+      a += rand(-0.38, 0.38);
+      const nx = sx + Math.cos(a) * l, ny = sy + Math.sin(a) * l;
+      segs.push([sx, sy, nx, ny, d]);
+      d += l; left -= l; sx = nx; sy = ny;
+      if (depth === 0 && left > 80 && Math.random() < 0.3) grow(sx, sy, a + (Math.random() < 0.5 ? -1 : 1) * rand(0.5, 0.9), d, left * 0.55, 1);
+    }
+  };
+  for (let i = 0; i < arms; i++) {
+    const a = arms === 1 ? a0 : a0 - spread / 2 + spread * i / (arms - 1);
+    grow(x, y, a + rand(-0.12, 0.12), 0, len * rand(0.85, 1.1), 0);
+  }
+  const reachMax = Math.max(...segs.map(s => s[4] + Math.hypot(s[2] - s[0], s[3] - s[1])));
+  return spawn({
+    kind: 'crack', x, y, r: width / 2, segs, delay, hold, speed, color, reach: 0, reachMax,
+    move(b) {
+      b.reach = b.age * b.speed;
+      if (b.reach > b.reachMax + b.hold * b.speed) b.safe = true;
+      if (b.reach > b.reachMax + (b.hold + 0.3) * b.speed) b.dead = true;
+    },
+    hits: b => b.segs.some(s => {
+      if (s[4] >= b.reach) return false;
+      const l = Math.hypot(s[2] - s[0], s[3] - s[1]), k = Math.min(1, (b.reach - s[4]) / l);
+      return segmentHitsPlayer(s[0], s[1], s[0] + (s[2] - s[0]) * k, s[1] + (s[3] - s[1]) * k, b.r);
+    }),
+  });
+}
+
+// ★鍵盤ブロック★ ピアノの音が、鳴るちょうどその瞬間に地面（鍵盤）に着く縦長のブロック。
+// ブロックの長さ = 音の長さ。音がのびているあいだ地面に吸いこまれ続けるので、その間そこには立てない
+//   t = 着く時刻 / x = 場所 / dur = 音の長さ（秒）/ v = 落ちる速さ / w = 幅
+function keyDrop(t, x, dur, v = 520, { w = 34, color, warn = 0.3 } = {}) {
+  const h = Math.max(18, dur * v - 6), y0 = -12, travel = (GROUND_Y - y0) / v;
+  return { at: t - travel - warn, go: () => spawn({
+    kind: 'key', x, y: y0, w, h, r: h, vy: v, delay: warn, color, spd: 1,
+    move(b, dt) {
+      b.y += b.vy * dt;                                          // b.y = ブロックの下のはし
+      if (!b.landed && b.y >= GROUND_Y) { b.landed = true; if (typeof fxKey === 'function') fxKey(b); }
+      if (b.y - b.h > GROUND_Y) b.dead = true;
+    },
+    hits: b => {
+      const top = b.y - b.h, bot = Math.min(b.y, GROUND_Y);
+      return bot > top && player.x < b.x + b.w / 2 - 3 && player.x + player.w > b.x - b.w / 2 + 3 && player.y < bot - 3 && player.y + player.h > top + 3;
+    },
+  }) };
+}
+
+// ★プリズム弾★ まっすぐ飛ぶが、every 拍ごとに光が屈折するように turn（ラジアン）だけカクッと曲がる。
+// alt = true なら毎回逆に曲がる（ジグザグ）。次に曲がる向きは短い点線で見える
+function prism({ x, y, a, v = 200, turn = 0.6, alt = true, every = 1, r = 7, delay = 0, color, style = 'shard' }) {
+  return spawn({
+    x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r, delay, color, style, turn, alt, every, noTrail: true,
+    move(b, dt) {
+      const n = beatIndex(songTime, b.every);
+      if (b.n0 == null) b.n0 = b.lastN = n;
+      if (n > b.lastN) {
+        b.lastN = n;
+        const c = Math.cos(b.turn), s = Math.sin(b.turn);
+        [b.vx, b.vy] = [b.vx * c - b.vy * s, b.vx * s + b.vy * c];
+        if (b.alt) b.turn = -b.turn;
+        if (typeof blip === 'function') blip(b.x, b.y, b);
+      }
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      const c = Math.cos(b.turn), s = Math.sin(b.turn), sp = Math.hypot(b.vx, b.vy) || 1;
+      b.tx = (b.vx * c - b.vy * s) / sp; b.ty = (b.vx * s + b.vy * c) / sp;   // 次に曲がる向き（予告の点線）
+    },
+  });
+}
+
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
 let chart = [];
 let chartIndex = 0;
