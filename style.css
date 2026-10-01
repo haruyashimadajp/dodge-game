@@ -537,12 +537,11 @@ button { font-family: inherit; }
 /* Phone held upright: game at the top, controls in the space below it.
    The canvas is capped so its bottom stays above the controls (~210px). */
 @media (orientation: portrait) and (pointer: coarse) {
-  .wrap { justify-content: flex-start; padding: max(4px, env(safe-area-inset-top)) 6px 0; gap: 4px; min-height: 0; }
-  .hud { justify-content: center; gap: 6px; }
+  .wrap { justify-content: flex-start; padding: max(14px, env(safe-area-inset-top)) 8px 0; gap: 12px; min-height: 0; }
+  .hud { justify-content: center; gap: 8px; }
   .hint { display: none; }
-  .stat { padding: 3px 10px; }
-  .stat .label { font-size: 10px; }
-  .stat .value { font-size: 15px; }
+  .stat { padding: 7px 14px; }
+  .stat .value { font-size: 19px; }
   /* first guess (svh = height with the browser's toolbars showing);
      game.js then measures the real button position and fits the game above it */
   .stage { width: min(100%, calc((100vh - 250px) * 1.0667)); }

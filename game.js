@@ -592,14 +592,23 @@ function updateTouchControls() {
 // positions, because mobile browsers' toolbars change the usable height.
 function fitStage() {
   const stageEl = document.querySelector('.stage');
+  const wrapEl = document.querySelector('.wrap');
   stageEl.style.width = '';
+  wrapEl.style.paddingTop = '';
   const portrait = innerHeight > innerWidth;
   if (touchControls.classList.contains('hidden') || !portrait) return;
   const ctlTop = Math.min(moveZone.getBoundingClientRect().top, jumpBtn.getBoundingClientRect().top);
   const top = stageEl.getBoundingClientRect().top;
-  const room = ctlTop - 8 - top;                          // free height above the controls
+  const room = ctlTop - 12 - top;                         // free height above the controls
   const w = Math.min(stageEl.getBoundingClientRect().width, room * W / H);
   if (w > 0) stageEl.style.width = Math.floor(w) + 'px';
+  // Left-over space (tall phones): split it above and below, so the score and
+  // the game sit in the middle of the area above the buttons, not jammed at the top.
+  const free = ctlTop - 12 - stageEl.getBoundingClientRect().bottom;
+  if (free > 8) {
+    const base = parseFloat(getComputedStyle(wrapEl).paddingTop) || 0;
+    wrapEl.style.paddingTop = Math.round(base + free / 2) + 'px';
+  }
 }
 window.addEventListener('resize', fitStage);
 window.addEventListener('orientationchange', () => setTimeout(fitStage, 300));
