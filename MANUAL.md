@@ -31,12 +31,16 @@ dodge-game/
 │   ├── segment-compose.py    ← 曲④を作曲・合成するプログラム（Python）
 │   ├── vertigo.js       ← 曲⑤「Vertigo」（オリジナル曲）の拍・場面・譜面 ★よく編集する★
 │   ├── vertigo-score.js      ← 曲⑤の楽譜データ / vertigo-env.js ← 曲⑤の音量データ
-│   └── vertigo-compose.py    ← 曲⑤を作曲・合成するプログラム（Python）
+│   ├── vertigo-compose.py    ← 曲⑤を作曲・合成するプログラム（Python）
+│   ├── extremeex.js     ← 曲⑥「ExtremeEX」（オリジナル曲・最高難度）の拍・場面・譜面
+│   ├── extremeex-score.js / extremeex-env.js ← 曲⑥の楽譜データ / 音量データ
+│   └── extremeex-compose.py  ← 曲⑥を作曲・合成するプログラム（「ヴイーン」のシンセ = vwoon）
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔・歯車・振り子）
 ├── visuals-glass.js ← 曲④の見た目（ガラスの部屋・結晶・鍵盤の床・画面のひび）
 ├── visuals-gyro.js  ← 曲⑤の見た目（飛行機の姿勢計・流れる鉄板の床・水準器）
+├── visuals-ex.js    ← 曲⑥の見た目（黒と赤の警告色・EXの紋章・WARNINGの帯）
 ├── style.css    ← 色やレイアウト（タイトル画面・ボタンの見た目）
 ├── the EmpErroR.mp3 / Re-Unknown_X.mp3 ← 曲
 └── MANUAL.md    ← この説明書
@@ -697,7 +701,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
 4. `index.html` の下の方、`songs/unknown.js` の次の行に `<script src="songs/mysong.js"></script>` を足す
 

@@ -4,13 +4,14 @@ A 2D dodge game built with plain HTML / CSS / JavaScript (Canvas).
 Mario-like platformer controls — run, jump between platforms, and dodge
 bullets fired in time with the music. Survive to the end of the song to clear it.
 
-Five songs, each with its own chart and look (pick one on the title screen with ◀ ▶):
+Six songs, each with its own chart and look (pick one on the title screen with ◀ ▶):
 
 - **the EmpErroR** — 120 BPM, neon shapes, fireworks, meteors
 - **Re:Unknown X** — 190 BPM, a moonlit night with red / green / blue UFOs, searchlights and danmaku-style bullets; the effects grow with the song's intensity
 - **モラトリウム** (Moratorium) — an original 150 BPM song made for this game (composed and synthesized in `songs/moratorium-compose.py`); a clock tower at dusk with time stops, rewinds, pendulums, clock-hand beams and melody notes that land exactly when they sound
 - **segment** — an original 160 BPM song of piano, glockenspiel and breaking glass (`songs/segment-compose.py`); a room of glass where panes shatter on the glass hits, cracks spread across the screen, piano notes fall as key blocks onto a keyboard floor, and glockenspiel notes refract like light
 - **Vertigo** — an original 128 BPM wobbling electro track (`songs/vertigo-compose.py`); almost no bullets — the stage itself is the enemy: the world tilts and you slide, the floor runs like a conveyor belt, holes open, electric walls close in, and the screen turns upside down, mirrors and zooms in
+- **ExtremeEX** — the hardest: an original 200 BPM hardcore track built on a screaming synth that whines up into every note (`songs/extremeex-compose.py`); a boss rush that mixes the mechanics of all the other songs
 
 ## Play
 
@@ -33,6 +34,7 @@ Open `index.html` in a web browser.
 | `visuals-dusk.js` | The dusk / clock-tower theme used by モラトリウム |
 | `visuals-glass.js` | The glass-room theme used by segment |
 | `visuals-gyro.js` | The attitude-indicator theme used by Vertigo |
+| `visuals-ex.js` | The black-and-red alarm theme used by ExtremeEX |
 | `songs/moratorium-compose.py` | Composes and renders モラトリウム (Python + numpy/scipy) and writes its note timings |
 | `songs/segment-compose.py` | Composes and renders segment (piano, glockenspiel, breaking glass) and writes its note timings |
 | `style.css` | Colors and layout |
