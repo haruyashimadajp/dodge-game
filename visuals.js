@@ -134,6 +134,8 @@ function blip(x, y, b) {
 // エンジンからのフック -----------------------------------------------------
 function fxFire(b) {                          // 警告が終わって弾が飛び出した瞬間
   if (b.kind === 'ufo' || b.kind === 'key') return;
+  if (b.kind === 'popup') { shake(2); return; }
+  if (b.kind === 'worm') { sparks(b.x, b.y, { n: 12, color: bulletColor(b), speed: 240, life: 0.4, size: 3, gravity: 0 }); return; }
   if (b.kind === 'crack') { sparks(b.x, b.y, { n: 10, color: bulletColor(b), speed: 220, life: 0.35, size: 2.5, gravity: 0 }); shake(3); return; }
   if (b.kind === 'laser') {                   // ビーム: 両はしで火花、画面が少しゆれる
     const c = bulletColor(b);
@@ -185,6 +187,9 @@ function fxShatter(b) {                       // ガラスの板が割れた
   shockRing(b.hx, b.hy, { color: '#ffffff', size: 160 + 140 * s, life: 0.5, width: 4 });
   flash(0.2 + 0.25 * s); shake(5 + 7 * s); punch(0.015 * s);
   if (theme().shatter) theme().shatter(b);
+}
+function fxSplat(x, y, b) {                   // ウイルスが床に着いた（感染のはじまり）
+  sparks(x, y, { n: 10, color: bulletColor(b), speed: 200, life: 0.4, size: 3, gravity: 0, dir: y < H / 2 ? Math.PI / 2 : -Math.PI / 2, spread: 2.4 });
 }
 function fxKey(b) {                           // 鍵盤ブロックが地面（鍵盤）に着いた
   sparks(b.x, GROUND_Y - 2, { n: 6, color: bulletColor(b), speed: 170, life: 0.35, size: 2.5, gravity: 400, dir: -Math.PI / 2, spread: 2.2 });
@@ -520,6 +525,7 @@ function drawStage(look, k, bp) {
   ctx.beginPath(); ctx.moveTo(-400, GROUND_Y + 1); ctx.lineTo(W + 400, GROUND_Y + 1); ctx.stroke();
 
   drawHoles(songTime, look);
+  drawCeiling(look, k);
 
   // 浮いている足場
   for (const p of platforms) {
@@ -556,6 +562,43 @@ function drawStage(look, k, bp) {
     ctx.fillStyle = rgba([255, 255, 255], 0.55 + 0.35 * k);
     ctx.fillRect(p.x + 5, p.y + 1, p.w - 10, 2);
     ctx.globalCompositeOperation = 'source-over';
+  }
+  drawInfect(songTime, look);
+}
+
+// 天井（曲⑦ Malware の重力バグのあいだだけ出てくる）
+function drawCeiling(look, k) {
+  if (stage.ceil <= 0.01) return;
+  const th = theme();
+  if (th.ceiling) { th.ceiling(look, k, stage.ceil); return; }
+  const a = stage.ceil, y = CEIL_Y * a - 200 * (1 - a);
+  ctx.fillStyle = rgba(mixC(look.skyTop, [0, 0, 0], 0.4), a);
+  ctx.fillRect(-400, -400, W + 800, y + 400);
+  ctx.strokeStyle = rgba(look.color, 0.9 * a); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-400, y); ctx.lineTo(W + 400, y); ctx.stroke();
+}
+
+// 感染した床（曲⑦ Malware）: 潜伏中は点滅するわく → トゲ → 治ると消える
+function drawInfect(T, look) {
+  if (!malware.tiles.length) return;
+  const th = theme();
+  for (const t of malware.tiles) {
+    if (T < t.on) continue;
+    const ceil = !!t.p.ceil, y = ceil ? CEIL_Y : t.p.y, dir = ceil ? 1 : -1, w = t.x1 - t.x0;
+    if (th.infect) { th.infect(t, T, y, dir); continue; }
+    if (T < t.live) {
+      const p = (T - t.on) / (t.live - t.on), on = p > 0.6 || Math.floor(T * 14) % 2 === 0;
+      ctx.fillStyle = `rgba(160,255,90,${on ? 0.18 + 0.3 * p : 0.08})`;
+      ctx.fillRect(t.x0 + 1, ceil ? y : y - 6, w - 2, 6);
+      continue;
+    }
+    const a = T > t.off ? 1 - (T - t.off) / 0.3 : 1, grow = clamp01((T - t.live) / 0.08);
+    ctx.fillStyle = `rgba(120,255,80,${(0.9 * a).toFixed(3)})`;
+    ctx.beginPath();
+    for (let x = t.x0; x < t.x1 - 2; x += 10) {
+      ctx.moveTo(x, y); ctx.lineTo(x + 5, y + dir * 12 * grow); ctx.lineTo(Math.min(t.x1, x + 10), y);
+    }
+    ctx.fill();
   }
 }
 
@@ -649,6 +692,49 @@ function drawLock(b, T) {
     ctx.fillText('LOCK', b.x, b.y - b.r - 12);
   }
 }
+// ワーム: 節の四角がつながった長い体。予告中は出てくる穴（ノイズの円）だけ
+function drawWorm(b, T, k) {
+  const c = bulletColor(b), th = theme();
+  if (b.delay > 0) {
+    const p = 1 - b.delay / b.delayMax, on = p > 0.6 || Math.floor(T * 14) % 2 === 0;
+    ctx.strokeStyle = rgba(c, on ? 0.9 : 0.35); ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r * (2.6 - 1.2 * p), 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = rgba(c, 0.15 + 0.3 * p); ctx.beginPath(); ctx.arc(b.x, b.y, b.r * p, 0, TAU); ctx.fill();
+    return;
+  }
+  if (th.worm) { th.worm(b, c, T, k); return; }
+  for (let i = b.segs.length - 1; i >= 0; i--) {
+    const s = b.segs[i], R = i ? b.r * 0.8 : b.r;
+    ctx.fillStyle = i ? rgba(i % 2 ? c : mixC(c, [255, 255, 255], 0.4), 1) : '#fff';
+    ctx.fillRect(s.x - R, s.y - R, R * 2, R * 2);
+  }
+}
+// エラー画面: 予告 = 点線のわく ＋ 読みこみ中のバー → 開く（少し大きくなって止まる）→ 閉じる（縮む）
+function drawPopup(b, T, k) {
+  const c = bulletColor(b), th = theme();
+  const x = b.x - b.w / 2, y = b.y - b.h / 2;
+  if (b.delay > 0) {
+    const p = 1 - b.delay / b.delayMax, on = p > 0.6 || Math.floor(T * 14) % 2 === 0;
+    ctx.strokeStyle = rgba(c, on ? 0.85 : 0.3); ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+    ctx.strokeRect(x, y, b.w, b.h); ctx.setLineDash([]);
+    ctx.fillStyle = rgba(c, 0.06 + 0.1 * p); ctx.fillRect(x, y, b.w, b.h);
+    ctx.fillStyle = rgba(c, 0.8); ctx.fillRect(x + 12, b.y - 3, (b.w - 24) * p, 6);
+    return;
+  }
+  const open = clamp01(b.age / 0.07), close = b.age > b.hold ? clamp01(1 - (b.age - b.hold) / 0.15) : 1;
+  const sc = (0.85 + 0.15 * easeOut(open)) * close;
+  ctx.save();
+  ctx.translate(b.x, b.y); ctx.scale(sc, sc); ctx.translate(-b.x, -b.y);
+  ctx.globalAlpha = b.safe ? 0.6 : 1;
+  if (th.popup) th.popup(b, c, x, y, T, k);
+  else {
+    ctx.fillStyle = '#c0c0c0'; ctx.fillRect(x, y, b.w, b.h);
+    ctx.fillStyle = rgba(c, 1); ctx.fillRect(x + 3, y + 3, b.w - 6, 20);
+    ctx.font = '700 13px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff'; ctx.fillText(b.title, x + 9, y + 13);
+  }
+  ctx.restore();
+}
 function drawHint(T) {
   const h = stage.hint;
   if (!h || scene !== 'play') return;
@@ -677,6 +763,8 @@ function drawBullets(T, look, k) {
     else if (b.kind === 'crack') drawCrack(b, T, k);
     else if (b.kind === 'key') drawKey(b, T, k);
     else if (b.kind === 'lock') drawLock(b, T);
+    else if (b.kind === 'worm') drawWorm(b, T, k);
+    else if (b.kind === 'popup') drawPopup(b, T, k);
   }
 
   // 警告（溜め中）: 回転する3本の弧 ＋ だんだん満ちる中身 ＋ 進む向きのガイド線
@@ -1051,6 +1139,11 @@ function drawHero(look, k) {
   // タイトル画面では拍に合わせて小さく跳ねる
   const bob = scene === 'title' ? -Math.abs(Math.sin(titleBeat() * Math.PI)) * 6 : 0;
 
+  ctx.save();
+  if (stage.gravVis < 0.999) {                                   // 重力バグ: 上下さかさまに立つ
+    const cy = player.y + player.h / 2;
+    ctx.translate(0, cy); ctx.scale(1, Math.abs(stage.gravVis) < 0.05 ? 0.05 * Math.sign(stage.gravVis || 1) : stage.gravVis); ctx.translate(0, -cy);
+  }
   const s = player.squash;
   const sx = 1 - s * 0.18, sy = 1 + s * 0.18;
   const cx = player.x + player.w / 2;
@@ -1088,6 +1181,7 @@ function drawHero(look, k) {
   const wob = moving ? Math.sin(elapsed * 18) * 2 : 0;
   roundRect(x + w * 0.06, footY - wob, footW, footH, 3); ctx.fill();
   roundRect(x + w * 0.60, footY + wob, footW, footH, 3); ctx.fill();
+  ctx.restore();
   ctx.restore();
 }
 

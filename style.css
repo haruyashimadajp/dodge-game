@@ -733,3 +733,30 @@ body[data-theme="ex"] .start-btn {
 }
 body[data-theme="ex"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(255, 255, 255, 0.95), 0 0 48px rgba(255, 210, 63, 0.6); }
 body[data-theme="ex"] .seg-btn.active { background: linear-gradient(90deg, #b0122a, #b8901a); }
+
+/* Malware: black-and-green terminal */
+body[data-theme="virus"] {
+  --accent: #39ff6a;
+  --accent-2: #ff2bd6;
+  --text-dim: #8fc79f;
+  background: radial-gradient(ellipse at 50% 40%, rgba(57, 255, 106, 0.12), transparent 60%), #000804;
+}
+body[data-theme="virus"] .stat { background: rgba(0, 20, 10, 0.85); font-family: ui-monospace, Menlo, Consolas, monospace; }
+body[data-theme="virus"] canvas { box-shadow: 0 0 0 1px rgba(57,255,106,0.3), 0 20px 60px rgba(0,0,0,0.7), 0 0 90px rgba(57, 255, 106, 0.12); }
+body[data-theme="virus"] .logo { font-family: ui-monospace, Menlo, Consolas, monospace; text-shadow: 0 0 18px rgba(57, 255, 106, 0.9), 0 0 48px rgba(255, 43, 214, 0.35); }
+body[data-theme="virus"] .logo::before { color: #ff2bd6; }
+body[data-theme="virus"] .logo::after  { color: #4dfcff; }
+body[data-theme="virus"] .kicker { color: #39ff6a; font-family: ui-monospace, Menlo, Consolas, monospace; }
+body[data-theme="virus"] .song-tag { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.18em; color: #eafff0; background: rgba(0, 20, 10, 0.7); border-color: rgba(57, 255, 106, 0.6); }
+body[data-theme="virus"] .song-arrow,
+body[data-theme="virus"] .link-btn { background: rgba(0, 20, 10, 0.8); border-color: rgba(57, 255, 106, 0.4); color: #eafff0; }
+body[data-theme="virus"] .start-btn {
+  background: linear-gradient(90deg, #1fae4a, #ff2bd6, #1fae4a, #0a5c26, #1fae4a);
+  background-size: 300% 100%;
+  color: #fff;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 calc(18px + var(--kick, 0) * 26px) rgba(57, 255, 106, 0.6), inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+body[data-theme="virus"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(255, 255, 255, 0.95), 0 0 48px rgba(57, 255, 106, 0.6); }
+body[data-theme="virus"] .seg-btn.active { background: linear-gradient(90deg, #1a8a3c, #a3208c); }

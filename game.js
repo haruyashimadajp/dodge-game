@@ -62,6 +62,7 @@ let freezeUntil = -1;      // 時間停止 (timeStop) が終わる曲の時刻
 // ---- World layout -------------------------------------------------------
 const GROUND_H = 56;                 // thickness of the bottom ground
 const GROUND_Y = H - GROUND_H;       // top surface of the ground
+const CEIL_Y = 56;                   // 天井の下の面（重力が上向きのときだけ立てる。曲⑦ Malware）
 
 // Platforms you can stand on. {x, y, w, h}. The ground is index 0.
 // Add/remove floating platforms here to change the stage.
@@ -124,7 +125,7 @@ function onRelease(key) {
   keys[key] = false;
   if (JUMP(key)) {
     keys._jumpHeld = false;
-    if (player.vy < 0) player.vy *= PHYS.jumpCut;   // variable jump height
+    if (player.vy * stage.grav < 0) player.vy *= PHYS.jumpCut;   // variable jump height
   }
 }
 
@@ -194,6 +195,7 @@ function reset() {
   songTime = 0;
   stageReset();
   echoReset();
+  malwareReset();
   updateLivesHud();
   resetChart();              // rebuild the bullet timeline from the top
 }
@@ -229,8 +231,9 @@ function update(dt) {
     player.vx = dir * maxSpeed;
   }
 
-  // Gravity
-  player.vy = Math.min(player.vy + PHYS.gravity * dt, PHYS.maxFall);
+  // Gravity（曲⑦ Malware の「重力バグ」では上向きになる: stage.grav = -1）
+  const g = stage.grav;
+  player.vy = Math.max(-PHYS.maxFall, Math.min(PHYS.maxFall, player.vy + g * PHYS.gravity * dt));
 
   // 傾いた世界: 重力の横向きの成分で、低いほうへすべっていく（曲④ Vertigo）
   stage.slideV += (STAGE_SLIDE * Math.sin(stage.tilt) - stage.slideV) * Math.min(1, dt * 4);
@@ -242,7 +245,7 @@ function update(dt) {
 
   // Jump (with coyote time + input buffering)
   if (player.bufferT > 0 && (player.onGround || player.coyoteT > 0)) {
-    player.vy = -PHYS.jumpVel;
+    player.vy = -g * PHYS.jumpVel;
     player.onGround = false;
     player.coyoteT = 0;
     player.bufferT = 0;
@@ -286,6 +289,7 @@ function updateBullets(dt) {
   runChart(songTime);
   updateStage(dt);
   updateEcho(dt);
+  updateMalware(dt);
 
   const frozen = songTime < freezeUntil;     // 時間停止中: 弾はその場で止まる（当たり判定は残る）
   for (const b of bullets) {
@@ -366,20 +370,26 @@ function moveAndCollide(dt) {
   const wasGround = player.onGround;
   player.onGround = false;
   player.y += player.vy * dt;
+  const g = stage.grav;
+  const land = () => {
+    player.vy = 0;
+    if (!wasGround) { player.squash = -1; fxLand(); }   // squash + dust on landing
+    player.onGround = true;
+  };
   for (const p of platforms) {
     if (!overlapRect(player, p)) continue;
     if (p.ground && overHole()) continue;     // 床に穴が開いている → 落ちる
     if (platformGone(p)) continue;             // 足場がくずれ落ちている
-    if (player.vy > 0) {           // falling -> land on top
+    if (player.vy > 0) {           // moving down -> land on top (重力が上向きなら、頭をぶつけるだけ)
       player.y = p.y - player.h;
-      player.vy = 0;
-      if (!wasGround) { player.squash = -1; fxLand(); }   // squash + dust on landing
-      player.onGround = true;
-    } else if (player.vy < 0 && !p.ground) { // moving up -> bonk head
+      if (g > 0) land(); else player.vy = 0;
+    } else if (player.vy < 0 && !(p.ground && g > 0)) { // moving up -> bonk head (重力が上向きなら、足場の裏に立つ)
       player.y = p.y + p.h;
-      player.vy = 0;
+      if (g < 0) land(); else player.vy = 0;
     }
   }
+  // 重力が上向きのあいだは、天井が床になる
+  if (g < 0 && player.y < CEIL_Y) { player.y = CEIL_Y; if (player.vy < 0) land(); }
 
   if (player.onGround) player.coyoteT = PHYS.coyote;
 }
@@ -505,6 +515,7 @@ function resumeGame() {
 function showTitle() {
   stageReset();
   echoReset();
+  malwareReset();
   running = false;
   paused = false;
   scene = 'title';
@@ -1628,7 +1639,7 @@ function prism({ x, y, a, v = 200, turn = 0.6, alt = true, every = 1, r = 7, del
      wl, wr   左右の壁の位置（せまくなってくる）/ shock = 1 で壁に電気（さわると当たる）
    -------------------------------------------------------------------------- */
 const STAGE_SLIDE = 620;       // 傾きですべる速さ（px/秒）= STAGE_SLIDE × sin(傾き)。走る速さは 260
-const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0 };
+const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0, grav: 1, gravVis: 1, ceil: 0 };
 const stage = { ...STAGE_DEFAULT, slideV: 0, scroll: 0, holes: [], drops: [], hint: null };
 let stageTweens = [];
 function stageReset() {
@@ -1715,6 +1726,7 @@ function updateStage(dt) {
   stage.holes = stage.holes.filter(h => songTime < h.close + 0.5);
   stage.drops = stage.drops.filter(d => songTime < d.close + 0.5);
   if (stage.hint && songTime > stage.hint.t1) stage.hint = null;
+  stage.gravVis += (stage.grav - stage.gravVis) * Math.min(1, dt * 14);   // キャラが上下にひっくり返る見た目
 }
 
 /* ---- ここから下は「ExtremeEX」で生まれた形態（この曲だけのもの）----------------- */
@@ -1783,6 +1795,146 @@ function revShot({ x, y, a = Math.PI / 2, v = 620, hang = 0.4, rise = 0.25, aim 
 // REV弾をまとめて円形に（全部いっしょにうなって、いっせいに外へ飛ぶ。aim なし）
 function revRing({ x, y, count = 12, v = 520, hang = 0.45, start = 0, r = 7, delay = 0, color }) {
   for (let i = 0; i < count; i++) revShot({ x, y, a: start + i / count * TAU, v, hang, aim: false, r, delay, color });
+}
+
+/* ---- ここから下は「Malware」で生まれた形態（この曲だけのもの）-------------------
+   テーマは「バグとウイルス」。
+     感染する床   … ウイルス（spore）が落ちた所から、床が1マスずつ左右に感染していく。感染したマスはトゲになる
+     ワーム       … 体の長いヘビ。頭がプレイヤーを追いかけ、体は頭の通った道をそのままたどる
+     エラー画面   … 「ERROR」のウィンドウが開く（さわると当たる）。cascade で、ずらしながら何枚も開く
+     重力バグ     … 重力が上向きになり、天井に立つ（gravityFlip）
+     ループバグ   … 曲が同じ所をくり返す（スタッター）あいだ、画面の弾も同じ所を行ったり来たりする
+   -------------------------------------------------------------------------- */
+const INF_TILE = 40;                                        // 感染のマスの幅（px）
+const CEIL = { x: 0, y: 0, w: W, h: CEIL_Y, ceil: true };   // 天井（感染する面として使う）
+const malware = { tiles: [], loop: null };
+function malwareReset() { malware.tiles = []; malware.loop = null; }
+
+// x の位置から、面 p（地面・足場・CEIL）を感染させる。spread 秒ごとに1マスずつ左右へ reach マスまで広がる。
+// 各マスは inc 秒の潜伏（点滅する予告）のあと、life 秒のあいだトゲになる
+function infectAt(x, p = platforms[0], { reach = 3, spread = 0.12, inc = 0.5, life = 2.4, at = songTime } = {}) {
+  const c = Math.floor(x / INF_TILE);
+  for (let d = -reach; d <= reach; d++) {
+    const x0 = Math.max(p.x, (c + d) * INF_TILE), x1 = Math.min(p.x + p.w, (c + d + 1) * INF_TILE);
+    if (x1 - x0 < 4) continue;
+    const on = at + Math.abs(d) * spread, live = on + inc, off = live + life;
+    const t = malware.tiles.find(q => q.p === p && q.x0 === x0 && q.on <= off && q.off >= on);
+    if (t) { t.on = Math.min(t.on, on); t.live = Math.min(t.live, live); t.off = Math.max(t.off, off); }
+    else malware.tiles.push({ p, x0, x1, on, live, off });
+  }
+}
+// プレイヤーが面 p の x0〜x1 に「立っている（ふれている）」？
+function onSurface(p, x0, x1) {
+  if (player.x + player.w <= x0 + 3 || player.x >= x1 - 3) return false;
+  if (p.ceil) return stage.grav < 0 && player.y <= CEIL_Y + 6;
+  const feet = player.y + player.h;
+  return feet >= p.y - 8 && feet <= p.y + 3 && !platformGone(p) && !(p.ground && overHole());
+}
+// ★ウイルス★ 重力 g で落ちて（g < 0 なら天井へ上がって）、着いた面を感染させる。それ自体も当たる
+function spore({ x, y, vx = 0, vy = 0, g = 900, r = 8, delay = 0, color, reach = 3, spread = 0.12, inc = 0.5, life = 2.4, spd }) {
+  return spawn({
+    x, y, vx, vy, g, r, delay, color, spd, style: 'spore', noTrail: true, inf: { reach, spread, inc, life }, loopable: true,
+    move(b, dt) {
+      const y0 = b.y;
+      b.vy += b.g * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+      let hit = null;
+      if (b.vy > 0) {
+        for (const p of platforms) {
+          if (platformGone(p) || b.x < p.x || b.x > p.x + p.w) continue;
+          if (y0 + b.r <= p.y + 1 && b.y + b.r >= p.y && (!hit || p.y < hit.y)) hit = p;
+        }
+      } else if (b.vy < 0 && stage.ceil > 0.5 && b.y - b.r <= CEIL_Y) hit = CEIL;
+      if (hit) {
+        infectAt(b.x, hit, b.inf);
+        b.dead = true;
+        if (typeof fxSplat === 'function') fxSplat(b.x, hit.ceil ? CEIL_Y : hit.y, b);
+      }
+    },
+  });
+}
+
+// ★ワーム★ n 節の長い体。頭は turn（ラジアン/秒）までしか曲がれずにプレイヤーを追い、life 秒たつとまっすぐ去っていく。
+// 体は頭の通った道をそのままたどる → 体の上を跳び越えるか、回りこむ
+function worm({ x, y, n = 12, gap = 13, v = 190, turn = 2.4, life = 6, r = 10, delay = 0.6, color }) {
+  const p = playerXY();
+  return spawn({
+    kind: 'worm', x, y, r, delay, color, n, gap, v, turn, life, a: Math.atan2(p.y - y, p.x - x), trail: [{ x, y }], segs: [{ x, y }],
+    move(b, dt) {
+      if (b.age < b.life) {
+        const q = playerXY();
+        let d = Math.atan2(q.y - b.y, q.x - b.x) - b.a;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        b.a += Math.max(-b.turn * dt, Math.min(b.turn * dt, d));
+      }
+      b.x += Math.cos(b.a) * b.v * dt; b.y += Math.sin(b.a) * b.v * dt;
+      if (b.y > GROUND_Y - b.r) b.y = GROUND_Y - b.r;                         // 床にもぐらない（床をはう）
+      if (stage.ceil > 0.5 && b.y < CEIL_Y + b.r) b.y = CEIL_Y + b.r;
+      b.trail.unshift({ x: b.x, y: b.y });
+      const segs = [{ x: b.x, y: b.y }];
+      let dist = 0, need = b.gap, i = 1;
+      for (; i < b.trail.length && segs.length < b.n; i++) {
+        const A = b.trail[i - 1], B = b.trail[i], L = Math.hypot(B.x - A.x, B.y - A.y);
+        while (L > 0 && dist + L >= need && segs.length < b.n) { const k = (need - dist) / L; segs.push({ x: A.x + (B.x - A.x) * k, y: A.y + (B.y - A.y) * k }); need += b.gap; }
+        dist += L;
+      }
+      const last = b.trail[b.trail.length - 1];
+      while (segs.length < b.n) segs.push({ x: last.x, y: last.y });
+      if (b.trail.length > i + 2) b.trail.length = i + 2;
+      b.segs = segs;
+      if (b.age > b.life && segs.every(s => s.x < -40 || s.x > W + 40 || s.y < -40 || s.y > H + 40)) b.dead = true;
+      if (b.age > b.life + 8) b.dead = true;
+    },
+    hits: b => b.segs.some((s, i) => circleHitsPlayer(s.x, s.y, i ? b.r * 0.8 : b.r)),
+  });
+}
+
+// ★エラー画面★ (x, y) を中心に w×h のウィンドウが、delay 秒の予告（点線のわく）のあと開き、hold 秒のあいだ当たる
+function popup({ x, y, w = 190, h = 110, delay = 0.6, hold = 1.6, title = 'ERROR', text = '', color }) {
+  return spawn({
+    kind: 'popup', x, y, w, h, r: Math.max(w, h) / 2, delay, hold, title, text, color, spd: 1,
+    move(b) { if (b.age > b.hold) { b.safe = true; if (b.age > b.hold + 0.15) b.dead = true; } },
+    hits: b => player.x < b.x + b.w / 2 - 2 && player.x + player.w > b.x - b.w / 2 + 2 &&
+               player.y < b.y + b.h / 2 - 2 && player.y + player.h > b.y - b.h / 2 + 2,
+  });
+}
+// エラー画面が (dx, dy) ずつずれながら、every 秒ごとに n 枚つづけて開く（昔のパソコンがこわれた時の、あれ）
+function cascade({ x, y, n = 6, dx = 26, dy = 22, every = 0.1, delay = 0.6, hold = 1.2, w, h, title, text, color }) {
+  for (let i = 0; i < n; i++) popup({ x: x + dx * i, y: y + dy * i, w, h, delay: delay + i * every, hold, title, text, color });
+}
+
+// ★重力バグ★ up = true で重力が上向きになり、天井に立つ（ジャンプは下向き）。false で元にもどる
+function gravityFlip(up) {
+  stage.grav = up ? -1 : 1;
+  player.onGround = false; player.coyoteT = 0;
+  stageTo({ ceil: up ? 1 : 0 }, up ? 0.25 : 0.8);
+}
+
+// ★ループバグ★ これから dur 秒のあいだ、いま画面にある弾が slice 秒ごとに「今の位置」へ巻きもどる（行ったり来たり）。
+// accel < 1 なら、くり返しがだんだん細かくなる（曲のスタッターと同じ）
+function glitchLoop(dur, slice, accel = 1) {
+  const cuts = [];
+  let t = songTime, s = slice;
+  while (t + Math.max(0.006, s) < songTime + dur) { t += Math.max(0.006, s); cuts.push(t); s *= accel; }
+  for (const b of bullets) {
+    if (b.delay > 0 || b.kind || !(b.loopable || (b.move === straight && !b.step))) continue;
+    b.loop = { x: b.x, y: b.y, vx: b.vx, vy: b.vy };
+  }
+  malware.loop = { t1: songTime + dur, cuts, i: 0 };
+}
+
+function updateMalware(dt) {
+  const L = malware.loop;
+  if (L) {
+    let jump = false;
+    while (L.i < L.cuts.length && songTime >= L.cuts[L.i]) { L.i++; jump = true; }
+    if (jump) for (const b of bullets) if (b.loop) Object.assign(b, b.loop, { px: b.loop.x, py: b.loop.y });
+    if (songTime >= L.t1) { for (const b of bullets) b.loop = null; malware.loop = null; }
+  }
+  malware.tiles = malware.tiles.filter(t => songTime < t.off + 0.3);
+  if (invuln > 0 || !running) return;
+  for (const t of malware.tiles) {
+    if (songTime >= t.live && songTime <= t.off && onSurface(t.p, t.x0, t.x1)) { hitPlayer(); return; }
+  }
 }
 
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。

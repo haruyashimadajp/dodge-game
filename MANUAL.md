@@ -34,13 +34,17 @@ dodge-game/
 │   ├── vertigo-compose.py    ← 曲⑤を作曲・合成するプログラム（Python）
 │   ├── extremeex.js     ← 曲⑥「ExtremeEX」（オリジナル曲・最高難度）の拍・場面・譜面
 │   ├── extremeex-score.js / extremeex-env.js ← 曲⑥の楽譜データ / 音量データ
-│   └── extremeex-compose.py  ← 曲⑥を作曲・合成するプログラム（「ヴイーン」のシンセ = vwoon）
+│   ├── extremeex-compose.py  ← 曲⑥を作曲・合成するプログラム（「ヴイーン」のシンセ = vwoon）
+│   ├── malware.js       ← 曲⑦「Malware」（オリジナル曲・バグとウイルス）の拍・場面・譜面
+│   ├── malware-score.js / malware-env.js ← 曲⑦の楽譜データ / 音量データ
+│   └── malware-compose.py    ← 曲⑦を作曲・合成するプログラム（モデムの音・8ビット・スタッター）
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔・歯車・振り子）
 ├── visuals-glass.js ← 曲④の見た目（ガラスの部屋・結晶・鍵盤の床・画面のひび）
 ├── visuals-gyro.js  ← 曲⑤の見た目（飛行機の姿勢計・流れる鉄板の床・水準器）
 ├── visuals-ex.js    ← 曲⑥の見た目（黒と赤の警告色・EXの紋章・WARNINGの帯）
+├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
 ├── style.css    ← 色やレイアウト（タイトル画面・ボタンの見た目）
 ├── the EmpErroR.mp3 / Re-Unknown_X.mp3 ← 曲
 └── MANUAL.md    ← この説明書
@@ -586,6 +590,23 @@ revRing({ x, y, count, hang, v })      // REV弾のリング（いっせいに�
 
 曲⑥の譜面では、シンセの旋律（`SCORE_EXTREMEEX.drop1` など）を「鳴る瞬間に飛び出すREV弾」にしています。
 
+### 5-10. 曲⑦「Malware」で生まれた形態（バグとウイルス）
+
+```js
+spore({ x, y, vy, g, reach, life })    // ウイルス: 重力 g で落ち（g < 0 なら天井へ上がり）、着いた床・足場・天井を感染させる
+infectAt(x, platforms[0], { reach, spread, inc, life })
+                                       // 感染: x から spread 秒ごとに1マスずつ左右へ reach マス広がる。
+                                       //   inc 秒の潜伏（ちらつく予告）→ life 秒のあいだトゲ（乗ると当たる）→ 治る
+worm({ x, y, n, v, turn, life })       // ワーム: n 節の体。頭は turn（ラジアン/秒）までしか曲がれずに追いかけ、体は頭の道をたどる
+popup({ x, y, w, h, delay, hold, title })   // エラー画面: delay 秒の予告（点線のわく）→ hold 秒のあいだ当たる
+cascade({ x, y, n, dx, dy, every })    // エラー画面を (dx, dy) ずつずらして every 秒ごとに n 枚
+gravityFlip(true)                      // 重力バグ: 重力が上向き → 天井（CEIL_Y）に立つ。ジャンプは下向き。false で元にもどる
+glitchLoop(dur, slice, accel)          // ループバグ: いま画面にある弾が slice 秒ごとに今の位置へ巻きもどる（dur 秒のあいだ）
+```
+
+曲⑦の譜面では、曲がスタッターする所（`SCORE_MALWARE.glitch`）でループバグ、エラー音（`beep`）でエラー画面、
+8ビットの旋律で落ちる音符を出しています。ブレイクの頭（40小節目）では、ブルースクリーンと同時に弾と感染がすべて消えます。
+
 ---
 
 ## 6. 弾幕レシピ集（コピペで使える）
@@ -714,7 +735,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
 4. `index.html` の下の方、`songs/unknown.js` の次の行に `<script src="songs/mysong.js"></script>` を足す
 
