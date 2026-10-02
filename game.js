@@ -1806,7 +1806,7 @@ function revRing({ x, y, count = 12, v = 520, hang = 0.45, start = 0, r = 7, del
      重力バグ     … 重力が上向きになり、天井に立つ（gravityFlip）
      ループバグ   … 曲が同じ所をくり返す（スタッター）あいだ、画面の弾も同じ所を行ったり来たりする
    -------------------------------------------------------------------------- */
-const INF_TILE = 40;                                        // 感染のマスの幅（px）
+const INF_TILE = 20;                                        // 感染のマスの幅（px）。reach 2 → 5マス = 100px
 const CEIL = { x: 0, y: 0, w: W, h: CEIL_Y, ceil: true };   // 天井（感染する面として使う）
 const malware = { tiles: [], loop: null };
 function malwareReset() { malware.tiles = []; malware.loop = null; }
