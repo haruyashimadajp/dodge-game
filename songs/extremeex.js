@@ -4,11 +4,10 @@
    曲⑥  ExtremeEX（オリジナル曲）  —  拍・場面・譜面
    いちばん難しい曲。200 BPM のハードコア。主役は「ヴイーン」と1オクターブ下から
    しゃくり上がって鳴るシンセ（songs/extremeex-compose.py の vwoon）。
-   これまでの5曲の仕掛けを、ほぼ全部まぜて出してくる「ボスラッシュ」。
-     光線（X・ファイアウォール・スキャナー）… 曲②
-     時計の針・振り子・時間停止・巻き戻し    … 曲③
-     ガラスの板・ひび・鍵盤ブロック          … 曲④
-     傾き・コンベア・穴・電気の壁・トゲ車・反転 … 曲⑤
+   この曲だけの仕掛け（game.js の「ExtremeEX」の所）:
+     EXエコー  … 少し前の自分の位置に赤い分身。さわると当たる → 止まれない・引き返すなら跳び越える
+     ロックオン … 照準が追いかけてきて、止まって、爆発する → 止まった円から出る
+     REV弾     … 「ヴイーン」の弾。うなりながら止まっていて、音がしゃくり上がるのと同時に一気に飛ぶ
    ========================================================================= */
 
 // 200 BPM: 1拍 = 0.3秒、1小節 = 1.2秒。0拍目 = 0.5秒
@@ -85,96 +84,96 @@ function extremeChart() {
   const zap = (t, w = 300) => fire(t, 0.8, delay => { const p = playerXY(); zapFloor({ x: Math.max(0, Math.min(W - w, p.x - w / 2)), w, delay, color: RED }); });
   const shock = (t, on, beats = 4) => burst(t - (on ? beats * B : 0), () => stageTo({ shock: on ? 1 : 0 }, on ? beats * B : 0.01, 'linear'));
 
-  // ===== WARNING 0〜8小節 ｜ ヴイーンのたびに中心からリング ／ キックで両すみから =========
-  for (let k = 0; k < 8; k += 2) { ringAt(bar(k), CX, 260, 14 + k * 2, 170 + k * 10, RED, 8, k * 0.2); hit(bar(k), 0.4); }
+  // ---- この曲だけの仕掛け ----
+  const echoOn = (t, d) => { burst(t - 2 * B, () => stageHint('EX ECHO  ── 止まるな', B * 4)); burst(t, () => echoSet(true, d)); };
+  const echoOff = t => burst(t, () => echoSet(false));
+  const lock = (t, o = {}) => burst(t - (o.track || 0.9) - (o.lock || 0.45), () => lockOn(o));   // t に爆発する
+  // REV弾を「t ちょうどに飛び出す」ように出す（hang 秒前から、うなりながら待っている）
+  const rev = (t, x, y, o = {}) => { const hang = o.hang || 0.4; fire(t - hang, 0.2, delay => revShot({ x, y, hang, delay, ...o })); };
+  const revRingAt = (t, x, y, o = {}) => { const hang = o.hang || 0.45; fire(t - hang, 0.2, delay => revRing({ x, y, hang, delay, ...o })); };
+  // ヴイーンの旋律 → 音の高さの場所から、音が鳴る瞬間に飛び出すREV弾
+  const revMelody = (list, v, lo, hi, color) => list.forEach(([b, len, m], i) =>
+    rev(beat(b), px(m, lo, hi), 26, { v, hang: len >= 1 ? 0.5 : 0.3, rise: 0.12, r: len >= 1 ? 9 : 7, lead: i % 2 === 1, color: typeof color === 'function' ? color(i) : color }));
+
+  // ===== WARNING 0〜8小節 ｜ ヴイーン（うなり上がる音）= REV弾のリング ／ ロックオン ==========
+  for (let k = 0; k < 8; k += 2) { revRingAt(bar(k) + 0.3, CX, 260, { count: 12 + k * 2, v: 380 + k * 20, start: k * 0.2, color: RED }); hit(bar(k) + 0.3, 0.4); }
   SC.kick.filter(b => b < 32 && b % 4 !== 0).forEach((b, i) => corner(beat(b), i % 2 === 0, 260, WHITE, 7));
-  xAt(bar(4)); xAt(bar(6)); xAt(bar(7) + 2 * B);
+  for (const k of [3, 5, 6, 7]) lock(bar(k) + 2 * B);
 
-  // ===== EXTREME 8〜24小節 ｜ ヴイーンの刻み = すみから狙い撃ち ／ ファイアウォール ／ 時計の針 =
+  // ===== EXTREME 8〜24小節 ｜ ヴイーンの刻み = すみでうなって飛ぶREV弾 ／ 16小節目から EXエコー =====
   hit(bar(8), 1);
-  SC.stab.filter(([b]) => b >= 32 && b < 96).forEach(([b], i) => corner(beat(b), i % 2 === 0, 320, i % 5 === 0 ? GOLD : RED, 8));
-  for (const k of [10, 14, 18, 22]) fire(bar(k), 1.0, delay => firewall({ gapX: rand(140, W - 140), gapW: 120, steps: 6, step: 1, delay, color: VIOLET }));
-  fire(bar(16), 1.0, delay => clockHand({ cx: CX, cy: 120, len: 520, a0: 0.3, step: Math.PI / 9, life: 8 * 4 * B - 0.3, width: 12, delay, color: PINK }));
-  for (let k = 9; k < 24; k += 2) ringAt(bar(k), CX, 120, 12, 210, WHITE, 6, k * 0.3);
-  for (let k = 8; k < 24; k++) fanFrom(bar(k) + 2 * B, CX, 120, 3, 0.2, 300, GOLD);             // 3拍目: 上から3方向
-  for (const k of [12, 16, 20]) xAt(bar(k) + 3 * B, 0.8);
+  SC.stab.filter(([b]) => b >= 32 && b < 96).forEach(([b], i) =>
+    rev(beat(b) + 0.45, i % 2 ? W - 30 : 30, 30, { v: 640, hang: 0.45, lead: i % 3 === 2, color: i % 5 === 0 ? GOLD : RED }));
+  for (const k of [10, 14]) fire(bar(k), 1.0, delay => firewall({ gapX: rand(140, W - 140), gapW: 120, steps: 6, step: 1, delay, color: VIOLET }));
+  for (let k = 9; k < 24; k += 2) revRingAt(bar(k) + 2 * B, CX, 120, { count: 10, v: 420, start: k * 0.3, color: WHITE });
+  echoOn(bar(16), 1.5);
+  for (let k = 16; k < 24; k += 2) lock(bar(k) + 3 * B);
+  echoOff(bar(24));
 
-  // ===== CHARGE 24〜32小節 ｜ スネア連打 = 中心からのうず ／ 壁がせまる ／ 最後に時間停止 =======
-  SC.snare.filter(b => b >= 96 && b < 128).forEach((b, i) =>
-    fire(beat(b), 0.3, delay => { for (const o of [0, Math.PI]) { const a = i * 0.45 + o; spawn({ x: CX, y: 240, vx: Math.cos(a) * (180 + i), vy: Math.sin(a) * (180 + i), r: 7, delay, color: i % 2 ? GOLD : RED }); } }));
-  shock(bar(26), true, 4);
-  for (let k = 28; k < 32; k++) burst(bar(k), () => stageTo({ wl: 55 * (k - 27), wr: W - 55 * (k - 27) }, B, 'snap'));
-  for (const k of [29, 30, 31]) pist(bar(k) + 2 * B, 60);
-  burst(beat(127), () => timeStop(B * 0.95));
-  burst(bar(32), () => stageTo({ wl: 0, wr: W }, B, 'snap'));
+  // ===== CHARGE 24〜32小節 ｜ スネア連打 = REV弾のうず（うなってから一気に外へ）／ ロックオンの連打 ==
+  SC.snare.filter(b => b >= 96 && b < 126).forEach((b, i) =>
+    fire(beat(b), 0.2, delay => { for (const o of [0, Math.PI]) revShot({ x: CX, y: 240, a: i * 0.45 + o, v: 360 + i * 4, hang: 0.5, aim: false, delay, color: i % 2 ? GOLD : RED }); }));
+  for (let k = 26; k < 32; k++) lock(bar(k) + 2 * B, { track: 0.7, lock: 0.35, r: 50 });
+  burst(beat(127), () => { flash(0.6); shake(10); });
 
-  // ===== EX DRIVE 32〜48小節 ｜ 旋律 = 鍵盤ブロック ／ 拍ごとに狙い撃ち ／ 傾き ／ 振り子 ／ ひび ===
+  // ===== EX DRIVE 32〜48小節 ｜ 旋律 = REV弾 ／ EXエコー（1.5秒）／ リング ／ ロックオン ==============
   hit(bar(32), 1);
-  keys(SC.drop1, 720, 74, 90, (b, i) => (i % 2 ? RED : WHITE));
-  SC.kick.filter(b => b >= 128 && b < 192).forEach((b, i) => corner(beat(b), i % 2 === 0, 340, i % 4 === 3 ? GOLD : RED, 8));
-  for (let k = 32; k < 48; k += 2) fanFrom(bar(k) + 3 * B, k % 4 ? 30 : W - 30, 30, 5, 0.14, 330, WHITE);
-  for (const k of [36, 44]) xAt(bar(k) + 2 * B, 0.8);
-  for (let k = 32; k < 48; k++) ringAt(bar(k), CX, 140, 14, 220 + (k - 32) * 4, k % 2 ? GOLD : WHITE, 7, k * 0.37);
-  [[34, 0.24], [38, -0.24], [42, 0.28], [46, -0.28]].forEach(([k, a]) => tilt(bar(k), a));
-  fire(bar(40), 1.0, delay => pendulum({ px: CX, py: 90, amp: 0.9, beats: 4, life: 8 * 4 * B - 0.3, r: 22, delay, color: GOLD }));
-  for (let k = 33; k < 48; k += 2) fire(bar(k) + 2 * B, 0.7, delay => {
-    const left = k % 4 === 1, y = rand(200, GROUND_Y - 60), p = playerXY();
-    crack({ x: left ? 0 : W, y, arms: 2, a0: Math.atan2(p.y - y, p.x - (left ? 0 : W)), spread: 0.5, len: 600, speed: 1300, delay, color: WHITE });
-  });
-  burst(bar(48), () => stageTo({ tilt: 0 }, B));
+  echoOn(bar(32), 1.5);
+  revMelody(SC.drop1, 700, 74, 90, i => (i % 2 ? RED : WHITE));
+  SC.kick.filter(b => b >= 128 && b < 192 && b % 2 === 1).forEach((b, i) => corner(beat(b), i % 2 === 0, 340, i % 4 === 3 ? GOLD : RED, 8));
+  for (let k = 32; k < 48; k += 2) revRingAt(bar(k), CX, 140, { count: 14, v: 440, start: k * 0.37, color: GOLD });
+  for (let k = 33; k < 48; k += 2) lock(bar(k) + 2 * B);
+  echoOff(bar(48));
 
-  // ===== OVERLOAD 48〜56小節 ｜ 重い2拍目 = 自機狙いの X ／ トゲ車 ／ 穴 ／ 床の電気 ==============
+  // ===== OVERLOAD 48〜56小節 ｜ 重い2拍目 = 3連ロックオン ／ 足もとからREV弾 ／ 穴 =================
   hit(bar(48), 0.8);
   for (let k = 48; k < 56; k++) {
-    xAt(bar(k) + 2 * B, 0.8);
-    roll(bar(k), 170, k % 2 ? VIOLET : GOLD);
-    if (k % 2) xFixed(bar(k) + 3 * B, k % 4 === 1 ? 200 : W - 200, GROUND_Y - 120);
+    for (let j = 0; j < 3; j++) lock(bar(k) + (2 + j * 0.5) * B, { track: 0.55 + j * 0.15, lock: 0.3, r: 46, color: j === 1 ? VIOLET : RED });
+    for (const x of [60, W - 60]) rev(bar(k) + 3 * B, x, GROUND_Y - 16, { v: 560, hang: 0.35, color: VIOLET });
   }
-  for (const k of [49, 51, 53, 55]) holeAtPlayer(bar(k));
-  for (const k of [50, 54]) zap(bar(k) + 3.5 * B);
+  for (const k of [49, 53]) holeAtPlayer(bar(k));
 
-  // ===== REVERSAL 56〜64小節 ｜ 画面がさかさま ＋ うず ＋ 最後にガラスが割れる =================
+  // ===== REVERSAL 56〜64小節 ｜ さかさまの画面で EXエコー ＋ 3本のREVうず ===========================
   burst(bar(56), () => { stageHint('↻ UPSIDE DOWN', B * 4); stageTo({ spin: Math.PI }, 2 * B); });
-  for (let b = 224; b < 252; b += 1) fire(beat(b), 0.3, delay => {
-    const i = b - 224, a = i * 0.5;
-    for (const o of [0, TAU / 3, 2 * TAU / 3]) spawn({ x: CX, y: 220, vx: Math.cos(a + o) * 190, vy: Math.sin(a + o) * 190, r: 7, delay, color: PINK });
+  echoOn(bar(57), 1.3);
+  for (let b = 228; b < 252; b += 2) fire(beat(b), 0.2, delay => {
+    const a = (b - 228) * 0.35;
+    for (const o of [0, TAU / 3, 2 * TAU / 3]) revShot({ x: CX, y: 220, a: a + o, v: 420, hang: 0.45, aim: false, delay, color: PINK });
   });
-  for (const k of [57, 59, 61]) holeAtPlayer(bar(k) + 2 * B, { w: 110, len: 4 * B });
   burst(bar(62), () => stageTo({ spin: 0 }, 2 * B));
-  burst(bar(64) - 1.6, () => pane({ x: CX, y: 220, w: 720, h: 300, hx: playerXY().x, hy: 300, n: 50, speed: 340, size: 1.4, color: WHITE, at: bar(64) }));
+  echoOff(bar(63));
+  revRingAt(bar(64), CX, 260, { count: 24, v: 480, color: WHITE });
+  revRingAt(bar(64), CX, 260, { count: 12, v: 300, start: 0.13, r: 11, color: RED });
 
-  // ===== EXTREME EX 64〜88小節 ｜ すべて: 鍵盤 ＋ 傾き ＋ コンベア ＋ 穴 ＋ 針 ＋ 巻き戻し ＋ ビーム =====
+  // ===== EXTREME EX 64〜88小節 ｜ EXエコー（1.2秒）＋ 旋律のREV弾 ＋ REVの扇 ＋ ロックオン ＋ 傾き =====
   hit(bar(64), 1);
-  shock(bar(64), true, 2);
-  keys(SC.drop2, 780, 75, 93, (b, i) => (i % 2 ? RED : GOLD));
-  [[66, 0.26, 0], [68, -0.26, 70], [70, 0.22, -70], [72, -0.28, 0], [74, 0.28, -60], [76, -0.24, 80], [78, 0.26, 0], [80, -0.26, -70],
-   [82, 0.22, 80], [84, -0.28, 0], [86, 0, 0]].forEach(([k, a, v]) => { tilt(bar(k), a); belt(bar(k), v); });
-  SC.snare.filter(b => b >= 256 && b < 352).forEach((b, i) => fanFrom(beat(b), i % 2 === 0 ? 24 : W - 24, 24, 3, 0.16, 370, i % 3 ? RED : WHITE, 0.3));
-  for (let k = 66; k < 88; k += 4) xAt(bar(k) + 2 * B, 0.8);
-  for (let k = 65; k < 88; k += 2) holeAtPlayer(bar(k) + 2 * B, { w: 120, len: 5 * B });
-  for (let k = 64; k < 88; k += 2) roll(bar(k) + B, 150);
-  fire(bar(72), 1.0, delay => clockHand({ cx: CX, cy: 110, len: 560, a0: Math.PI * 0.15, step: Math.PI / 10, life: 8 * 4 * B - 0.3, width: 12, delay, color: VIOLET }));
-  fire(bar(80), 1.0, delay => clockHand({ cx: CX, cy: 110, len: 560, a0: Math.PI * 0.85, step: -Math.PI / 10, life: 8 * 4 * B - 0.3, width: 12, delay, color: PINK }));
-  for (let k = 64; k < 88; k++) if (k % 2 === 0) ringAt(bar(k), CX, 110, 16, 240, k % 4 ? WHITE : GOLD, 7, k * 0.29);
-  for (const k of [67, 71, 75, 79, 83, 87]) burst(bar(k) + 2 * B, () => rewind());
-  for (const k of [69, 77, 85]) fire(bar(k), 0.9, delay => scanner({ fromLeft: k % 2 === 1, y1: GROUND_Y - 46, y2: GROUND_Y, speed: 520, delay, color: GOLD }));
+  echoOn(bar(65), 1.2);
+  revMelody(SC.drop2, 760, 75, 93, i => (i % 2 ? RED : GOLD));
+  SC.snare.filter(b => b >= 256 && b < 352).forEach((b, i) => {
+    const x = i % 2 === 0 ? 24 : W - 24;
+    fire(beat(b) - 0.3, 0.2, delay => { for (const o of [-0.18, 0, 0.18]) revShot({ x, y: 24, v: 600, hang: 0.3, aim: true, lead: i % 2 === 1, spread: o, delay, color: i % 3 ? RED : WHITE }); });
+  });
+  for (let k = 64; k < 88; k++) if (k % 2 === 1) lock(bar(k) + 3 * B, { track: 0.8, lock: 0.4 });
+  for (let k = 68; k < 88; k += 4) revRingAt(bar(k), CX, 110, { count: 18, v: 460, start: k * 0.29, color: WHITE });
+  [[72, 0.2], [76, -0.2], [80, 0.22], [84, -0.22], [87, 0]].forEach(([k, a]) => tilt(bar(k), a));
+  echoOff(bar(88));
 
-  // ===== LIMIT BREAK 88〜96小節 ｜ 1小節ごとに左右反転 ＋ 半拍ごとの狙い撃ち ＋ ピストン ==========
+  // ===== LIMIT BREAK 88〜96小節 ｜ 1小節ごとに左右反転 ＋ EXエコー（0.9秒）＋ 半拍ごとのREV弾 ========
   hit(bar(88), 1);
   burst(bar(88), () => stageTo({ tilt: 0, conveyor: 0 }, B));
+  echoOn(bar(88), 0.9);
   for (let k = 88; k < 96; k++) {
     burst(bar(k), () => stageTo({ mirror: k % 2 ? 1 : -1 }, B * 0.6));
-    for (let h = 0; h < 8; h++) corner(bar(k) + h * B * 0.5, h % 2 === 0, 330, h % 2 ? WHITE : RED, 7);
-    pist(bar(k) + 3 * B, 70);
+    for (let h = 0; h < 8; h++) rev(bar(k) + h * B * 0.5, h % 2 === 0 ? 24 : W - 24, 24, { v: 620, hang: 0.3, lead: h % 4 === 3, color: h % 2 ? WHITE : RED });
+    if (k % 2 === 0) lock(bar(k) + 3 * B, { track: 0.7, lock: 0.35 });
   }
-  inRange(SC.final, 352, 384).forEach(([b, len, m], i) => { const d = keyDrop(beat(b), px(m, 75, 93), len * B, 800, { color: GOLD, w: 40 }); burst(d.at, d.go); });
+  echoOff(bar(96));
 
   // ===== おわり 96〜 ｜ 最後のドーン ===========================================================
   burst(bar(96), () => stageTo({ mirror: 1, tilt: 0, conveyor: 0, spin: 0, wl: 0, wr: W }, B));
-  shock(bar(96), false);
   hit(bar(96), 1);
-  ringAt(bar(96), CX, 260, 48, 260, WHITE, 8);
-  ringAt(bar(96), CX, 260, 24, 170, RED, 12, 0.13);
+  revRingAt(bar(96), CX, 260, { count: 40, v: 520, color: WHITE });
+  revRingAt(bar(96), CX, 260, { count: 20, v: 340, start: 0.13, r: 11, color: RED });
 
   return cues.sort((a, b) => a.t - b.t);
 }

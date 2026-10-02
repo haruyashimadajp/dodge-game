@@ -105,6 +105,23 @@
       ctx.restore();
       return;
     }
+    if (b.style === 'rev') {                         // REV弾: うなっている間はふるえる → 飛ぶと長い光の尾
+      const x = b.x + (b.shiver || 0), k2 = b.revK || 0;
+      if (k2 > 0) {
+        const sp = Math.hypot(b.vx, b.vy) || 1, L = Math.min(90, sp * 0.09);
+        ctx.strokeStyle = rgba(c, 0.8); ctx.lineWidth = b.r * 1.4; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x, b.y); ctx.lineTo(x - b.vx / sp * L, b.y - b.vy / sp * L); ctx.stroke();
+      } else {
+        ctx.strokeStyle = rgba(c, 0.8); ctx.lineWidth = 1.5;
+        const R = b.r * (1.6 + 1.6 * (1 - Math.min(1, b.age / b.hang)));
+        ctx.beginPath(); ctx.arc(x, b.y, R, 0, TAU); ctx.stroke();
+      }
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(x, b.y, b.r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = rgba(c, 1); ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(x, b.y, b.r, 0, TAU); ctx.stroke();
+      return;
+    }
     if (b.style === 'shard') {                       // 割れたガラス → とがったひし形
       const a = Math.atan2(b.vy, b.vx);
       ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(a);

@@ -375,6 +375,7 @@ function drawScene() {
   else drawBullets(T, look, k);
   drawRings();
   drawParticles();
+  drawEcho(T);
   drawHero(look, k);
   drawWalls(T, look, k);
   ctx.restore();
@@ -603,6 +604,51 @@ function drawWalls(T, look) {
     ctx.globalCompositeOperation = 'source-over';
   }
 }
+// EXエコー: 少し前の自分の位置にいる、赤くザラついた分身
+function drawEcho(T) {
+  if (echo.a <= 0 || scene !== 'play') return;
+  const x = echo.x, y = echo.y, w = player.w, h = player.h, solid = echo.a >= 1;
+  ctx.save();
+  ctx.globalAlpha = solid ? 0.95 : 0.25 + 0.3 * echo.a * (Math.floor(T * 12) % 2);
+  ctx.fillStyle = '#ff1f3d';
+  for (let i = 0; i < 4; i++) {                              // 横にずれた細い帯（グリッチ）
+    const dy = i * h / 4, dx = (Math.random() - 0.5) * (solid ? 3 : 8);
+    ctx.fillRect(x + dx, y + dy, w, h / 4 - 1);
+  }
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x + w * 0.55, y + h * 0.3, 3, 3);
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1;
+  ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+  ctx.restore();
+}
+// ロックオン: 追いかける照準 → 止まって点滅 → 爆発
+function drawLock(b, T) {
+  const c = bulletColor(b), locked = b.age >= b.track;
+  if (b.blown) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = rgba(c, 0.7); ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.6, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    return;
+  }
+  const p = locked ? (b.age - b.track) / b.lock : 0, on = !locked || Math.floor(T * 16) % 2 === 0;
+  ctx.strokeStyle = rgba(c, on ? 0.9 : 0.35);
+  ctx.lineWidth = locked ? 3 : 2;
+  ctx.fillStyle = rgba(c, locked ? 0.12 + 0.25 * p : 0.05);
+  ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); ctx.stroke();
+  const R = b.r * (locked ? 1 - 0.6 * p : 1.25), a = locked ? 0 : T * 4;
+  ctx.beginPath();
+  for (let i = 0; i < 4; i++) {
+    const t = a + i * Math.PI / 2;
+    ctx.moveTo(b.x + Math.cos(t) * (R + 10), b.y + Math.sin(t) * (R + 10)); ctx.lineTo(b.x + Math.cos(t) * (R - 8), b.y + Math.sin(t) * (R - 8));
+  }
+  ctx.stroke();
+  if (locked) {
+    ctx.font = '800 12px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = rgba(c, on ? 1 : 0.4);
+    ctx.fillText('LOCK', b.x, b.y - b.r - 12);
+  }
+}
 function drawHint(T) {
   const h = stage.hint;
   if (!h || scene !== 'play') return;
@@ -630,6 +676,7 @@ function drawBullets(T, look, k) {
     else if (b.kind === 'pane') drawPane(b, T, k);
     else if (b.kind === 'crack') drawCrack(b, T, k);
     else if (b.kind === 'key') drawKey(b, T, k);
+    else if (b.kind === 'lock') drawLock(b, T);
   }
 
   // 警告（溜め中）: 回転する3本の弧 ＋ だんだん満ちる中身 ＋ 進む向きのガイド線

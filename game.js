@@ -193,6 +193,7 @@ function reset() {
   hitsTaken = 0;
   songTime = 0;
   stageReset();
+  echoReset();
   updateLivesHud();
   resetChart();              // rebuild the bullet timeline from the top
 }
@@ -284,6 +285,7 @@ function updateBullets(dt) {
   songTime = (bgm && !bgm.paused) ? bgm.currentTime : elapsed;
   runChart(songTime);
   updateStage(dt);
+  updateEcho(dt);
 
   const frozen = songTime < freezeUntil;     // 時間停止中: 弾はその場で止まる（当たり判定は残る）
   for (const b of bullets) {
@@ -502,6 +504,7 @@ function resumeGame() {
 
 function showTitle() {
   stageReset();
+  echoReset();
   running = false;
   paused = false;
   scene = 'title';
@@ -1712,6 +1715,74 @@ function updateStage(dt) {
   stage.holes = stage.holes.filter(h => songTime < h.close + 0.5);
   stage.drops = stage.drops.filter(d => songTime < d.close + 0.5);
   if (stage.hint && songTime > stage.hint.t1) stage.hint = null;
+}
+
+/* ---- ここから下は「ExtremeEX」で生まれた形態（この曲だけのもの）----------------- */
+
+// ★EXエコー★ プレイヤーの「delay 秒前の位置」に赤い分身がいて、さわると当たる。
+// 止まっていると追いつかれ、来た道を引き返すとぶつかる（跳び越えればよい）。
+const echo = { on: false, delay: 1.5, a: 0, x: 0, y: 0, hist: [] };
+function echoReset() { echo.on = false; echo.a = 0; echo.hist = []; }
+function echoSet(on, delay = echo.delay) { echo.on = on; echo.delay = delay; }
+function updateEcho(dt) {
+  echo.hist.push({ t: songTime, x: player.x, y: player.y });
+  while (echo.hist.length > 2 && echo.hist[1].t < songTime - echo.delay - 0.2) echo.hist.shift();
+  const tt = songTime - echo.delay;
+  let p = echo.hist[0];
+  for (const q of echo.hist) { if (q.t > tt) break; p = q; }
+  echo.x = p.x; echo.y = p.y;
+  echo.a = Math.max(0, Math.min(1, echo.a + (echo.on ? dt / 0.8 : -dt / 0.4)));   // 0.8秒かけて現れる（それまでは当たらない）
+  if (echo.a >= 1 && invuln <= 0 && running &&
+      player.x < echo.x + player.w - 4 && player.x + player.w > echo.x + 4 &&
+      player.y < echo.y + player.h - 4 && player.y + player.h > echo.y + 4) hitPlayer();
+}
+
+// ★ロックオン★ 照準が track 秒プレイヤーを追いかけ、そこで止まって lock 秒点滅し、ドンと爆発する。
+// 止まった照準の円（半径 r）から出ればよい
+function lockOn({ track = 0.9, lock = 0.45, r = 56, color = '#ff2a3a' }) {
+  const p = playerXY();
+  return spawn({
+    kind: 'lock', x: p.x, y: p.y, r, track, lock, color, safe: true, spd: 1,
+    move(b, dt) {
+      if (b.age < b.track) {
+        const q = playerXY(), k = Math.min(1, dt * 10);
+        b.x += (q.x - b.x) * k; b.y += (q.y - b.y) * k;
+      } else if (b.age >= b.track + b.lock && !b.blown) {
+        b.blown = true; b.safe = false; b.blowAt = b.age;
+        if (typeof shockRing === 'function') { shockRing(b.x, b.y, { color: b.color, size: b.r * 1.6, life: 0.3, width: 6 }); shake(5); }
+      }
+      if (b.blown && b.age > b.blowAt + 0.12) b.dead = true;
+    },
+    hits: b => circleHitsPlayer(b.x, b.y, b.r),
+  });
+}
+
+// ★REV弾★ 「ヴイーン」の弾。hang 秒ほとんど止まってうなり、そのあと rise 秒で一気に v まで加速する
+// （シンセの音程がしゃくり上がるのと同じカーブ）。aim = true なら、飛び出す瞬間にプレイヤーをねらい直す（spread だけずらす）
+// lead = true なら「先読み」: プレイヤーが走っている先をねらう（走り続けるだけでは逃げられない）
+function revShot({ x, y, a = Math.PI / 2, v = 620, hang = 0.4, rise = 0.25, aim = true, lead = false, spread = 0, r = 7, delay = 0, color }) {
+  return spawn({
+    x, y, r, delay, color, style: 'rev', dirA: a, v, hang, rise, aim, lead, spread, noTrail: true, revK: 0,
+    move(b, dt) {
+      if (b.age < b.hang) { b.revK = 0; b.shiver = (Math.random() - 0.5) * 2; return; }
+      if (b.aim && !b.aimed) {
+        const p = playerXY();
+        if (b.lead) {                                   // 先読み: 着くころにプレイヤーがいる場所をねらう
+          const tt = Math.hypot(p.x - b.x, p.y - b.y) / (b.v * bulletSpeedMul * b.spd) + b.rise * 0.5;
+          p.x = Math.max(0, Math.min(W, p.x + (player.vx + stage.slideV) * tt));
+        }
+        b.dirA = Math.atan2(p.y - b.y, p.x - b.x) + b.spread; b.aimed = true;
+      }
+      const k = Math.min(1, (b.age - b.hang) / b.rise), sp = b.v * (0.03 + 0.97 * k * k * (3 - 2 * k));
+      b.revK = k; b.shiver = 0;
+      b.vx = Math.cos(b.dirA) * sp; b.vy = Math.sin(b.dirA) * sp;
+      b.x += b.vx * dt; b.y += b.vy * dt;
+    },
+  });
+}
+// REV弾をまとめて円形に（全部いっしょにうなって、いっせいに外へ飛ぶ。aim なし）
+function revRing({ x, y, count = 12, v = 520, hang = 0.45, start = 0, r = 7, delay = 0, color }) {
+  for (let i = 0; i < count; i++) revShot({ x, y, a: start + i / count * TAU, v, hang, aim: false, r, delay, color });
 }
 
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。

@@ -11,7 +11,7 @@ Six songs, each with its own chart and look (pick one on the title screen with �
 - **モラトリウム** (Moratorium) — an original 150 BPM song made for this game (composed and synthesized in `songs/moratorium-compose.py`); a clock tower at dusk with time stops, rewinds, pendulums, clock-hand beams and melody notes that land exactly when they sound
 - **segment** — an original 160 BPM song of piano, glockenspiel and breaking glass (`songs/segment-compose.py`); a room of glass where panes shatter on the glass hits, cracks spread across the screen, piano notes fall as key blocks onto a keyboard floor, and glockenspiel notes refract like light
 - **Vertigo** — an original 128 BPM wobbling electro track (`songs/vertigo-compose.py`); almost no bullets — the stage itself is the enemy: the world tilts and you slide, the floor runs like a conveyor belt, holes open, electric walls close in, and the screen turns upside down, mirrors and zooms in
-- **ExtremeEX** — the hardest: an original 200 BPM hardcore track built on a screaming synth that whines up into every note (`songs/extremeex-compose.py`); a boss rush that mixes the mechanics of all the other songs
+- **ExtremeEX** — the hardest: an original 200 BPM hardcore track built on a screaming synth that whines up into every note (`songs/extremeex-compose.py`); with its own mechanics: EX ECHO (a red copy of you that follows your path a moment behind — touch it and you're hit), LOCK-ON crosshairs that track you and explode, and REV shots that hang and whine up, then rocket at you (some aim where you're running)
 
 ## Play
 
