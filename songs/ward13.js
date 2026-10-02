@@ -98,7 +98,7 @@ function ward13Chart() {
   stalk(bar(37), 1, { v: 140, life: 8, color: RUST });
   stalk(bar(41), -1, { v: 150, life: 8, color: RUST });
   for (let k = 37; k < 46; k++) {
-    crawl(bar(k) + B, k % 2 === 0, 340);
+    if (k < 45) crawl(bar(k) + B, k % 2 === 0, 340);         // 最後の小節は、にせのフリーズの前なので出さない
     if (k % 2 === 0) eyes(bar(k) + 2 * B, 14, 160, CX, 150, k * 0.27);
     fire(bar(k) + 3 * B, 0.5, delay => { for (let i = 0; i < 4; i++) bloodDrop({ x: rand(30, W - 30), delay: delay + i * 0.1, r: 7 }); });
     if (k % 3 === 1) door(bar(k) + 2.5 * B, 'player');

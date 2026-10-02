@@ -12,23 +12,37 @@
      ジャンプスケア … 曲のおどかしの音（SCORE_WARD13.scare）と同時に、顔が画面いっぱいに迫る
      血の手形     … 金属音で画面に血の手形がバンとつく / 上から血がたれる / 壁の落書き
      体力が少ない … 残機 1 のとき、画面のふちが赤く脈打ち「DANGER」
+   もっと怖く:
+     うしろ       … 同じ向きを見つづけていると、背後の暗やみに何かが立つ（ふり向くと消える）
+     暗やみの腕   … 画面のはしから青白い腕がのびてくる（懐中電灯を向けると引っこむ）
+     自分の影     … 奥の壁にうつる自分の影が少し遅れて動き、ときどきこちらに顔を向ける
+     ささやき     … 「うしろ」「みてる」「behind you」… 自分のすぐそばに文字が浮かぶ（ささやく音つき）
+     一瞬の顔     … 明かりが消えた一瞬に、顔が1コマだけ見える
+     息をする廊下 … 廊下が心臓の音に合わせてふくらみ、サイレンでは奥へ引きのばされる
+     せまくなる視界 … ストーカーが近いほど懐中電灯の光がせまくなり、近づくとストーカーの顔が見える
+     にせのフリーズ … 最後のおどかしの直前、ゲームが固まったふりをする（「応答していません」）
+     タイトル     … この曲のタイトル画面に来るたびに、廊下の奥の人影が少しずつ近づいてくる
    ========================================================================= */
 
 (function () {
   const VP = { x: W / 2, y: 300 };                          // 廊下の消失点
   const WHITE = [255, 255, 255], RED = rgb('#c0101a'), PALE = rgb('#d8e0d0');
   const SERIF = '"Times New Roman", "Hiragino Mincho ProN", serif';
-  const st = { lastBeat: -99, flick: 0, scare: null, hands: [], cut: 0, cam: 1, mask: null, grain: null, prox: 0, ac: null, eyes: [], ow: 0, beacon: 0, drips: null };
+  const st = { lastBeat: -99, flick: 0, scare: null, hands: [], cut: 0, cam: 1, mask: null, grain: null, prox: 0, ac: null, eyes: [], ow: 0, beacon: 0, drips: null,
+    behind: null, faceT: 0, arms: [], whispers: [], shadowX: W / 2, shadowLook: 0, sub: 0, frozen: null, freeze: -1, titleSeen: false };
+  const WHISPER = ['うしろ', 'みてる', 'にげて', 'ここにいる', 'behind you', "it's here", "don't turn around", 'みつけた'];
+  const FREEZE0 = 184.5, FREEZE1 = 185.95;                 // にせのフリーズ（拍）
   let SCARES = null, BANGS = null;
   const OW = [[80, 128], [144, 184]];                     // 裏の世界の区間（拍）
   const inside = (b, list) => list.some(([a, z]) => b >= a && b < z);
   const WRITE = [['RUN', 120, 230, -0.2], ['IT SEES YOU', 600, 180, 0.12], ["DON'T LOOK BACK", 640, 420, -0.08], ['13', 200, 440, 0.3]];
 
   function reset() {
-    Object.assign(st, { lastBeat: -99, flick: 0, scare: null, hands: [], cut: 0, cam: 1, prox: 0, eyes: [], ow: 0, beacon: 0 });
+    Object.assign(st, { lastBeat: -99, flick: 0, scare: null, hands: [], cut: 0, cam: 1, prox: 0, eyes: [], ow: 0, beacon: 0,
+      behind: null, faceT: 0, arms: [], whispers: [], shadowX: W / 2, shadowLook: 0, sub: 0, frozen: null, freeze: -1 });
     st.drips = Array.from({ length: 26 }, (_, i) => ({ x: i * 31 + Math.random() * 20, len: 0, max: 30 + Math.random() * 110, v: 6 + Math.random() * 18, w: 2 + Math.random() * 4 }));
   }
-  window.horrorBlink = () => { st.flick = 1; };
+  window.horrorBlink = () => { st.flick = 1; if (Math.random() < 0.5) st.subAt = songTime + 0.03 + Math.random() * 0.08; };   // 消えた一瞬に顔
   window.horrorCut = () => { st.cut = 0.18; st.cam = 1 + ((st.cam + 1 + (Math.random() * 3 | 0)) % 6); };
 
   // ---- ザー（ストーカーが近いほど強い）: WebAudio のノイズ ----
@@ -48,6 +62,19 @@
     }
     if (st.ac.gain) st.ac.gain.gain.setTargetAtTime(level * masterVol * 0.22, st.ac.ac.currentTime, 0.05);
   }
+  // ささやく音: こすれるような息の音（短いノイズを声の高さの帯でしぼる）
+  function whisperSound(pan) {
+    if (!st.ac || !st.ac.gain) return;
+    const ac = st.ac.ac, n = ac.sampleRate * 0.9, buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) { const t = i / n; d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * t) * (0.6 + 0.4 * Math.sin(t * 40)); }
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800 + Math.random() * 1500; f.Q.value = 2.5;
+    const g = ac.createGain(); g.gain.value = masterVol * 0.5;
+    const pn = ac.createStereoPanner ? ac.createStereoPanner() : null;
+    src.connect(f); f.connect(g);
+    if (pn) { pn.pan.value = pan; g.connect(pn); pn.connect(ac.destination); } else g.connect(ac.destination);
+    src.start();
+  }
   setInterval(() => {                                        // 一時停止中・ほかの曲・タイトルでは止める
     if (st.ac && st.ac.gain && (paused || scene !== 'play' || !song || song.theme !== 'horror')) st.ac.gain.gain.setTargetAtTime(0, st.ac.ac.currentTime, 0.03);
   }, 150);
@@ -64,6 +91,7 @@
 
   function update(dt, T, look) {
     if (!st.drips) reset();
+    if (scene !== 'title') st.titleSeen = false;             // タイトルにもどるたびに数える
     st.flick = Math.max(0, st.flick - dt * 2.2);
     st.cut = Math.max(0, st.cut - dt);
     if (st.scare) { st.scare.t += dt; if (st.scare.t > 0.75) st.scare = null; }
@@ -87,12 +115,51 @@
     if (stage.dark > 0.5 && Math.random() < dt * 0.8 && st.eyes.length < 6) st.eyes.push({ t: 0, x: 40 + Math.random() * (W - 80), y: 60 + Math.random() * 500, s: 0.6 + Math.random() * 0.8 });
     for (const e of st.eyes) e.t += dt;
     st.eyes = st.eyes.filter(e => e.t < 3);
+    const dark = stage.dark > 0.5;
+    // うしろ: 同じ向きを 1.5 秒見つづけると、背後に立つ。ふり向くと消える
+    if (player.facing !== st.lastFacing) { st.lastFacing = player.facing; st.faceT = 0; if (st.behind) { st.behind = null; st.flick = Math.max(st.flick, 0.3); } }
+    st.faceT += dt;
+    if (dark && !st.behind && st.faceT > 1.5 && Math.random() < dt * 0.5) st.behind = { t: 0, side: -player.facing, d: 120 + Math.random() * 80 };
+    if (st.behind) { st.behind.t += dt; if (st.behind.t > 6) st.behind = null; }
+    // 暗やみの腕: 画面のはしからのびる。懐中電灯を向けられると引っこむ
+    if (dark && st.arms.length < 3 && Math.random() < dt * 0.35) st.arms.push({ side: Math.random() < 0.5 ? -1 : 1, y: GROUND_Y - 30 - Math.random() * 380, len: 0, v: 40 + Math.random() * 50, ph: Math.random() * 6 });
+    for (const a of st.arms) {
+      const lit = player.facing === a.side;                  // 腕のある側を向く = 懐中電灯で照らす
+      a.len = Math.min(330, a.len + (lit ? -900 : a.v) * dt - (dark ? 0 : 300 * dt));
+    }
+    st.arms = st.arms.filter(a => a.len >= 0);
+    // ささやき
+    if ((dark || st.ow > 0.5) && Math.random() < dt * 0.22 && st.whispers.length < 2) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      st.whispers.push({ t: 0, text: WHISPER[(Math.random() * WHISPER.length) | 0], dx: side * (40 + Math.random() * 60), dy: -40 - Math.random() * 60 });
+      whisperSound(side * 0.8);
+    }
+    for (const w of st.whispers) w.t += dt;
+    st.whispers = st.whispers.filter(w => w.t < 2.2);
+    // 奥の壁の影: 少し遅れてついてくる。ときどきこちらを向く
+    st.shadowX += (p.x - st.shadowX) * Math.min(1, dt * 1.4);
+    st.shadowLook = (bp % 16 > 13.5 && bp > 32) ? Math.min(1, st.shadowLook + dt * 3) : Math.max(0, st.shadowLook - dt * 2);
+    // にせのフリーズ: 固まる直前の画面を取っておく（弾もぜんぶ消える）
+    if (bp >= FREEZE0 && bp < FREEZE1 && st.freeze < 0) {
+      st.freeze = 0;
+      st.frozen = document.createElement('canvas'); st.frozen.width = cv.width; st.frozen.height = cv.height;
+      st.frozen.getContext('2d').drawImage(cv, 0, 0);
+      bullets = [];
+    }
+    if (st.freeze >= 0) st.freeze += dt;
+    if (bp >= FREEZE1) st.frozen = null;
+    if (st.subAt && songTime >= st.subAt) { st.sub = 0.05; st.subAt = 0; }
+    else if (dark && Math.random() < dt * 0.04) st.sub = 0.05;
+    st.sub = Math.max(0, st.sub - dt);
   }
 
   // ---- 背景: 病院の廊下（ふつうの世界 / 裏の世界）----
   function corridor(T, look, k, other) {
     const wallC = other ? '#2a0d08' : '#1d211f', floorC = other ? '#1a0806' : '#151816', ceilC = other ? '#120504' : '#121413';
-    const L = 0, R = W, TOP = 0, BOT = GROUND_Y, fw = 70, fh = 52;   // 奥の扉の大きさ（半分）
+    const bpN = scene === 'title' ? 0 : beatPos(T);
+    const stretch = bpN >= 64 && bpN < 80 ? 1 - 0.55 * Math.sin(Math.PI * (bpN - 64) / 16) : 1;   // サイレン: 廊下が奥へ引きのばされる
+    const breath = 1 + 0.06 * kickOf(bpN) * (scene === 'play' ? 1 : 0);                            // 心臓の音で、廊下がふくらむ
+    const L = 0, R = W, TOP = 0, BOT = GROUND_Y, fw = 70 * stretch * breath, fh = 52 * stretch * breath;   // 奥の扉の大きさ（半分）
     const quad = (pts, c) => { ctx.fillStyle = c; ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill(); };
     quad([[L, TOP], [R, TOP], [VP.x + fw, VP.y - fh], [VP.x - fw, VP.y - fh]], ceilC);
     quad([[L, BOT], [R, BOT], [VP.x + fw, VP.y + fh], [VP.x - fw, VP.y + fh]], floorC);
@@ -149,6 +216,18 @@
 
   function background(T, look, k, bk, bp) {
     corridor(T, look, k, false);
+    if (scene === 'play') {                                   // 奥の壁にうつる自分の影（少し遅れて動く。ときどきこちらを向く）
+      const x = VP.x + (st.shadowX - W / 2) * 0.35, base = VP.y + 52, hh = 120;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.beginPath(); ctx.ellipse(x, base - hh * 0.82, 13, 17, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x - 20, base - hh * 0.68); ctx.lineTo(x + 20, base - hh * 0.68); ctx.lineTo(x + 14, base); ctx.lineTo(x - 14, base); ctx.closePath(); ctx.fill();
+      if (st.shadowLook > 0.05) {
+        ctx.fillStyle = `rgba(255,255,255,${(0.85 * st.shadowLook).toFixed(3)})`;
+        ctx.fillRect(x - 6, base - hh * 0.84, 3, 2); ctx.fillRect(x + 3, base - hh * 0.84, 3, 2);
+        ctx.strokeStyle = `rgba(255,255,255,${(0.5 * st.shadowLook).toFixed(3)})`; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(x, base - hh * 0.77, 5, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();   // にやり
+      }
+    }
     if (st.ow > 0.01) {                                      // 裏の世界: まん中から燃え広がるように変わる
       ctx.save();
       ctx.beginPath();
@@ -257,6 +336,13 @@
     ctx.beginPath(); ctx.ellipse(0, 0, 9, 13, 0, 0, TAU); ctx.fill();
     ctx.fillStyle = rgba(c, 0.95);
     ctx.fillRect(-5 + b.dir * 2, -3, 3, 2); ctx.fillRect(2 + b.dir * 2, -3, 3, 2);
+    if (st.prox > 0.55) {                                     // 近づくと顔が見える: 青白い顔、黒い目、開いた口
+      const fa = (st.prox - 0.55) / 0.45;
+      ctx.fillStyle = `rgba(200,205,195,${(0.9 * fa).toFixed(3)})`; ctx.beginPath(); ctx.ellipse(0, 1, 7, 11, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = `rgba(0,0,0,${fa.toFixed(3)})`;
+      ctx.beginPath(); ctx.ellipse(-3, -2, 2.2, 3, 0, 0, TAU); ctx.ellipse(3, -2, 2.2, 3, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, 6, 2, 3.5 + 1.5 * Math.abs(Math.sin(T * 9)), 0, 0, TAU); ctx.fill();
+    }
     ctx.restore();
     ctx.restore();
   }
@@ -286,6 +372,10 @@
   // ---- 懐中電灯（カメラの中に描く）----
   function world(T) {
     if (scene !== 'play') return;
+    worldDark(T);
+    whispers(T);
+  }
+  function worldDark(T) {
     const d = stage.dark;
     if (d > 0.01 || st.flick > 0) {
       const p = playerXY(), M = 2, PAD = 120;
@@ -300,15 +390,32 @@
       if (!blackout) {
         m.globalCompositeOperation = 'destination-out';
         const f = player.facing, a0 = f > 0 ? 0 : Math.PI, wob = Math.sin(T * 1.7) * 0.03;
-        const g = m.createRadialGradient(p.x, p.y, 20, p.x, p.y, 520);
+        const LR = 520 - 220 * st.prox, sp = 0.42 - 0.14 * st.prox;   // ストーカーが近いほど、光がせまくなる
+        const g = m.createRadialGradient(p.x, p.y, 20, p.x, p.y, LR);
         g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.75, 'rgba(0,0,0,0.85)'); g.addColorStop(1, 'rgba(0,0,0,0)');
         m.fillStyle = g;
-        m.beginPath(); m.moveTo(p.x, p.y); m.arc(p.x, p.y, 520, a0 - 0.42 + wob, a0 + 0.42 + wob); m.closePath(); m.fill();
+        m.beginPath(); m.moveTo(p.x, p.y); m.arc(p.x, p.y, LR, a0 - sp + wob, a0 + sp + wob); m.closePath(); m.fill();
         const g2 = m.createRadialGradient(p.x, p.y, 10, p.x, p.y, 95);
         g2.addColorStop(0, 'rgba(0,0,0,1)'); g2.addColorStop(1, 'rgba(0,0,0,0)');
         m.fillStyle = g2; m.beginPath(); m.arc(p.x, p.y, 95, 0, TAU); m.fill();
       }
       ctx.drawImage(st.mask, -PAD, -PAD, W + PAD * 2, H + PAD * 2);
+      if (st.behind) {                                         // うしろに立つもの（うっすら見える輪郭 ＋ 目）
+        const bx = p.x + st.behind.side * st.behind.d, a = Math.min(1, st.behind.t / 1.2) * d;
+        ctx.fillStyle = `rgba(28,28,26,${(0.85 * a).toFixed(3)})`;
+        ctx.beginPath(); ctx.ellipse(bx, GROUND_Y - 100, 10, 14, 0.2, 0, TAU); ctx.fill();
+        ctx.fillRect(bx - 9, GROUND_Y - 88, 18, 88);
+        ctx.fillStyle = `rgba(235,235,225,${(0.9 * a).toFixed(3)})`;
+        ctx.fillRect(bx - 5, GROUND_Y - 103, 3, 2); ctx.fillRect(bx + 2, GROUND_Y - 103, 3, 2);
+      }
+      for (const arm of st.arms) {                             // 暗やみからのびる腕（長い指）
+        if (arm.len < 2) continue;
+        const x0 = arm.side < 0 ? -10 : W + 10, dir = -arm.side, x1 = x0 + dir * arm.len, y = arm.y + Math.sin(T * 1.3 + arm.ph) * 6;
+        ctx.strokeStyle = `rgba(150,150,140,${(0.35 * d).toFixed(3)})`; ctx.lineWidth = 7; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x0, y); ctx.quadraticCurveTo((x0 + x1) / 2, y - 18, x1, y); ctx.stroke();
+        ctx.lineWidth = 2;
+        for (let f = -2; f <= 2; f++) { const cl = Math.sin(T * 4 + f + arm.ph) * 4; ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x1 + dir * (18 + Math.abs(f) * -2), y + f * 6 + cl); ctx.lineTo(x1 + dir * 28, y + f * 8 + cl + 4); ctx.stroke(); }
+      }
       // 照らされていない所の化け物と弾: 光る目・うっすらした点だけ見える
       ctx.globalCompositeOperation = 'lighter';
       for (const b of bullets) {
@@ -327,6 +434,20 @@
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.arc(p.x, p.y, 500, a0 - 0.4, a0 + 0.4); ctx.closePath(); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
       }
+    }
+  }
+
+  // ささやき: 自分のすぐそばに浮かぶ赤い文字（カメラの中）
+  function whispers(T) {
+    if (scene !== 'play' || !st.whispers.length) return;
+    const p = playerXY();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const w of st.whispers) {
+      const a = w.t < 0.4 ? w.t / 0.4 : w.t > 1.5 ? 1 - (w.t - 1.5) / 0.7 : 1;
+      ctx.font = `400 ${16 + w.t * 3}px ${SERIF}`;
+      ctx.fillStyle = `rgba(190,20,30,${(0.85 * clamp01(a)).toFixed(3)})`;
+      const j = () => (Math.random() - 0.5) * 2;
+      ctx.fillText(w.text, p.x + w.dx + j(), p.y + w.dy - w.t * 8 + j());
     }
   }
 
@@ -478,6 +599,29 @@
       const y = (T * 60) % (H + 80) - 40;
       ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(0, y, W, 22);
     }
+    if (st.frozen && scene === 'play') {                     // にせのフリーズ: 固まった画面 ＋「応答していません」
+      const R = renderScale;
+      ctx.drawImage(st.frozen, 0, 0, st.frozen.width, st.frozen.height, 0, 0, W, H);
+      ctx.fillStyle = `rgba(255,255,255,${(0.25 * clamp01(st.freeze / 0.4)).toFixed(3)})`; ctx.fillRect(0, 0, W, H);
+      if (st.freeze > 0.35) {
+        const x = W / 2 - 190, y = H / 2 - 70, glitchT = st.freeze > 1.05;
+        ctx.fillStyle = '#f0f0f0'; ctx.fillRect(x, y, 380, 140);
+        ctx.strokeStyle = '#888'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, 379, 139);
+        ctx.fillStyle = '#222'; ctx.font = '600 15px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(glitchT ? 'Ward 13 は応答して い ま す' : 'Ward 13 は応答していません', x + 20, y + 22);
+        ctx.font = '13px system-ui, sans-serif'; ctx.fillStyle = glitchT ? '#a00' : '#444';
+        ctx.fillText(glitchT ? 'うしろを見て' : 'プログラムが応答するのを待っています…', x + 20, y + 54);
+        ctx.fillStyle = '#e2e2e2'; ctx.fillRect(x + 260, y + 96, 100, 28); ctx.strokeRect(x + 260.5, y + 96.5, 99, 27);
+        ctx.fillStyle = '#222'; ctx.textAlign = 'center'; ctx.fillText('閉じる', x + 310, y + 103);
+        const a = st.freeze * 6;                                // くるくる回る読みこみ中の輪
+        ctx.strokeStyle = '#3a7bd5'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x + 40, y + 108, 10, a, a + 4.5); ctx.stroke();
+      }
+    }
+    if (st.sub > 0 && !st.scare) {                            // 一瞬だけ見える顔（1〜3コマ）
+      ctx.save(); ctx.globalAlpha = 0.6;
+      scareFace(0.22, 0.37);
+      ctx.restore();
+    }
     if (st.scare) scareFace(st.scare.t, st.scare.seed);
   }
 
@@ -506,15 +650,24 @@
   }
 
   // タイトル: 廊下の奥に、だれかが立っている
+  // タイトル: 廊下の奥に、だれかが立っている。この画面に来るたびに、少しずつ近づいてくる
   function title(look, k, bp) {
+    if (!st.titleSeen) {
+      st.titleSeen = true;
+      st.visits = Math.min(12, (parseInt(store.get('dodge_w13_visits') || '0', 10) || 0) + 1);
+      store.set('dodge_w13_visits', String(st.visits));
+    }
     const on = Math.random() > 0.04;
     if (!on) { ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, W, H); }
-    const x = VP.x + 20, y = VP.y + 52;
+    const n = clamp01(((st.visits || 1) - 1) / 10), s = 1 + n * 4.5;   // 1回目は奥、10回くらいで目の前
+    const x = VP.x + 20 + n * 150, y = VP.y + 52 + n * (GROUND_Y - VP.y - 52);
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
     ctx.fillStyle = '#000';
-    ctx.fillRect(x - 4, y - 50, 8, 50);
-    ctx.beginPath(); ctx.ellipse(x, y - 56, 5, 7, 0.3, 0, TAU); ctx.fill();
+    ctx.fillRect(-4, -50, 8, 50);
+    ctx.beginPath(); ctx.ellipse(0, -56, 5, 7, 0.3, 0, TAU); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    if (Math.floor(bp * 2) % 7) { ctx.fillRect(x - 3, y - 58, 2, 1.5); ctx.fillRect(x + 1, y - 58, 2, 1.5); }
+    if (Math.floor(bp * 2) % 7) { ctx.fillRect(-3, -58, 2, 1.5); ctx.fillRect(1, -58, 2, 1.5); }
+    ctx.restore();
   }
 
   THEMES.horror = {
