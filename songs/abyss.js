@@ -82,8 +82,8 @@ function abyssChart() {
 
   // ===== RISING 28〜30小節 ｜ 下から上がる泡の柱（すき間を通る）=====================================
   for (let i = 0; i < 8; i++) fire(bar(28) + i * B, 0.7, delay => {
-    const gap = 160 + i * 70;                             // すき間は1拍ごとに 70px ずつ右へ（走って追いかける）
-    for (let x = 30; x < W; x += 46) if (Math.abs(x - gap) > 70) spawn({ x, y: GROUND_Y + 10, vy: -110, r: 8, delay, color: GOLD, style: 'bubble' });
+    const gap = 160 + i * 70;                             // すき間（幅 約220px）は1拍ごとに 70px ずつ右へ（走って追いかける）
+    for (let x = 30; x < W; x += 46) if (Math.abs(x - gap) > 120) spawn({ x, y: GROUND_Y + 10, vy: -110, r: 8, delay, color: GOLD, style: 'bubble' });
   });
 
   // ===== LEVIATHAN 30〜40小節 ｜ リヴァイアサン ＋ 旋律の粒 ＋ うずまき ＋ クラゲ ==================
