@@ -41,13 +41,16 @@ dodge-game/
 │   ├── malware-score.js / malware-env.js ← 曲⑦の楽譜データ / 音量データ
 │   ├── malware-compose.py    ← 曲⑦を作曲・合成するプログラム（モデムの音・8ビット・スタッター）
 │   ├── abyss.js         ← 曲⑨「Abyss」（オリジナル曲・深海。弾は遅いがむずかしい）の拍・場面・譜面
-│   └── abyss-score.js / abyss-env.js / abyss-compose.py ← 曲⑨の楽譜データ / 音量データ / 作曲プログラム
+│   ├── abyss-score.js / abyss-env.js / abyss-compose.py ← 曲⑨の楽譜データ / 音量データ / 作曲プログラム
+│   ├── ward13.js        ← 曲⑩「Ward 13」（オリジナル曲・ホラー）の拍・場面・譜面
+│   └── ward13-score.js / ward13-env.js / ward13-compose.py ← 曲⑩の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔・歯車・振り子）
 ├── visuals-glass.js ← 曲④の見た目（ガラスの部屋・結晶・鍵盤の床・画面のひび）
 ├── visuals-gyro.js  ← 曲⑤の見た目（飛行機の姿勢計・流れる鉄板の床・水準器）
 ├── visuals-ex.js    ← 曲⑥の見た目（黒と赤の警告色・EXの紋章・WARNINGの帯）
+├── visuals-horror.js ← 曲⑩の見た目（廃病院・懐中電灯・裏の世界・監視カメラ・ジャンプスケア）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
@@ -625,6 +628,19 @@ leviathan({ y, dir, v, amp, wave, n }) // リヴァイアサン: n 節の巨大�
 
 見た目のセットに `kinds: { jelly, leviathan }` を書くと、その `kind` の弾をセットが自分で描きます（visuals-abyss.js）。
 
+### 5-12. 曲⑩「Ward 13」で生まれた形態（ホラー）
+
+```js
+stalker({ x, v, life })                // ストーカー: 背の高い化け物が床を歩いて追ってくる（背は 90px。跳び越えられる）
+stalkerBlink(dist)                     // 明かりが消えた瞬間に、ストーカーが dist だけ近くへワープ
+crawler({ fromLeft, v })               // はうもの: 床をすばやくはってくる（跳び越える）
+doorSlam({ x, delay, hold })           // 扉: 予告のあと、上から床まで扉が閉まる
+bloodDrop({ x, delay })                // 血のしずく: 天井から重力で落ちる
+stageTo({ cctv: 1 }, 0.01)             // 監視カメラの映像（見た目）。カメラの切りかえは stageTo({ zoom, follow })
+```
+
+`addSong` に `overTitle: 'YOU DIED'` / `clearTitle: 'SURVIVED'` を書くと、結果画面の大きな文字が変わります。
+
 ---
 
 ## 6. 弾幕レシピ集（コピペで使える）
@@ -753,7 +769,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
 4. `index.html` の下の方、`songs/unknown.js` の次の行に `<script src="songs/mysong.js"></script>` を足す
 

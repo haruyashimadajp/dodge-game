@@ -559,7 +559,7 @@ function endRun(kind) {
   resultTimer = setTimeout(() => {
     overlay.classList.remove('over', 'clear');
     overlay.classList.add('result', kind);
-    setOverlayTitle(kind === 'clear' ? 'CLEAR' : 'GAME OVER');
+    setOverlayTitle(kind === 'clear' ? (song.clearTitle || 'CLEAR') : (song.overTitle || 'GAME OVER'));   // 曲ごとに変えられる（Ward 13 は YOU DIED）
     ovSub.textContent = kind === 'clear' ? (song.clearText || '最後まで生き残った！') : (newBest ? 'NEW BEST!' : '');
     resTime.textContent = elapsed.toFixed(1) + 's';
     resBest.textContent = best.toFixed(1) + 's';
@@ -1642,7 +1642,7 @@ function prism({ x, y, a, v = 200, turn = 0.6, alt = true, every = 1, r = 7, del
      wl, wr   左右の壁の位置（せまくなってくる）/ shock = 1 で壁に電気（さわると当たる）
    -------------------------------------------------------------------------- */
 const STAGE_SLIDE = 620;       // 傾きですべる速さ（px/秒）= STAGE_SLIDE × sin(傾き)。走る速さは 260
-const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0, grav: 1, gravVis: 1, ceil: 0, dark: 0 };
+const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0, grav: 1, gravVis: 1, ceil: 0, dark: 0, cctv: 0 };
 const stage = { ...STAGE_DEFAULT, slideV: 0, scroll: 0, holes: [], drops: [], hint: null, pings: [] };
 let stageTweens = [];
 function stageReset() {
@@ -2011,6 +2011,54 @@ function leviathan({ y = 380, dir = 1, v = 150, amp = 140, wave = 0.5, n = 14, g
     },
     hits: b => b.segs.some(s => s.on && circleHitsPlayer(s.x, s.y, s.r * 0.85)),
   });
+}
+
+/* ---- ここから下は「Ward 13」で生まれた形態（ホラー）-------------------------------
+     ストーカー … 背の高い化け物が、床を歩いて追いかけてくる。stalkerBlink() で明かりが消えた瞬間に近づく。
+                  背は 90px なので、ジャンプで頭の上を跳び越えられる
+     はうもの   … 床をすばやくはってくる低い生き物（跳び越える）
+     扉         … 上から床まで、太い扉がバタンと閉まる（予告のあと、その場所にいると当たる）
+     stageTo({ cctv: 1 }) … 監視カメラの映像になる（見た目だけ。カメラの切りかえは zoom / follow で）
+   -------------------------------------------------------------------------- */
+// ★ストーカー★ x から床を歩いてプレイヤーを追う。v = 歩く速さ、life 秒で消える
+function stalker({ x, v = 90, life = 10, w = 30, h = 92, delay = 1.0, color }) {
+  return spawn({
+    kind: 'stalker', x, y: GROUND_Y - h / 2, w, h, v, life, r: h / 2, delay, color, spd: 1, dir: 1, fade: 0,
+    move(b, dt) {
+      const p = playerXY(), d = p.x - b.x;
+      b.dir = Math.sign(d) || b.dir;
+      if (b.age < b.life) { if (Math.abs(d) > 4) b.x += b.dir * Math.min(Math.abs(d), b.v * dt); b.step = (b.step || 0) + dt; }
+      else { b.fade += dt; b.safe = true; if (b.fade > 0.6) b.dead = true; }
+    },
+    hits: b => player.x < b.x + b.w / 2 - 3 && player.x + player.w > b.x - b.w / 2 + 3 && player.y + player.h > GROUND_Y - b.h + 6,
+  });
+}
+// 明かりが消えた瞬間、ストーカーが dist だけ近くにワープする（でも gap より近くには来ない）
+function stalkerBlink(dist = 160, gap = 110) {
+  const p = playerXY();
+  for (const b of bullets) {
+    if (b.kind !== 'stalker' || b.delay > 0 || b.safe) continue;
+    const d = p.x - b.x, m = Math.max(0, Math.min(dist, Math.abs(d) - gap));
+    b.x += Math.sign(d) * m; b.blinkT = songTime;
+  }
+}
+// ★はうもの★ 床の上を、左右のはしから速さ v ではってくる（跳び越える）
+function crawler({ fromLeft = true, v = 300, r = 12, delay = 0.8, color }) {
+  const x = fromLeft ? -20 : W + 20;
+  return spawn({ x, y: GROUND_Y - r, vx: fromLeft ? v : -v, r, delay, color, style: 'crawler', lane: [fromLeft ? 1 : -1, 0], noTrail: true });
+}
+// ★扉★ x を中心に、幅 w の扉が上から床まで閉まる。delay 秒の予告のあと hold 秒のあいだ当たる
+function doorSlam({ x, w = 56, delay = 0.9, hold = 0.5, color }) {
+  return spawn({
+    kind: 'door', x, y: GROUND_Y / 2, w, r: w, delay, hold, color, spd: 1,
+    move(b) { if (b.age > b.hold) { b.safe = true; if (b.age > b.hold + 0.3) b.dead = true; } },
+    hits: b => player.x < b.x + b.w / 2 - 2 && player.x + player.w > b.x - b.w / 2 + 2,
+  });
+}
+// 血のしずく: 天井から落ちる（重力つき）
+function bloodDrop({ x, delay = 0.6, g = 900, r = 6, color = '#b0101a' }) {
+  return spawn({ x, y: -8, vy: 0, g, r, delay, color, style: 'blood', lane: [0, 1], noTrail: true,
+    move(b, dt) { b.vy += b.g * dt; b.y += b.vy * dt; if (b.y > GROUND_Y - b.r) { b.dead = true; if (typeof fxSplat === 'function') fxSplat(b.x, GROUND_Y, b); } } });
 }
 
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。

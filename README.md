@@ -4,7 +4,7 @@ A 2D dodge game built with plain HTML / CSS / JavaScript (Canvas).
 Mario-like platformer controls — run, jump between platforms, and dodge
 bullets fired in time with the music. Survive to the end of the song to clear it.
 
-Nine songs, each with its own chart and look (pick one on the title screen with ◀ ▶):
+Ten songs, each with its own chart and look (pick one on the title screen with ◀ ▶):
 
 - **First Step** — the beginner song (first in the list): an original, cheerful 108 BPM pop track with a bell melody (`songs/firststep-compose.py`); slow bullets with long warnings, and on-screen hints that teach one thing at a time — moving, jumping over rolling balls, finding gaps in rings, and getting onto platforms when the floor lights up
 - **the EmpErroR** — 120 BPM, neon shapes, fireworks, meteors
@@ -16,6 +16,7 @@ Nine songs, each with its own chart and look (pick one on the title screen with 
 - **Malware** — an original 150 BPM glitch / dubstep track about bugs and computer viruses (`songs/malware-compose.py`): a dial-up modem boot, an 8-bit chip lead, wobble bass and a track that stutters, crashes into a blue screen and shuts down at the end. Its mechanics: viruses that infect the floor where they land (the infection spreads tile by tile into spikes), worms whose long bodies follow the head's path, retro ERROR windows that pop up and cascade, a gravity bug that sticks you to the ceiling, and a loop bug that makes the bullets on screen skip back and forth whenever the music stutters
 
 - **Abyss** — an original 90 BPM deep-sea ambient track (`songs/abyss-compose.py`) with sonar pings, whale song and a kalimba: the slowest bullets of any song, but hard — dense slow fields to thread through, jellyfish that lunge at you on every beat (their tentacles hit too), marine snow drifting down everywhere, a dark-water section where you only see around yourself and sonar pings reveal the bullets, and a giant leviathan that winds across the screen
+- **Ward 13** — an original 100 BPM industrial horror track (`songs/ward13-compose.py`) set in an abandoned hospital; normal difficulty, with the focus on horror-game atmosphere: you see only what your flashlight points at, a tall stalker walks after you and blinks closer whenever the lights cut out (radio static on screen and in the speakers grows as it nears), an air-raid siren turns the hospital into a rusty, bloody other world, a CCTV section cuts between security cameras, crawlers rush along the floor, doors slam shut, bloody handprints hit the screen, jump scares land on the music's stingers, and losing shows YOU DIED
 
 ## Play
 
@@ -42,6 +43,7 @@ Open `index.html` in a web browser.
 | `visuals-virus.js` | The green terminal / virus theme used by Malware |
 | `visuals-day.js` | The bright daytime theme used by First Step |
 | `visuals-abyss.js` | The deep-sea theme used by Abyss |
+| `visuals-horror.js` | The abandoned-hospital horror theme used by Ward 13 |
 | `songs/moratorium-compose.py` | Composes and renders モラトリウム (Python + numpy/scipy) and writes its note timings |
 | `songs/segment-compose.py` | Composes and renders segment (piano, glockenspiel, breaking glass) and writes its note timings |
 | `style.css` | Colors and layout |
