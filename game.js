@@ -587,7 +587,7 @@ function hitPlayer() {
 }
 
 function updateLivesHud() {
-  livesHud.textContent = livesLeft;
+  livesHud.textContent = livesLeft === Infinity ? '∞' : livesLeft;
   livesHud.classList.remove('bump');
   void livesHud.offsetWidth;                     // restart the CSS bump animation
   livesHud.classList.add('bump');
@@ -609,7 +609,7 @@ const sliderDefs = [
   { id: 'fxAmount',    val: 'fxVal',     store: 'dodge_fx',          def: 100,            apply: v => fxScale = v / 100,        fmt: v => v + '%' },
   { id: 'moveSpeed',   val: 'moveVal',   store: 'dodge_moveSpeed',   def: PHYS.moveSpeed, apply: v => PHYS.moveSpeed = v,        fmt: v => v },
   { id: 'jumpVel',     val: 'jumpVal',   store: 'dodge_jumpVel',     def: PHYS.jumpVel,   apply: v => PHYS.jumpVel = v,          fmt: v => v },
-  { id: 'lives',       val: 'livesVal',  store: 'dodge_lives',       def: 3,              apply: v => startLives = v,           fmt: v => v },
+  { id: 'lives',       val: 'livesVal',  store: 'dodge_lives',       def: 3,              apply: v => startLives = v >= 10 ? Infinity : v, fmt: v => (v >= 10 ? '∞' : v) },   // いちばん右（10）= 無限
   { id: 'bulletSpeed', val: 'bulletVal', store: 'dodge_bulletSpeed', def: 100,            apply: v => bulletSpeedMul = v / 100, fmt: v => v + '%' },
 ];
 for (const d of sliderDefs) {
