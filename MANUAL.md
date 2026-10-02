@@ -28,11 +28,15 @@ dodge-game/
 │   ├── segment.js       ← 曲④「segment」（オリジナル曲）の拍・場面・譜面 ★よく編集する★
 │   ├── segment-score.js      ← 曲④の楽譜データ（ピアノ・鉄琴の音・ガラスの割れる時刻）
 │   ├── segment-env.js        ← 曲④の音量データ
-│   └── segment-compose.py    ← 曲④を作曲・合成するプログラム（Python）
+│   ├── segment-compose.py    ← 曲④を作曲・合成するプログラム（Python）
+│   ├── vertigo.js       ← 曲⑤「Vertigo」（オリジナル曲）の拍・場面・譜面 ★よく編集する★
+│   ├── vertigo-score.js      ← 曲⑤の楽譜データ / vertigo-env.js ← 曲⑤の音量データ
+│   └── vertigo-compose.py    ← 曲⑤を作曲・合成するプログラム（Python）
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔・歯車・振り子）
 ├── visuals-glass.js ← 曲④の見た目（ガラスの部屋・結晶・鍵盤の床・画面のひび）
+├── visuals-gyro.js  ← 曲⑤の見た目（飛行機の姿勢計・流れる鉄板の床・水準器）
 ├── style.css    ← 色やレイアウト（タイトル画面・ボタンの見た目）
 ├── the EmpErroR.mp3 / Re-Unknown_X.mp3 ← 曲
 └── MANUAL.md    ← この説明書
@@ -542,6 +546,24 @@ prism({ x, y, a, v, turn, every })  // プリズム弾: every 拍ごとに turn�
 地面はピアノの鍵盤になっていて、ブロックが着くとその鍵が光ります。
 作り直し方は曲③と同じです（`songs/segment-compose.py` → `segment.wav` と `score.json` → `Segment.mp3` と `segment-score.js`）。
 
+### 5-8. 曲⑤「Vertigo」で生まれた仕掛け（弾ではなく、ステージそのものが動く）
+
+```js
+stageTo({ tilt: 0.3 }, 秒, 'snap')     // 世界が傾く（ラジアン。＋ で右が下）→ 低いほうへすべる。0.35 ≒ 20度
+stageTo({ spin: Math.PI }, 秒)         // 画面だけ回す（重力はそのまま）。π で上下さかさま → ←→ が逆に見える
+stageTo({ mirror: -1 }, 秒)            // 左右反転（1 にもどすまで）
+stageTo({ zoom: 1.9, follow: 1 }, 秒)  // カメラがプレイヤーに寄る（まわりが見えなくなる）
+stageTo({ conveyor: 150 }, 秒)         // 床が流れる（px/秒、＋ で右へ）。床の穴もいっしょに流れる
+stageTo({ wl: 200, wr: 600 }, 秒)      // 左右の壁がせまる
+stageTo({ shock: 1 }, 秒, 'linear')    // 壁に電気が流れる（1 になるまでは点滅が予告。さわると当たる）
+floorHole({ x, w, open, close, warn }) // 床の穴（曲の秒で open〜close のあいだ開く。落ちると当たり、近くの床へもどされる）
+stageHint('◀ ◀ ◀')                     // 画面のまん中に予告の文字
+```
+
+すべる速さは `STAGE_SLIDE × sin(傾き)`（game.js）。プレイヤーの走る速さは 260 なので、
+「傾きですべる速さ ＋ コンベアの速さ」が 260 をこえると、その場にふんばれなくなります（譜面を作るときの注意）。
+`stage` の値は曲を始めるたび・タイトルにもどるたびに `stageReset()` で元にもどります。
+
 ---
 
 ## 6. 弾幕レシピ集（コピペで使える）
@@ -670,7 +692,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
 4. `index.html` の下の方、`songs/unknown.js` の次の行に `<script src="songs/mysong.js"></script>` を足す
 

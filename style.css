@@ -680,3 +680,30 @@ body[data-theme="glass"] .start-btn {
 }
 body[data-theme="glass"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(244, 251, 255, 0.95), 0 0 48px rgba(156, 255, 217, 0.5); }
 body[data-theme="glass"] .seg-btn.active { background: linear-gradient(90deg, #4a8fc0, #8a6cd0); }
+
+/* ---- Vertigo: a cockpit attitude indicator (cyan / hazard yellow / pink) ---- */
+body[data-theme="gyro"] {
+  --accent: #7ff6ff;
+  --accent-2: #ffe36e;
+  --text-dim: #9fb8c8;
+  background:
+    linear-gradient(180deg, rgba(22, 60, 85, 0.25) 0%, transparent 50%, rgba(255, 227, 110, 0.05) 100%),
+    #050b12;
+}
+body[data-theme="gyro"] .stat { background: rgba(10, 20, 30, 0.85); font-family: ui-monospace, Menlo, Consolas, monospace; }
+body[data-theme="gyro"] canvas { box-shadow: 0 0 0 1px rgba(127,246,255,0.14), 0 20px 60px rgba(0,0,0,0.6), 0 0 80px rgba(127, 246, 255, 0.07); }
+body[data-theme="gyro"] .logo { text-shadow: 0 0 18px rgba(127, 246, 255, 0.8), 0 0 48px rgba(255, 227, 110, 0.35); }
+body[data-theme="gyro"] .logo::before { color: #ffe36e; }
+body[data-theme="gyro"] .logo::after  { color: #ff5fa2; }
+body[data-theme="gyro"] .kicker { color: #ffe36e; font-family: ui-monospace, Menlo, Consolas, monospace; }
+body[data-theme="gyro"] .song-tag { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.2em; color: #f0fbff; background: rgba(10, 20, 30, 0.6); border-color: rgba(255, 227, 110, 0.45); }
+body[data-theme="gyro"] .song-arrow,
+body[data-theme="gyro"] .link-btn { background: rgba(10, 20, 30, 0.75); border-color: rgba(127, 246, 255, 0.3); color: #eafcff; }
+body[data-theme="gyro"] .start-btn {
+  background: repeating-linear-gradient(135deg, #ffe36e 0 14px, #1a1a22 14px 28px);
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 calc(18px + var(--kick, 0) * 22px) rgba(255, 227, 110, 0.45), inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+}
+body[data-theme="gyro"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(240, 251, 255, 0.95), 0 0 48px rgba(127, 246, 255, 0.5); }
+body[data-theme="gyro"] .seg-btn.active { background: linear-gradient(90deg, #2f8fa6, #b8a03a); }

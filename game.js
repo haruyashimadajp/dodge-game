@@ -192,6 +192,7 @@ function reset() {
   freezeUntil = -1;
   hitsTaken = 0;
   songTime = 0;
+  stageReset();
   updateLivesHud();
   resetChart();              // rebuild the bullet timeline from the top
 }
@@ -230,6 +231,9 @@ function update(dt) {
   // Gravity
   player.vy = Math.min(player.vy + PHYS.gravity * dt, PHYS.maxFall);
 
+  // 傾いた世界: 重力の横向きの成分で、低いほうへすべっていく（曲④ Vertigo）
+  stage.slideV += (STAGE_SLIDE * Math.sin(stage.tilt) - stage.slideV) * Math.min(1, dt * 4);
+
   // Timers
   player.coyoteT -= dt;
   player.bufferT -= dt;
@@ -249,9 +253,21 @@ function update(dt) {
   // Integrate + collide (axis-separated)
   moveAndCollide(dt);
 
-  // Walls
-  if (player.x < 0) { player.x = 0; player.vx = 0; }
-  if (player.x + player.w > W) { player.x = W - player.w; player.vx = 0; }
+  // Walls (左右の壁は動くことがある。電気が流れていたら、さわると当たる)
+  if (player.x < stage.wl) { player.x = stage.wl; player.vx = Math.max(0, player.vx); if (stage.shock >= 1) zapPlayer(1); }
+  if (player.x + player.w > stage.wr) { player.x = stage.wr - player.w; player.vx = Math.min(0, player.vx); if (stage.shock >= 1) zapPlayer(-1); }
+  // 床の穴に落ちた: 当たり ＋ 近くの床へはね上げてもどす
+  if (player.y > H + 30) {
+    const h = stage.holes.find(h => player.x + player.w / 2 > h.x - 40 && player.x + player.w / 2 < h.x + h.w + 40);
+    if (h) {                                       // 穴の近いほうのふちへ（壁の外になるなら反対側）
+      const left = h.x - player.w - 6, right = h.x + h.w + 6;
+      const goLeft = player.x + player.w / 2 < h.x + h.w / 2 ? left >= stage.wl : right + player.w > stage.wr;
+      player.x = goLeft ? left : right;
+    }
+    player.x = Math.max(stage.wl, Math.min(stage.wr - player.w, player.x));
+    player.y = H; player.vy = -1000;
+    if (running && invuln <= 0) hitPlayer();
+  }
 
   // Visual squash/stretch easing
   player.squash *= Math.pow(0.0001, dt);
@@ -267,6 +283,7 @@ function updateBullets(dt) {
   // sync; if the music didn't start (e.g. blocked), fall back to the game clock.
   songTime = (bgm && !bgm.paused) ? bgm.currentTime : elapsed;
   runChart(songTime);
+  updateStage(dt);
 
   const frozen = songTime < freezeUntil;     // 時間停止中: 弾はその場で止まる（当たり判定は残る）
   for (const b of bullets) {
@@ -330,13 +347,15 @@ function segmentHitsPlayer(x1, y1, x2, y2, r) {
 }
 
 function moveAndCollide(dt) {
-  // Horizontal
-  player.x += player.vx * dt;
+  // Horizontal（自分の速さ ＋ 傾きですべる速さ ＋ 地面にいればベルトコンベアの速さ）
+  const onFloor = player.onGround && player.y + player.h >= GROUND_Y - 1;
+  const dx = (player.vx + stage.slideV + (onFloor ? stage.conveyor : 0)) * dt;
+  player.x += dx;
   for (const p of platforms) {
     if (p.ground) continue;        // ground spans full width; no side walls
     if (overlapRect(player, p)) {
-      if (player.vx > 0) player.x = p.x - player.w;
-      else if (player.vx < 0) player.x = p.x + p.w;
+      if (dx > 0) player.x = p.x - player.w;
+      else if (dx < 0) player.x = p.x + p.w;
       player.vx = 0;
     }
   }
@@ -347,6 +366,7 @@ function moveAndCollide(dt) {
   player.y += player.vy * dt;
   for (const p of platforms) {
     if (!overlapRect(player, p)) continue;
+    if (p.ground && overHole()) continue;     // 床に穴が開いている → 落ちる
     if (player.vy > 0) {           // falling -> land on top
       player.y = p.y - player.h;
       player.vy = 0;
@@ -359,6 +379,16 @@ function moveAndCollide(dt) {
   }
 
   if (player.onGround) player.coyoteT = PHYS.coyote;
+}
+
+// プレイヤーが、開いている床の穴の真上にいる？（体の 3/4 以上が穴の上なら落ちる）
+function overHole() {
+  for (const h of stage.holes) {
+    if (songTime < h.open || songTime > h.close) continue;
+    const a = Math.max(player.x, h.x), z = Math.min(player.x + player.w, h.x + h.w);
+    if (z - a >= player.w * 0.75) return true;
+  }
+  return false;
 }
 
 function overlapRect(a, b) {
@@ -465,6 +495,7 @@ function resumeGame() {
 }
 
 function showTitle() {
+  stageReset();
   running = false;
   paused = false;
   scene = 'title';
@@ -1576,6 +1607,59 @@ function prism({ x, y, a, v = 200, turn = 0.6, alt = true, every = 1, r = 7, del
       b.tx = (b.vx * c - b.vy * s) / sp; b.ty = (b.vx * s + b.vy * c) / sp;   // 次に曲がる向き（予告の点線）
     },
   });
+}
+
+/* ---- ここから下は「Vertigo」で生まれた仕掛け（弾ではなく、ステージそのものが動く）---------
+   stage の値を stageTo で「なめらかに」変えると、世界が傾いたり、床が流れたり、画面がさかさまになる。
+     tilt     世界の傾き（ラジアン。＋ で右が下がる）→ 低いほうへすべる。0.35 で約20度（ふんばるのがやっと）
+     spin     画面だけの回転（重力は画面の下のまま）。Math.PI で上下さかさま → ←→ が逆に見える
+     mirror   1 = ふつう、-1 = 左右反転（1→-1 にすると、カードがひっくり返るように反転する）
+     zoom / follow   カメラのズームと、プレイヤーを追いかける強さ（0〜1）
+     conveyor 地面が流れる速さ（px/秒、＋ で右へ）。床の穴もいっしょに流れる
+     wl, wr   左右の壁の位置（せまくなってくる）/ shock = 1 で壁に電気（さわると当たる）
+   -------------------------------------------------------------------------- */
+const STAGE_SLIDE = 620;       // 傾きですべる速さ（px/秒）= STAGE_SLIDE × sin(傾き)。走る速さは 260
+const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0 };
+const stage = { ...STAGE_DEFAULT, slideV: 0, scroll: 0, holes: [], hint: null };
+let stageTweens = [];
+function stageReset() {
+  Object.assign(stage, STAGE_DEFAULT, { slideV: 0, scroll: 0, holes: [], hint: null });
+  stageTweens = [];
+}
+// props の値へ、dur 秒かけて変える（ease: 'smooth' = なめらか / 'snap' = 最初にぐっと動く / 'linear'）
+function stageTo(props, dur = 0.4, ease = 'smooth') {
+  for (const key in props) {
+    stageTweens = stageTweens.filter(tw => tw.key !== key);
+    stageTweens.push({ key, from: stage[key], to: props[key], t0: songTime, t1: songTime + Math.max(0.001, dur), ease });
+  }
+}
+const STAGE_EASE = {
+  smooth: p => p * p * (3 - 2 * p),
+  snap: p => 1 - Math.pow(1 - p, 3),
+  linear: p => p,
+};
+// 床の穴: 曲の時刻 open に開いて close に閉じる。warn 秒前から赤く点滅する。x, w = 場所と幅
+function floorHole({ x, w = 110, open, close, warn = 1 }) {
+  stage.holes.push({ x, w, open, close, warn });
+}
+// 画面のまん中に出す予告の文字（「◀ TILT」など）
+function stageHint(text, dur = 1) { stage.hint = { text, t0: songTime, t1: songTime + dur }; }
+function zapPlayer(dir) {                     // 電気の壁にさわった
+  player.x += dir * 36;
+  player.vx = dir * 200;
+  if (running && invuln <= 0) hitPlayer();
+}
+function updateStage(dt) {
+  for (const tw of stageTweens) {
+    const p = Math.max(0, Math.min(1, (songTime - tw.t0) / (tw.t1 - tw.t0)));
+    stage[tw.key] = tw.from + (tw.to - tw.from) * STAGE_EASE[tw.ease](p);
+    tw.done = p >= 1;
+  }
+  stageTweens = stageTweens.filter(tw => !tw.done);
+  stage.scroll += stage.conveyor * dt;
+  for (const h of stage.holes) h.x += stage.conveyor * dt;     // 穴も床といっしょに流れる
+  stage.holes = stage.holes.filter(h => songTime < h.close + 0.5);
+  if (stage.hint && songTime > stage.hint.t1) stage.hint = null;
 }
 
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。

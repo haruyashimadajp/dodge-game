@@ -355,14 +355,20 @@ function drawScene() {
   (th.background || drawBackground)(T, look, k, bk, bp);
 
   // ---- カメラ: 拍ごとのズーム・揺れ・ゆっくり回転 ----
-  const zoom = look.zoom + look.pulse * k * fxScale + fx.punch;
-  const rot = (look.sway * Math.PI / 180) * Math.sin(bp * Math.PI / 4) * fxScale;
+  // ステージの傾き・回転・反転・ズーム（曲④ Vertigo）。傾いたら少し引いて、ステージ全体が見えるようにする
+  const turn = stage.tilt + stage.spin;
+  const c = Math.abs(Math.cos(turn)), sn = Math.abs(Math.sin(turn));
+  const fit = Math.min(W / (W * c + H * sn), H / (W * sn + H * c));
+  const zoom = (look.zoom + look.pulse * k * fxScale + fx.punch) * (1 - 0.8 * (1 - fit)) * stage.zoom;
+  const rot = (look.sway * Math.PI / 180) * Math.sin(bp * Math.PI / 4) * fxScale + turn;
   const sx = (Math.random() * 2 - 1) * fx.shake, sy = (Math.random() * 2 - 1) * fx.shake;
+  const pc = playerXY(), fo = scene === 'play' ? stage.follow : 0;
+  const mir = Math.abs(stage.mirror) < 0.03 ? 0.03 * Math.sign(stage.mirror || 1) : stage.mirror;
   ctx.save();
   ctx.translate(W / 2 + sx, H * 0.55 + sy);
   ctx.rotate(rot);
-  ctx.scale(zoom, zoom);
-  ctx.translate(-W / 2, -H * 0.55);
+  ctx.scale(zoom * mir, zoom);
+  ctx.translate(-(W / 2 + (pc.x - W / 2) * fo), -(H * 0.55 + (pc.y - H * 0.55) * fo));
 
   drawStage(look, k, bp);
   if (scene === 'title') (th.title || drawTitleOrbits)(look, k, bp);
@@ -370,7 +376,9 @@ function drawScene() {
   drawRings();
   drawParticles();
   drawHero(look, k);
+  drawWalls(T, look, k);
   ctx.restore();
+  drawHint(T, look);
 
   drawScreenFx(T, look, k);
 }
@@ -510,6 +518,8 @@ function drawStage(look, k, bp) {
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(-400, GROUND_Y + 1); ctx.lineTo(W + 400, GROUND_Y + 1); ctx.stroke();
 
+  drawHoles(songTime, look);
+
   // 浮いている足場
   for (const p of platforms) {
     if (p.ground) continue;
@@ -530,6 +540,68 @@ function drawStage(look, k, bp) {
     ctx.fillRect(p.x + 5, p.y + 1, p.w - 10, 2);
     ctx.globalCompositeOperation = 'source-over';
   }
+}
+
+// ---- 床の穴・電気の壁・予告の文字（曲④ Vertigo）--------------------------------
+function drawHoles(T, look) {
+  for (const h of stage.holes) {
+    if (T >= h.open && T <= h.close) {                       // 開いている: まっ暗なすき間
+      ctx.fillStyle = '#000';
+      ctx.fillRect(h.x, GROUND_Y - 1, h.w, H - GROUND_Y + 400);
+      const g = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+      g.addColorStop(0, rgba([255, 60, 90], 0.35)); g.addColorStop(1, 'rgba(255,60,90,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(h.x, GROUND_Y, 3, H - GROUND_Y); ctx.fillRect(h.x + h.w - 3, GROUND_Y, 3, H - GROUND_Y);
+    } else if (T >= h.open - h.warn && T < h.open) {          // もうすぐ開く: 赤く点滅
+      const p = 1 - (h.open - T) / h.warn, on = p > 0.7 || Math.floor(T * 10) % 2 === 0;
+      ctx.fillStyle = `rgba(255,60,90,${(on ? 0.18 + 0.3 * p : 0.08).toFixed(3)})`;
+      ctx.fillRect(h.x, GROUND_Y, h.w, H - GROUND_Y);
+      ctx.strokeStyle = `rgba(255,90,110,${(on ? 0.9 : 0.35).toFixed(3)})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.strokeRect(h.x + 1, GROUND_Y + 1, h.w - 2, H - GROUND_Y);
+      ctx.setLineDash([]);
+    }
+  }
+}
+function drawWalls(T, look) {
+  const zap = stage.shock;
+  for (const [x, dir] of [[stage.wl, -1], [stage.wr, 1]]) {
+    if (zap <= 0 && x > -1 && x < W + 1) continue;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';                       // 壁の外は暗く
+    ctx.fillRect(dir < 0 ? x - 1200 : x, -600, 1200, H + 1200);
+    if (zap <= 0) continue;
+    const on = zap >= 1 || Math.floor(T * 12) % 2 === 0;
+    const a = zap >= 1 ? 0.9 : 0.25 + 0.4 * zap * (on ? 1 : 0.3);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = rgba(rgb('#7ff6ff'), a * 0.35);
+    ctx.lineWidth = zap >= 1 ? 14 : 6;
+    ctx.beginPath(); ctx.moveTo(x, -600); ctx.lineTo(x, GROUND_Y); ctx.stroke();
+    if (zap >= 1) {                                            // 電気のギザギザ
+      ctx.strokeStyle = rgba(rgb('#e8fdff'), 0.9);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let y = -40; y <= GROUND_Y; y += 18) ctx.lineTo(x + (Math.random() - 0.5) * 12, y);
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
+function drawHint(T) {
+  const h = stage.hint;
+  if (!h || scene !== 'play') return;
+  const p = (T - h.t0) / (h.t1 - h.t0);
+  if (p < 0 || p > 1) return;
+  const a = p < 0.15 ? p / 0.15 : p > 0.75 ? (1 - p) / 0.25 : 1;
+  ctx.save();
+  ctx.globalAlpha = clamp01(a) * (Math.floor(T * 8) % 2 ? 1 : 0.75);
+  ctx.font = '800 30px ui-monospace, Menlo, Consolas, monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.strokeText(h.text, W / 2, H * 0.3);
+  ctx.fillStyle = '#ffe36e';
+  ctx.fillText(h.text, W / 2, H * 0.3);
+  ctx.restore();
 }
 
 // ---- 弾 --------------------------------------------------------------------
