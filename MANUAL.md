@@ -39,13 +39,16 @@ dodge-game/
 │   ├── extremeex-compose.py  ← 曲⑥を作曲・合成するプログラム（「ヴイーン」のシンセ = vwoon）
 │   ├── malware.js       ← 曲⑦「Malware」（オリジナル曲・バグとウイルス）の拍・場面・譜面
 │   ├── malware-score.js / malware-env.js ← 曲⑦の楽譜データ / 音量データ
-│   └── malware-compose.py    ← 曲⑦を作曲・合成するプログラム（モデムの音・8ビット・スタッター）
+│   ├── malware-compose.py    ← 曲⑦を作曲・合成するプログラム（モデムの音・8ビット・スタッター）
+│   ├── abyss.js         ← 曲⑨「Abyss」（オリジナル曲・深海。弾は遅いがむずかしい）の拍・場面・譜面
+│   └── abyss-score.js / abyss-env.js / abyss-compose.py ← 曲⑨の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔・歯車・振り子）
 ├── visuals-glass.js ← 曲④の見た目（ガラスの部屋・結晶・鍵盤の床・画面のひび）
 ├── visuals-gyro.js  ← 曲⑤の見た目（飛行機の姿勢計・流れる鉄板の床・水準器）
 ├── visuals-ex.js    ← 曲⑥の見た目（黒と赤の警告色・EXの紋章・WARNINGの帯）
+├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
 ├── style.css    ← 色やレイアウト（タイトル画面・ボタンの見た目）
@@ -610,6 +613,18 @@ glitchLoop(dur, slice, accel)          // ループバグ: いま画面にある
 曲⑦の譜面では、曲がスタッターする所（`SCORE_MALWARE.glitch`）でループバグ、エラー音（`beep`）でエラー画面、
 8ビットの旋律で落ちる音符を出しています。ブレイクの頭（40小節目）では、ブルースクリーンと同時に弾と感染がすべて消えます。
 
+### 5-11. 曲⑨「Abyss」で生まれた形態（深海。弾は遅いがむずかしい）
+
+```js
+jelly({ x, y, v, every, drag, life })  // クラゲ: every 拍ごとにプレイヤーへ速さ v で泳ぎ出し、drag ですぐ遅くなる。触手も当たる
+snow({ x, y, vy, amp, freq })          // マリンスノー: 左右に amp だけゆれながら、vy でゆっくり沈む粒
+stageTo({ dark: 1 }, 1.0)              // 暗い海: 自分のまわりしか見えなくなる（弾はうっすら光る点）。0 で元にもどる
+sonar(x, y)                            // ソナー: (x, y) から輪が広がり、輪が通った所の弾が一瞬はっきり光る
+leviathan({ y, dir, v, amp, wave, n }) // リヴァイアサン: n 節の巨大な体が、y を中心に amp の高さでうねりながら横切る（予告 = 通り道の点線）
+```
+
+見た目のセットに `kinds: { jelly, leviathan }` を書くと、その `kind` の弾をセットが自分で描きます（visuals-abyss.js）。
+
 ---
 
 ## 6. 弾幕レシピ集（コピペで使える）
@@ -738,7 +753,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
 4. `index.html` の下の方、`songs/unknown.js` の次の行に `<script src="songs/mysong.js"></script>` を足す
 

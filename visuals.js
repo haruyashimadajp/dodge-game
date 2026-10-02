@@ -767,6 +767,7 @@ function drawBullets(T, look, k) {
     else if (b.kind === 'lock') drawLock(b, T);
     else if (b.kind === 'worm') drawWorm(b, T, k);
     else if (b.kind === 'popup') drawPopup(b, T, k);
+    else if (th.kinds && th.kinds[b.kind]) th.kinds[b.kind](b, T, k);   // 見た目のセットだけが描く形（深海の生き物など）
   }
 
   // 警告（溜め中）: 回転する3本の弧 ＋ だんだん満ちる中身 ＋ 進む向きのガイド線

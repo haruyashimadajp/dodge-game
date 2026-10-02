@@ -803,3 +803,29 @@ body[data-theme="day"] .start-btn {
 }
 body[data-theme="day"] .overlay.clear .logo { text-shadow: 0 3px 0 #3ccf6e, 0 6px 18px rgba(40, 60, 120, 0.4); }
 body[data-theme="day"] .seg-btn.active { background: linear-gradient(90deg, #ff8a3c, #3c9dff); }
+
+/* Abyss: deep sea */
+body[data-theme="abyss"] {
+  --accent: #7fe8ff;
+  --accent-2: #ff8ad8;
+  --text-dim: #8fb7c9;
+  background: linear-gradient(180deg, #0e5a7a, #04182c 55%, #000408);
+}
+body[data-theme="abyss"] .stat { background: rgba(4, 24, 44, 0.85); }
+body[data-theme="abyss"] canvas { box-shadow: 0 0 0 1px rgba(127,232,255,0.25), 0 20px 60px rgba(0,0,0,0.7), 0 0 90px rgba(127, 232, 255, 0.12); }
+body[data-theme="abyss"] .logo { font-weight: 300; letter-spacing: 0.25em; text-shadow: 0 0 18px rgba(127, 232, 255, 0.9), 0 0 48px rgba(255, 138, 216, 0.35); }
+body[data-theme="abyss"] .logo::before { color: #5cffc8; }
+body[data-theme="abyss"] .logo::after  { color: #ff8ad8; }
+body[data-theme="abyss"] .kicker { color: #7fe8ff; }
+body[data-theme="abyss"] .song-tag { letter-spacing: 0.25em; color: #e8fbff; background: rgba(4, 24, 44, 0.7); border-color: rgba(127, 232, 255, 0.5); }
+body[data-theme="abyss"] .song-arrow,
+body[data-theme="abyss"] .link-btn { background: rgba(4, 24, 44, 0.8); border-color: rgba(127, 232, 255, 0.35); color: #e8fbff; }
+body[data-theme="abyss"] .start-btn {
+  background: linear-gradient(90deg, #0e7aa8, #5cffc8, #ff8ad8, #0e7aa8);
+  background-size: 300% 100%;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 calc(14px + var(--kick, 0) * 20px) rgba(127, 232, 255, 0.6), inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+body[data-theme="abyss"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(255, 255, 255, 0.95), 0 0 48px rgba(92, 255, 200, 0.6); }
+body[data-theme="abyss"] .seg-btn.active { background: linear-gradient(90deg, #0e6a8a, #9a3f80); }

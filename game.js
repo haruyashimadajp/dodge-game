@@ -1640,11 +1640,11 @@ function prism({ x, y, a, v = 200, turn = 0.6, alt = true, every = 1, r = 7, del
      wl, wr   左右の壁の位置（せまくなってくる）/ shock = 1 で壁に電気（さわると当たる）
    -------------------------------------------------------------------------- */
 const STAGE_SLIDE = 620;       // 傾きですべる速さ（px/秒）= STAGE_SLIDE × sin(傾き)。走る速さは 260
-const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0, grav: 1, gravVis: 1, ceil: 0 };
-const stage = { ...STAGE_DEFAULT, slideV: 0, scroll: 0, holes: [], drops: [], hint: null };
+const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0, grav: 1, gravVis: 1, ceil: 0, dark: 0 };
+const stage = { ...STAGE_DEFAULT, slideV: 0, scroll: 0, holes: [], drops: [], hint: null, pings: [] };
 let stageTweens = [];
 function stageReset() {
-  Object.assign(stage, STAGE_DEFAULT, { slideV: 0, scroll: 0, holes: [], drops: [], hint: null });
+  Object.assign(stage, STAGE_DEFAULT, { slideV: 0, scroll: 0, holes: [], drops: [], hint: null, pings: [] });
   stageTweens = [];
 }
 // props の値へ、dur 秒かけて変える（ease: 'smooth' = なめらか / 'snap' = 最初にぐっと動く / 'linear'）
@@ -1936,6 +1936,79 @@ function updateMalware(dt) {
   for (const t of malware.tiles) {
     if (songTime >= t.live && songTime <= t.off && onSurface(t.p, t.x0, t.x1)) { hitPlayer(); return; }
   }
+}
+
+/* ---- ここから下は「Abyss」で生まれた形態（深海。弾は遅いが、むずかしい）-----------------
+     クラゲ     … 拍ごとにプレイヤーへ「グッ」と泳いで、すぐ止まる。下に触手がたれている（触手も当たる）
+     マリンスノー … ゆらゆら横にゆれながら、ゆっくり沈む小さな粒
+     暗い海     … stageTo({ dark: 1 }) で画面が暗くなり、自分のまわりしか見えない（弾はうっすら光る）
+     ソナー     … sonar(x, y) で輪が広がり、通った所の弾が一瞬はっきり光る
+     リヴァイアサン … 長い体の巨大な生き物が、うねりながら画面を横切る
+   -------------------------------------------------------------------------- */
+function sonar(x, y) { stage.pings.push({ x, y, t0: songTime }); stage.pings = stage.pings.filter(p => songTime - p.t0 < 3); }
+
+// ★クラゲ★ every 拍ごとに、プレイヤーの方へ速さ v で泳ぎ出し、水の抵抗ですぐ遅くなる。life 秒たつと上へ去る
+function jelly({ x, y, v = 260, every = 1, drag = 3.2, r = 13, life = 8, legs = 3, delay = 0.8, color }) {
+  return spawn({
+    kind: 'jelly', x, y, r, delay, color, v, every, drag, life, legs, tail: [], noTrail: true,
+    move(b, dt) {
+      const n = beatIndex(songTime, b.every);
+      if (b.n == null) b.n = n - 1;
+      if (n > b.n) {                                    // 拍の頭: 泳ぎ出す
+        b.n = n;
+        if (b.age < b.life) { const p = playerXY(), a = Math.atan2(p.y - b.y, p.x - b.x); b.vx = Math.cos(a) * b.v; b.vy = Math.sin(a) * b.v; }
+        else { b.vx = 0; b.vy = -b.v; }
+        b.pulse = 1;
+      }
+      const f = Math.exp(-b.drag * dt);
+      b.vx *= f; b.vy *= f;
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.y > GROUND_Y - b.r - 30) b.y = GROUND_Y - b.r - 30;
+      b.pulse = Math.max(0, (b.pulse || 0) - dt * 3);
+      b.tail.unshift({ x: b.x, y: b.y });
+      if (b.tail.length > 40) b.tail.length = 40;
+      if (b.age > b.life + 4 || b.y < -80) b.dead = true;
+    },
+    // 触手: 少し前の位置から、下へたれる3本（当たり判定は小さな丸）
+    legPts(b) {
+      const pts = [], back = b.tail[Math.min(b.tail.length - 1, 10)] || b;
+      for (let i = 0; i < b.legs; i++) {
+        const ox = (i - (b.legs - 1) / 2) * b.r * 0.7;
+        for (let j = 1; j <= 3; j++) pts.push({ x: b.x + ox + (back.x - b.x) * j / 3 + Math.sin(songTime * 3 + i + j) * 3, y: b.y + b.r * 0.4 + j * b.r * 0.75 + (back.y - b.y) * j / 3 });
+      }
+      return pts;
+    },
+    hits: b => circleHitsPlayer(b.x, b.y, b.r) || b.legPts(b).some(p => circleHitsPlayer(p.x, p.y, 4)),
+  });
+}
+
+// ★マリンスノー★ ゆっくり沈みながら、左右に amp だけゆれる小さな粒
+function snow({ x, y = -10, vy = 60, amp = 30, freq = 0.8, r = 5, delay = 0, color }) {
+  return spawn({
+    x, y, vy, r, delay, color, amp, freq, style: 'snow', ox: x, ph: Math.random() * TAU, noTrail: true,
+    move(b, dt) { b.y += b.vy * dt; b.x = b.ox + Math.sin(b.age * b.freq * TAU + b.ph) * b.amp; if (b.y > GROUND_Y + 10) b.dead = true; },
+  });
+}
+
+// ★リヴァイアサン★ 体の節 n 個の巨大な生き物。y を中心に amp の高さでうねりながら、dir の向きへ v で横切る
+function leviathan({ y = 380, dir = 1, v = 150, amp = 140, wave = 0.5, n = 14, gap = 0.22, r = 34, delay = 1.5, color }) {
+  const x0 = dir > 0 ? -80 : W + 80;
+  const pos = (b, t) => ({ x: x0 + dir * b.v * t, y: b.y0 + Math.sin(t * b.wave * TAU) * b.amp });
+  return spawn({
+    kind: 'leviathan', x: x0, y, y0: y, dir, v, amp, wave, n, gap, r, delay, color, spd: 1, segs: [], lane: [dir, 0],
+    move(b) {
+      b.segs = [];
+      for (let i = 0; i < b.n; i++) {
+        const t = b.age - i * b.gap;
+        const p = pos(b, Math.max(0, t));
+        b.segs.push({ x: p.x, y: p.y, r: b.r * (i === 0 ? 1 : Math.max(0.35, 1 - i / b.n * 0.75)), on: t > 0 });
+      }
+      b.x = b.segs[0].x; b.y = b.segs[0].y;
+      const tail = b.segs[b.n - 1];
+      if ((dir > 0 && tail.x > W + 120) || (dir < 0 && tail.x < -120)) b.dead = true;
+    },
+    hits: b => b.segs.some(s => s.on && circleHitsPlayer(s.x, s.y, s.r * 0.85)),
+  });
 }
 
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
