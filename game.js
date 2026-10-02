@@ -439,13 +439,15 @@ function loop(t) {
   autoGfx(dt);
   if (dt > 0.05) dt = 0.05;          // clamp big frame gaps (tab switches)
   if (dt < 0) dt = 0;
-  if (!paused) {                     // when paused: freeze time, keep last frame
-    if (running) update(dt);
-    updateFx(dt);
-  }
-  drawScene();
+  requestAnimationFrame(loop);        // 先に次のコマを予約: 万一どこかでエラーが出ても、ゲームが止まらない
+  try {
+    if (!paused) {                     // when paused: freeze time, keep last frame
+      if (running) update(dt);
+      updateFx(dt);
+    }
+    drawScene();
+  } catch (e) { console.error(e); }
   if (scene === 'title') overlay.style.setProperty('--kick', kickOf(titleBeat()).toFixed(3));
-  requestAnimationFrame(loop);
 }
 
 // ---- Audio (the 音量 setting controls this) -----------------------------

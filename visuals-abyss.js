@@ -25,7 +25,10 @@
     st.kelp = Array.from({ length: 9 }, (_, i) => ({ x: 40 + i * 92 + Math.random() * 40, h: 90 + Math.random() * 110, ph: Math.random() * TAU }));
     st.motes = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, z: 0.3 + Math.random() * 0.7 }));
   }
-  function reset() { Object.assign(st, { bubbles: [], lastBeat: -99, whales: [], rings: [], heart: 0, roar: 0 }); }
+  function reset() {
+    Object.assign(st, { bubbles: [], lastBeat: -99, whales: [], rings: [], heart: 0, roar: 0 });
+    if (!st.buf) { st.buf = document.createElement('canvas'); st.buf.width = cv.width; st.buf.height = cv.height; st.buf.getContext('2d'); }   // 咆哮の瞬間にカクッとしないよう、先に作っておく
+  }
   const bubble = (x, y, v, r = 2 + Math.random() * 4) => st.bubbles.push({ x, y, r, v });
 
   function onBeat(b) {
@@ -285,6 +288,7 @@
       ctx.fillText('⚠', b.dir > 0 ? 30 : W - 30, b.y0);
       return;
     }
+    if (!b.segs.length) return;                            // 予告が終わった瞬間（まだ体の位置が計算されていない1コマ）
     for (let i = b.segs.length - 1; i >= 0; i--) {
       const s = b.segs[i];
       if (!s.on) continue;
