@@ -19,7 +19,8 @@
   const st = { kelp: null, bubbles: [], motes: null, lastBeat: -99, whales: [], rings: [], heart: 0, roar: 0 };
   let PINGS = null, KICKS = null, WHALES = null;
   const EYE0 = 100, EYE1 = 122, ROAR = 120;               // 目が開く〜閉じる拍 / 咆哮の拍
-  const PING_V = 650;                                     // ソナーの輪が広がる速さ（px/秒）
+  const PING_V = 650;
+  const inSong = () => scene !== 'title';               // 遊んでいる最中 ＋ クリア・ゲームオーバーの画面（最後の見た目のまま止める）                                     // ソナーの輪が広がる速さ（px/秒）
 
   function make() {
     st.kelp = Array.from({ length: 9 }, (_, i) => ({ x: 40 + i * 92 + Math.random() * 40, h: 90 + Math.random() * 110, ph: Math.random() * TAU }));
@@ -50,12 +51,12 @@
 
   function update(dt, T, look) {
     if (!st.kelp) make();
-    const bp = scene === 'play' ? beatPos(T) : 50;
+    const bp = inSong() ? beatPos(T) : 50;
     if (scene === 'play') {
       const b = Math.floor(bp + 0.02);
       if (b !== st.lastBeat) { if (b === st.lastBeat + 1) onBeat(b); st.lastBeat = b; }
     }
-    const rush = scene === 'play' ? (bp < 48 ? 1 - bp / 48 : bp >= 160 ? 1 : 0) : 0;   // 沈むとき・浮かぶとき: 泡がいっぱい上へ流れる
+    const rush = scene === 'play' || scene === 'clear' ? (bp < 48 ? 1 - bp / 48 : bp >= 160 ? 1 : 0) : 0;   // 沈むとき・浮かぶとき: 泡がいっぱい上へ流れる
     if (Math.random() < dt * (3 + 40 * rush)) bubble(Math.random() * W, rush > 0.3 ? H + 10 : GROUND_Y, 40 + Math.random() * 60 + 300 * rush);
     if (st.bubbles.length > 260) st.bubbles.splice(0, st.bubbles.length - 260);
     for (const lv of bullets) if (lv.kind === 'leviathan' && lv.delay <= 0 && lv.segs[0] && Math.random() < dt * 20) bubble(lv.segs[0].x, lv.segs[0].y, 60 + Math.random() * 80);
@@ -76,7 +77,7 @@
     g.addColorStop(0, rgba(look.skyBot, 1)); g.addColorStop(1, rgba(look.skyTop, 1));
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     // 光の筋（浅いほど明るい）
-    const depth = scene === 'play' ? clamp01(T / SONG_END) : 0.2;
+    const depth = inSong() ? clamp01(T / SONG_END) : 0.2;
     const ray = 0.10 * (1 - depth) + 0.02;
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < 5; i++) {
@@ -86,9 +87,9 @@
       ctx.fillStyle = gr;
       ctx.beginPath(); ctx.moveTo(x - w / 2, 0); ctx.lineTo(x + w / 2, 0); ctx.lineTo(x + w * 2 - 120, H); ctx.lineTo(x - w - 120, H); ctx.closePath(); ctx.fill();
     }
-    const bq = scene === 'play' ? beatPos(T) : 50;
+    const bq = inSong() ? beatPos(T) : 50;
     // はじまり: 光る水面が上へ遠ざかっていく（飛びこんだところ）
-    if (scene === 'play' && bq < 20) {
+    if (inSong() && bq < 20) {
       const y = 140 - bq * 14;
       const sg = ctx.createLinearGradient(0, y - 120, 0, y + 60);
       sg.addColorStop(0, 'rgba(220,250,255,0.55)'); sg.addColorStop(0.65, 'rgba(160,230,255,0.25)'); sg.addColorStop(1, 'rgba(160,230,255,0)');
@@ -192,7 +193,7 @@
     ctx.strokeStyle = rgba(look.color, 0.25 + 0.2 * k); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(-400, y); ctx.lineTo(W + 400, y); ctx.stroke();
     // 海底にゆれる光の網（コースティクス）
-    const T = scene === 'play' ? songTime : titleClock();
+    const T = inSong() ? songTime : titleClock();
     ctx.globalCompositeOperation = 'lighter';
     ctx.strokeStyle = 'rgba(150,230,255,0.13)'; ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -360,6 +361,17 @@
   // 場面の名前 ＋ 深さのメーター（右はし）
   function banner() {
     const T = songTime, bp = beatPos(T), R = renderScale;
+    if (inSong() && bp >= 160) {                                       // 最後: 水面の光へ浮かび上がっていく
+      const p = clamp01((bp - 160) / 9);
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, `rgba(220,250,255,${(0.75 * p).toFixed(3)})`); g.addColorStop(1, `rgba(120,210,255,${(0.15 * p).toFixed(3)})`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      const y = -60 + p * 200;
+      ctx.strokeStyle = `rgba(255,255,255,${(0.8 * p).toFixed(3)})`; ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 16) ctx.lineTo(x, y + Math.sin(x * 0.03 + T * 2) * 7);
+      ctx.stroke();
+    }   // （クリア画面になっても、この明るさのまま）
     if (scene === 'play') {
       if (gfx === 2 && st.roar > 0.02) {                     // 咆哮のあと: 水がゆがむ（横の帯がずれる）
         const amp = 7 * st.roar;
@@ -374,17 +386,7 @@
         g.addColorStop(0, 'rgba(0,0,10,0)'); g.addColorStop(1, `rgba(0,0,12,${(0.45 * st.heart).toFixed(3)})`);
         ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       }
-      if (bp >= 160) {                                       // 最後: 水面の光へ浮かび上がっていく
-        const p = clamp01((bp - 160) / 9);
-        const g = ctx.createLinearGradient(0, 0, 0, H);
-        g.addColorStop(0, `rgba(220,250,255,${(0.75 * p).toFixed(3)})`); g.addColorStop(1, `rgba(120,210,255,${(0.15 * p).toFixed(3)})`);
-        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-        const y = -60 + p * 200;
-        ctx.strokeStyle = `rgba(255,255,255,${(0.8 * p).toFixed(3)})`; ctx.lineWidth = 3;
-        ctx.beginPath();
-        for (let x = 0; x <= W; x += 16) ctx.lineTo(x, y + Math.sin(x * 0.03 + T * 2) * 7);
-        ctx.stroke();
-      }
+
       const depth = Math.round(clamp01(songTime / SONG_END) * 10920);
       ctx.fillStyle = 'rgba(127,232,255,0.25)'; ctx.fillRect(W - 18, 60, 3, 300);
       ctx.fillStyle = 'rgba(127,232,255,0.9)'; ctx.fillRect(W - 22, 60 + 300 * clamp01(songTime / SONG_END) - 2, 11, 4);

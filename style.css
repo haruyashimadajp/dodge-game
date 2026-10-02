@@ -829,3 +829,7 @@ body[data-theme="abyss"] .start-btn {
 }
 body[data-theme="abyss"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(255, 255, 255, 0.95), 0 0 48px rgba(92, 255, 200, 0.6); }
 body[data-theme="abyss"] .seg-btn.active { background: linear-gradient(90deg, #0e6a8a, #9a3f80); }
+/* Abyss: the clear screen keeps the bright surface light (no dark backdrop) */
+body[data-theme="abyss"] .overlay.result.clear { background: rgba(210, 245, 255, 0.08); backdrop-filter: none; }
+body[data-theme="abyss"] .overlay.result.clear .logo { text-shadow: 0 2px 10px rgba(0, 40, 70, 0.7), 0 0 40px rgba(255, 255, 255, 0.8); }
+body[data-theme="abyss"] .overlay.result.clear p { color: #06304a; text-shadow: 0 0 6px rgba(255, 255, 255, 0.8); }
