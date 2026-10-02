@@ -1642,7 +1642,7 @@ function prism({ x, y, a, v = 200, turn = 0.6, alt = true, every = 1, r = 7, del
      wl, wr   左右の壁の位置（せまくなってくる）/ shock = 1 で壁に電気（さわると当たる）
    -------------------------------------------------------------------------- */
 const STAGE_SLIDE = 620;       // 傾きですべる速さ（px/秒）= STAGE_SLIDE × sin(傾き)。走る速さは 260
-const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0, grav: 1, gravVis: 1, ceil: 0, dark: 0, cctv: 0 };
+const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0, grav: 1, gravVis: 1, ceil: 0, dark: 0, cctv: 0, brush: 0 };
 const stage = { ...STAGE_DEFAULT, slideV: 0, scroll: 0, holes: [], drops: [], hint: null, pings: [] };
 let stageTweens = [];
 function stageReset() {
@@ -2059,6 +2059,64 @@ function doorSlam({ x, w = 56, delay = 0.9, hold = 0.5, color }) {
 function bloodDrop({ x, delay = 0.6, g = 900, r = 6, color = '#b0101a' }) {
   return spawn({ x, y: -8, vy: 0, g, r, delay, color, style: 'blood', lane: [0, 1], noTrail: true,
     move(b, dt) { b.vy += b.g * dt; b.y += b.vy * dt; if (b.y > GROUND_Y - b.r) { b.dead = true; if (typeof fxSplat === 'function') fxSplat(b.x, GROUND_Y, b); } } });
+}
+
+/* ---- ここから下は「Prism」で生まれた形（ビームの芸術）-----------------------------------
+   ぜんぶ laser() の仲間。予告の線が出て、そのあと少しのあいだだけ当たる光になる。
+   撃ったビームは、見た目のセット（visuals-prism.js）が「光の絵」としてキャンバスに描き残していく。
+     prismFan   … 上のプリズムで白い光が七色に分かれ、地面の xs の場所へ扇のように降りる（赤→紫の順に光る）
+     kaleido    … 中心 (cx,cy) から d だけ離れた n 本の線（万華鏡の星）。中心の円の中は安全
+     bounceBeam … 壁・天井・床で反射しながら進む光（光が走るように、1本ずつ順に光る）
+     brushPos   … 空に絵を描く「光の筆」の位置（曲の時刻で決まる）。stageTo({ brush: 1 }) で見える
+   -------------------------------------------------------------------------- */
+const SPECTRUM = ['#ff4d6d', '#ff9f43', '#ffe66d', '#5cff9d', '#4dd2ff', '#6c7bff', '#c77dff'];   // 赤→紫
+function spectrum(i, n = 7) { return SPECTRUM[Math.round(Math.max(0, Math.min(1, n > 1 ? i / (n - 1) : 0)) * 6)]; }
+// 光の線: ふつうのレーザーと同じ。拍にぴったり合わせるので、光っている時間 hold は秒のまま
+function ray(o) { const b = laser({ width: 12, hold: 0.24, ...o }); b.spd = 1; return b; }
+// (x1,y1) から (x2,y2) の向きへ、画面の外まで伸ばした線
+function rayThrough(x1, y1, x2, y2, o = {}) {
+  const a = Math.atan2(y2 - y1, x2 - x1), L = 1300;
+  return ray({ x1, y1, x2: x1 + Math.cos(a) * L, y2: y1 + Math.sin(a) * L, ...o });
+}
+// ★プリズム★ (x, y) のプリズムから、地面の xs の場所へ七色の光。step 秒ずつずれて、赤→紫の順に光る
+function prismFan({ x, y = 96, xs, width = 12, delay = 0.8, hold = 0.26, step = 0.12, reverse = false }) {
+  const n = xs.length;
+  xs.forEach((gx, i) => {
+    const j = reverse ? n - 1 - i : i;
+    const a = Math.atan2(GROUND_Y - y, gx - x);
+    const b = ray({ x1: x + Math.cos(a) * 26, y1: y + Math.sin(a) * 26, x2: gx + Math.cos(a) * 60, y2: GROUND_Y + Math.sin(a) * 60, width, delay: delay + j * step, hold, color: spectrum(i, n) });
+    b.prism = { x, y };
+  });
+}
+// ★万華鏡の星★ 中心から d 離れた所を通る n 本の線（線の向きは rot から等間隔）。step 秒ずつ順に光る
+function kaleido({ cx, cy, n = 6, d = 120, rot = 0, len = 1300, width = 10, delay = 0.8, hold = 0.24, step = 0.1, colors }) {
+  for (let i = 0; i < n; i++) {
+    const a = rot + i * TAU / n, tx = cx + Math.cos(a) * d, ty = cy + Math.sin(a) * d;    // 円にふれる点
+    const ux = -Math.sin(a) * len / 2, uy = Math.cos(a) * len / 2;
+    const b = ray({ x1: tx - ux, y1: ty - uy, x2: tx + ux, y2: ty + uy, width, delay: delay + i * step, hold, color: colors ? colors[i % colors.length] : spectrum(i, n) });
+    b.star = { cx, cy, d };
+  }
+}
+// ★反射する光★ (x, y) から角度 ang へ。画面のはし・天井・床で反射して、bounces 回まで進む
+function bounceBeam({ x, y, ang, bounces = 5, width = 10, delay = 0.8, hold = 0.24, step = 0.07, hue = 0 }) {
+  let px = x, py = y, dx = Math.cos(ang), dy = Math.sin(ang);
+  const X0 = 0, X1 = W, Y0 = 0, Y1 = GROUND_Y;
+  for (let i = 0; i <= bounces; i++) {
+    const ts = [];
+    if (dx > 1e-6) ts.push([(X1 - px) / dx, 'x']); if (dx < -1e-6) ts.push([(X0 - px) / dx, 'x']);
+    if (dy > 1e-6) ts.push([(Y1 - py) / dy, 'y']); if (dy < -1e-6) ts.push([(Y0 - py) / dy, 'y']);
+    const [t, side] = ts.filter(q => q[0] > 1e-3).sort((a, b) => a[0] - b[0])[0];
+    const nx = px + dx * t, ny = py + dy * t;
+    const b = ray({ x1: px, y1: py, x2: nx, y2: ny, width, delay: delay + i * step, hold, color: SPECTRUM[(hue + i) % 7] });
+    b.bounce = i;
+    px = nx; py = ny;
+    if (side === 'x') dx = -dx; else dy = -dy;
+  }
+}
+// 光の筆の位置（リサジュー曲線。曲の時刻 t で決まるので、先の位置もわかる）
+function brushPos(t) {
+  const u = t * 0.62;
+  return { x: W / 2 + 300 * Math.sin(u * 1.3 + 0.6), y: 200 + 105 * Math.sin(u * 2.1) };
 }
 
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。

@@ -133,6 +133,7 @@ function blip(x, y, b) {
 
 // エンジンからのフック -----------------------------------------------------
 function fxFire(b) {                          // 警告が終わって弾が飛び出した瞬間
+  if (theme().fire && theme().fire(b) === true) return;   // 見た目のセットが、発射の瞬間を自分で演出する
   if (b.kind === 'ufo' || b.kind === 'key') return;
   if (b.kind === 'popup') { shake(2); return; }
   if (b.kind === 'worm') { sparks(b.x, b.y, { n: 12, color: bulletColor(b), speed: 240, life: 0.4, size: 3, gravity: 0 }); return; }
@@ -876,7 +877,7 @@ function drawBullets(T, look, k) {
 function drawLaser(b, T, k) {
   const c = bulletColor(b);
   const line = () => { ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); };
-  if (theme().laser) theme().laser(b, c, T, k);    // 見た目のセットの飾り（UFO など）
+  if (theme().laser && theme().laser(b, c, T, k) === true) return;    // 見た目のセットの飾り（UFO など）。true なら、ビームも全部そちらが描く
   if (b.delay > 0) {
     const p = b.delayMax > 0 ? 1 - b.delay / b.delayMax : 1;
     const on = p > 0.7 || Math.floor(T * 14) % 2 === 0;

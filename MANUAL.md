@@ -43,7 +43,9 @@ dodge-game/
 │   ├── abyss.js         ← 曲⑨「Abyss」（オリジナル曲・深海。弾は遅いがむずかしい）の拍・場面・譜面
 │   ├── abyss-score.js / abyss-env.js / abyss-compose.py ← 曲⑨の楽譜データ / 音量データ / 作曲プログラム
 │   ├── ward13.js        ← 曲⑩「Ward 13」（オリジナル曲・ホラー）の拍・場面・譜面
-│   └── ward13-score.js / ward13-env.js / ward13-compose.py ← 曲⑩の楽譜データ / 音量データ / 作曲プログラム
+│   ├── ward13-score.js / ward13-env.js / ward13-compose.py ← 曲⑩の楽譜データ / 音量データ / 作曲プログラム
+│   ├── prism.js         ← 曲⑪「Prism」（オリジナル曲・ビームの芸術）の拍・場面・譜面
+│   └── prism-score.js / prism-env.js / prism-compose.py ← 曲⑪の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔・歯車・振り子）
@@ -51,6 +53,7 @@ dodge-game/
 ├── visuals-gyro.js  ← 曲⑤の見た目（飛行機の姿勢計・流れる鉄板の床・水準器）
 ├── visuals-ex.js    ← 曲⑥の見た目（黒と赤の警告色・EXの紋章・WARNINGの帯）
 ├── visuals-horror.js ← 曲⑩の見た目（廃病院・懐中電灯・裏の世界・監視カメラ・ジャンプスケア）
+├── visuals-prism.js ← 曲⑪の見た目（暗い美術館・光の絵・プリズム・光の筆・金の額縁）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
@@ -640,6 +643,23 @@ stageTo({ cctv: 1 }, 0.01)             // 監視カメラの映像（見た目�
 ```
 
 `addSong` に `overTitle: 'YOU DIED'` / `clearTitle: 'SURVIVED'` を書くと、結果画面の大きな文字が変わります。
+
+### 5-13. 曲⑪「Prism」で生まれた形（ビームの芸術）
+
+ぜんぶ `laser()` の仲間です（予告の線のあと、少しのあいだだけ当たる）。
+
+```js
+ray({ x1, y1, x2, y2, width, delay, hold, color })   // 光の線（hold は秒。曲の速さの倍率を使わない）
+rayThrough(x1, y1, x2, y2, { delay, color })         // (x1,y1) から (x2,y2) の向きへ、画面の外まで伸びる線
+prismFan({ x, y, xs, delay, step, reverse })          // プリズム (x,y) から、地面の xs の場所へ七色の光（step 秒ずつ順に光る）
+kaleido({ cx, cy, n, d, rot, delay, step })           // 万華鏡の星: 中心から d 離れた所を通る n 本の線（中の円は安全）
+bounceBeam({ x, y, ang, bounces, delay, step })       // 壁・天井・床で反射しながら走る光
+brushPos(t)                                           // 光の筆の位置（曲の時刻 t で決まる）。stageTo({ brush: 1 }) で見える
+spectrum(i, n)                                        // n 色に分けた虹の i 番目の色（赤→紫）
+```
+
+見た目のセットの `laser(b, c, T, k)` が `true` を返すと、ビームの見た目をぜんぶそのセットが描きます。
+`fire(b)` が `true` を返すと、発射の瞬間の演出（火花・ゆれ）もそのセットにまかせます（Prism はここで「光の絵」に描き残す）。
 
 ---
 

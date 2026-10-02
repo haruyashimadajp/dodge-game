@@ -863,3 +863,41 @@ body[data-theme="horror"] .overlay.over .logo { color: #b0101a; letter-spacing: 
 @keyframes w13-die { from { opacity: 0; transform: scale(1.15); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
 body[data-theme="horror"] .overlay.clear .logo { color: #e8e8e0; text-shadow: 0 0 24px rgba(255, 255, 255, 0.4); }
 body[data-theme="horror"] .seg-btn.active { background: linear-gradient(90deg, #5a0a10, #3a3a3a); }
+
+/* Prism: a dark gallery, light as paint */
+body[data-theme="prism"] {
+  --accent: #ffe66d;
+  --accent-2: #4dd2ff;
+  --text-dim: #a8a2b8;
+  background: radial-gradient(ellipse at 50% 30%, rgba(120, 90, 200, 0.16), transparent 60%), #06050b;
+}
+body[data-theme="prism"] .stat { background: rgba(12, 10, 20, 0.88); font-family: Georgia, "Times New Roman", serif; }
+body[data-theme="prism"] canvas { box-shadow: 0 0 0 1px rgba(232, 196, 120, 0.35), 0 20px 70px rgba(0, 0, 0, 0.85), 0 0 90px rgba(199, 125, 255, 0.12); }
+body[data-theme="prism"] .logo {
+  font-family: Georgia, "Times New Roman", "Hiragino Mincho ProN", serif; font-weight: 400; letter-spacing: 0.22em;
+  background: linear-gradient(90deg, #ff4d6d, #ff9f43, #ffe66d, #5cff9d, #4dd2ff, #6c7bff, #c77dff);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none; filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.25));
+}
+body[data-theme="prism"] .logo::before,
+body[data-theme="prism"] .logo::after { display: none; }
+body[data-theme="prism"] .kicker { color: #e8c478; font-family: Georgia, serif; font-style: italic; letter-spacing: 0.3em; }
+body[data-theme="prism"] .song-tag { font-family: Georgia, serif; letter-spacing: 0.25em; color: #fbf6ec; background: rgba(12, 10, 20, 0.75); border-color: rgba(232, 196, 120, 0.55); }
+body[data-theme="prism"] .song-arrow,
+body[data-theme="prism"] .link-btn { background: rgba(12, 10, 20, 0.85); border-color: rgba(232, 196, 120, 0.35); color: #fbf6ec; }
+body[data-theme="prism"] .start-btn {
+  background: linear-gradient(90deg, #ff4d6d, #ff9f43, #ffe66d, #5cff9d, #4dd2ff, #6c7bff, #c77dff, #ff4d6d);
+  background-size: 300% 100%;
+  color: #0a0812;
+  font-family: Georgia, serif;
+  letter-spacing: 0.3em;
+  box-shadow: 0 0 calc(8px + var(--kick, 0) * 14px) rgba(255, 255, 255, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+body[data-theme="prism"] .seg-btn.active { background: linear-gradient(90deg, #ff4d6d, #4dd2ff, #c77dff); color: #0a0812; }
+/* クリア: 完成した光の絵が見えるように、うしろを暗くしない */
+body[data-theme="prism"] .overlay.result.clear { background: rgba(4, 3, 8, 0.12); backdrop-filter: none; }
+body[data-theme="prism"] .overlay.result.clear .logo { filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.5)); }
+body[data-theme="prism"] .overlay.result.clear p { color: #f2dfb0; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); font-family: Georgia, serif; font-style: italic; }
+body[data-theme="prism"] .overlay.over .logo { background: none; color: #b8b0c8; letter-spacing: 0.3em; filter: none; text-shadow: 0 0 16px rgba(0, 0, 0, 0.8); }
+body[data-theme="prism"] .overlay h1.logo { font-size: clamp(40px, 9vw, 86px); letter-spacing: 0.12em; }
+body[data-theme="prism"] .overlay.result.clear { background: radial-gradient(ellipse at 50% 50%, rgba(4, 3, 8, 0.55), rgba(4, 3, 8, 0.1) 70%); }
