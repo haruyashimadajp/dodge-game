@@ -68,19 +68,35 @@ function vertigoChart() {
     burst(t, () => stageTo({ conveyor: v }, beats * B));
   };
   // プレイヤーの足もとに、warn 秒後に開く穴（len 秒で閉じる）。dx = プレイヤーからのずれ
+  // 足場の上にいたら、その足場もくずれる（足場に逃げれば安全、にはならない）
   const holeAtPlayer = (t, { w = 120, len = 2 * B * 4, warn = 4 * B, dx = 0 } = {}) => burst(t - warn, () => {
     const p = playerXY();
     floorHole({ x: Math.max(stage.wl, Math.min(stage.wr - w, p.x - w / 2 + dx)), w, open: t, close: t + len, warn });
+    const plat = dx === 0 && platformUnderPlayer();
+    if (plat) dropPlatform(plat, { open: t, close: t + len, warn });
   });
   const hole = (t, x, { w = 120, len = 2 * B * 4, warn = 4 * B } = {}) => burst(t - warn, () => floorHole({ x, w, open: t, close: t + len, warn }));
   // 狙い撃ち（上のどこかから）
   const shot = (t, x, v = 230, color = PINK, r = 9) => fire(t, 0.5, delay => { const a = aimVel(x, 24, v); spawn({ x, y: 24, vx: a.vx, vy: a.vy, r, delay, color }); });
   const shock = (t, on, beats = 4) => burst(t - (on ? beats * B : 0), () => stageTo({ shock: on ? 1 : 0 }, on ? beats * B : 0.01, 'linear'));
   const hit = (t, a = 0.5) => burst(t, () => { flash(a); shake(6); });
+  // 坂の上から転がってくるトゲ車（傾いていなければ dir の向きへ）
+  const roll = (t, { v = 130, dir = 0, color = YELLOW, r = 15 } = {}) => fire(t, 0.7, delay => {
+    const d = dir || Math.sign(stage.tilt) || (Math.random() < 0.5 ? 1 : -1);
+    roller({ x: d > 0 ? stage.wl + r + 4 : stage.wr - r - 4, vx: d * v, r, delay, color });
+  });
+  // プレイヤーのまわりの床に電気（跳ぶか、足場へ逃げる）
+  const zap = (t, w = 280) => fire(t, 0.9, delay => {
+    const p = playerXY();
+    zapFloor({ x: Math.max(stage.wl, Math.min(stage.wr - w, p.x - w / 2)), w, delay });
+  });
+  // プレイヤーの真上からピストン
+  const pist = (t, w = 70) => fire(t, 0.8, delay => piston({ x: playerXY().x, w, delay }));
 
   // ===== LEVEL 0〜8小節 ｜ ゆっくりゆれる（すべる感覚に慣れる）===========================
   for (let k = 2; k < 8; k += 2) tilt(bar(k), (k % 4 ? -1 : 1) * (0.06 + 0.02 * k), 4, 'smooth');
   for (const k of [3, 5, 7]) shot(bar(k), k === 5 ? W - 60 : 60, 170, CYAN);
+  roll(bar(5) + 2 * B, { v: 150, dir: 1 }); roll(bar(7) + 2 * B, { v: 150, dir: -1 });
   tilt(bar(8) - 0.01, 0, 1);
 
   // ===== TILT 8〜16小節 ｜ 両はしの壁に電気。2小節ごとに逆へ傾く ===========================
@@ -91,17 +107,21 @@ function vertigoChart() {
     const up = Math.floor((b - 32) / 8) % 2 === 0 ? 0 : W;             // 坂の上のすみから撃つ
     shot(beat(b), up === 0 ? 40 : W - 40, 200 + i * 4, PINK, 9);
   });
+  for (let k = 8; k < 16; k++) roll(bar(k) + (k % 2 ? 2.5 : 1) * B, { v: 90 });     // 坂を転がり落ちてくる
 
   // ===== CONVEYOR 16〜24小節 ｜ 床が流れる ＋ 足もとに穴 ＋ 低いビームを跳ぶ =================
   tilt(bar(16), 0, 2, 'smooth');
   belt(bar(16), 150); belt(bar(20), -150);
   belt(bar(22), 190);
   for (let k = 17; k < 24; k++) holeAtPlayer(bar(k), { w: 110 + (k - 17) * 4, len: 1.5 * 4 * B });
+  for (const k of [17, 19, 21, 23]) holeAtPlayer(bar(k) + 2 * B, { w: 100, len: 3 * B, dx: Math.sign(k < 20 || k >= 22 ? 1 : -1) * 170 });   // 流れの先にも穴
+  zap(bar(19) + 3 * B); zap(bar(22) + 3 * B);
   for (const k of [18.5, 21.5, 23]) fire(bar(k), 0.9, delay => scanner({ fromLeft: k !== 21.5, y1: GROUND_Y - 46, y2: GROUND_Y, speed: 460, delay, color: YELLOW }));
 
   // ===== SQUEEZE 24〜28小節 ｜ 両側の壁が1小節ごとにせまってくる ＋ 上から玉 =================
   belt(bar(24), 0, 1);
-  for (let k = 24; k < 28; k++) burst(bar(k), () => stageTo({ wl: 70 * (k - 23), wr: W - 70 * (k - 23) }, B, 'snap'));
+  for (let k = 24; k < 28; k++) burst(bar(k), () => stageTo({ wl: 75 * (k - 23), wr: W - 75 * (k - 23) }, B, 'snap'));
+  for (const k of [25.5, 26.5, 27.25, 27.75]) pist(bar(k), 60);
   for (let b = 104; b < 112; b++) fire(beat(b), 0.45, delay => {
     const x = rand(stage.wl + 20, stage.wr - 20);
     spawn({ x, y: -10, vy: 330, r: 10, delay, color: WHITE, lane: [0, 1] });
@@ -113,7 +133,8 @@ function vertigoChart() {
   [0.38, -0.38, 0.30, -0.40].forEach((a, i) => tilt(bar(28 + i), a, 0.5));
   [[32, 0.24, -80], [33, -0.26, -80], [34, -0.22, 90], [35, 0.26, -60]].forEach(([k, a, v]) => { tilt(bar(k), a, 0.5); belt(bar(k), v, 0.5); });
   SC.snare.filter(b => b >= 112 && b < 144).forEach((b, i) => shot(beat(b), i % 2 ? W - 60 : 60, 250, PINK, 10));
-  for (const k of [30, 32, 34]) holeAtPlayer(bar(k) + 2 * B, { w: 120, len: 4 * B });
+  for (let k = 29; k < 36; k++) holeAtPlayer(bar(k) + 2 * B, { w: 120, len: 3 * B });
+  for (let k = 28; k < 36; k++) roll(bar(k) + B, { v: 110, color: PINK });
 
   // ===== UPSIDE DOWN 36〜40小節 ｜ 画面が上下さかさま（重力はそのまま。←→ が逆に見える）=======
   tilt(bar(36), 0, 1, 'smooth');
@@ -123,12 +144,15 @@ function vertigoChart() {
     holeAtPlayer(bar(k), { w: 130, len: 3 * B });
     shot(bar(k) + 2 * B, k % 2 ? 60 : W - 60, 190, '#a9b4ff', 10);
   }
+  zap(bar(37) + 3 * B, 320); zap(bar(38) + 3 * B, 320);
+  roll(bar(38), { v: 200, dir: 1, color: '#a9b4ff' }); roll(bar(39), { v: 200, dir: -1, color: '#a9b4ff' });
   burst(bar(39) + 2 * B, () => stageTo({ spin: 0 }, 2 * B));   // 曲の音程がもどるのといっしょに
 
   // ===== MIRROR 40〜44小節 ｜ 1小節ごとに左右反転 ＋ 流れる床 ＋ 低いビーム =================
   for (let k = 40; k < 44; k++) {
     burst(bar(k), () => stageTo({ mirror: k % 2 ? 1 : -1 }, B * 0.75));
     belt(bar(k) + B, k % 2 ? -140 : 140, 0.5);
+    holeAtPlayer(bar(k) + B, { w: 110, len: 2 * B, warn: 3 * B });
     fire(bar(k) + 2.5 * B, 0.9, delay => scanner({ fromLeft: k % 2 === 0, y1: GROUND_Y - 46, y2: GROUND_Y, speed: 480, delay, color: '#7fffd0' }));
   }
   burst(bar(44), () => stageTo({ mirror: 1, conveyor: 0 }, B));
@@ -141,6 +165,7 @@ function vertigoChart() {
     const left = b % 4 === 1, x = left ? -10 : W + 10, y = rand(GROUND_Y - 120, GROUND_Y - 20), a = aimVel(x, y, 280);
     spawn({ x, y, vx: a.vx, vy: a.vy, r: 10, delay, color: YELLOW });
   });
+  for (const k of [45, 46, 47]) pist(bar(k) + 2 * B, 80);
   burst(bar(47) + 2 * B, () => stageTo({ zoom: 1, follow: 0 }, 2 * B));
 
   // ===== FREEFALL 48〜60小節 ｜ 画面がゆっくり1回転しながら、傾き＋穴＋コンベア → 最後は反転も ====
@@ -157,6 +182,9 @@ function vertigoChart() {
     holeAtPlayer(bar(k) + 2 * B, { w: 120, len: 3 * B });
   }
   belt(bar(56), 0, 1);
+  for (let k = 48; k < 60; k++) roll(bar(k) + B, { v: 120, color: k % 2 ? PINK : YELLOW });
+  for (const k of [50, 54]) zap(bar(k) + 3 * B, 300);
+  for (const k of [57, 59]) pist(bar(k) + 3 * B, 80);
   SC.snare.filter(b => b >= 192 && b < 240 && b % 1 === 0 && Math.floor(b / 4) % 2 === 1).forEach((b, i) => shot(beat(b), i % 2 ? W - 60 : 60, 270, PINK, 10));
 
   // ===== STEADY 60〜 ｜ すべてが水平にもどる ==============================================

@@ -139,6 +139,24 @@
 
   // ---- 弾: 照準のような輪のついた玉 -----------------------------------------------------
   function bullet(b, c, k) {
+    if (b.style === 'roller') {                    // トゲのついた車輪（転がった分だけ回る）
+      const a = b.x / b.r;
+      ctx.save();
+      ctx.translate(b.x, b.y); ctx.rotate(a);
+      ctx.fillStyle = rgba(c, 1);
+      ctx.beginPath();
+      for (let i = 0; i < 16; i++) {
+        const r = i % 2 ? b.r * 0.78 : b.r * 1.18, t = i / 16 * TAU;
+        ctx.lineTo(Math.cos(t) * r, Math.sin(t) * r);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#15171f';
+      ctx.beginPath(); ctx.arc(0, 0, b.r * 0.55, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-b.r * 0.45, 0); ctx.lineTo(b.r * 0.45, 0); ctx.moveTo(0, -b.r * 0.45); ctx.lineTo(0, b.r * 0.45); ctx.stroke();
+      ctx.restore();
+      return;
+    }
     ctx.fillStyle = rgba(c, 1);
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.92)';

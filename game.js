@@ -352,7 +352,7 @@ function moveAndCollide(dt) {
   const dx = (player.vx + stage.slideV + (onFloor ? stage.conveyor : 0)) * dt;
   player.x += dx;
   for (const p of platforms) {
-    if (p.ground) continue;        // ground spans full width; no side walls
+    if (p.ground || platformGone(p)) continue;   // ground spans full width; no side walls
     if (overlapRect(player, p)) {
       if (dx > 0) player.x = p.x - player.w;
       else if (dx < 0) player.x = p.x + p.w;
@@ -367,6 +367,7 @@ function moveAndCollide(dt) {
   for (const p of platforms) {
     if (!overlapRect(player, p)) continue;
     if (p.ground && overHole()) continue;     // 床に穴が開いている → 落ちる
+    if (platformGone(p)) continue;             // 足場がくずれ落ちている
     if (player.vy > 0) {           // falling -> land on top
       player.y = p.y - player.h;
       player.vy = 0;
@@ -389,6 +390,11 @@ function overHole() {
     if (z - a >= player.w * 0.75) return true;
   }
   return false;
+}
+
+// 足場がいま、くずれて消えている？（floorHole が足場の上のプレイヤーをねらったとき）
+function platformGone(p) {
+  return stage.drops.some(d => d.p === p && songTime >= d.open && songTime <= d.close);
 }
 
 function overlapRect(a, b) {
@@ -1620,10 +1626,10 @@ function prism({ x, y, a, v = 200, turn = 0.6, alt = true, every = 1, r = 7, del
    -------------------------------------------------------------------------- */
 const STAGE_SLIDE = 620;       // 傾きですべる速さ（px/秒）= STAGE_SLIDE × sin(傾き)。走る速さは 260
 const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0 };
-const stage = { ...STAGE_DEFAULT, slideV: 0, scroll: 0, holes: [], hint: null };
+const stage = { ...STAGE_DEFAULT, slideV: 0, scroll: 0, holes: [], drops: [], hint: null };
 let stageTweens = [];
 function stageReset() {
-  Object.assign(stage, STAGE_DEFAULT, { slideV: 0, scroll: 0, holes: [], hint: null });
+  Object.assign(stage, STAGE_DEFAULT, { slideV: 0, scroll: 0, holes: [], drops: [], hint: null });
   stageTweens = [];
 }
 // props の値へ、dur 秒かけて変える（ease: 'smooth' = なめらか / 'snap' = 最初にぐっと動く / 'linear'）
@@ -1642,8 +1648,53 @@ const STAGE_EASE = {
 function floorHole({ x, w = 110, open, close, warn = 1 }) {
   stage.holes.push({ x, w, open, close, warn });
 }
+// 足場をくずす: open〜close のあいだ消える（warn 秒前から赤く点滅）。足場の上に逃げるのを防ぐ
+function dropPlatform(p, { open, close, warn = 1 }) {
+  stage.drops.push({ p, open, close, warn });
+}
+// プレイヤーが乗っている（か、真上にいる）足場。地面なら null
+function platformUnderPlayer() {
+  let best = null;
+  for (const p of platforms) {
+    if (p.ground || player.x + player.w <= p.x || player.x >= p.x + p.w || player.y + player.h > p.y + 2) continue;
+    if (!best || p.y < best.y) best = p;
+  }
+  return best;
+}
 // 画面のまん中に出す予告の文字（「◀ TILT」など）
 function stageHint(text, dur = 1) { stage.hint = { text, t0: songTime, t1: songTime + dur }; }
+// ★転がるトゲ車★ 床の上を転がる。坂（tilt）を下る向きに加速し、コンベアにも運ばれる。
+// 開いた穴に落ちたり、電気の壁にぶつかると消える（電気が流れていない壁でははね返る）。跳び越える
+//   x = 出てくる場所 / vx = 最初の速さ / r = 大きさ
+function roller({ x, vx = 0, r = 15, delay = 0.7, life = 9, color }) {
+  return spawn({
+    x, y: GROUND_Y - r, vx, r, delay, color, style: 'roller', spd: 1, life, lane: [Math.sign(vx) || 1, 0], noTrail: true,
+    move(b, dt) {
+      if (b.falling) { b.vy += 2200 * dt; b.y += b.vy * dt; if (b.y > H + 40) b.dead = true; return; }
+      b.vx += 900 * Math.sin(stage.tilt) * dt;
+      b.x += (b.vx + stage.conveyor) * dt;
+      const inHole = stage.holes.some(h => songTime >= h.open && songTime <= h.close && b.x > h.x + b.r * 0.5 && b.x < h.x + h.w - b.r * 0.5);
+      if (inHole) { b.falling = true; b.vy = 0; return; }
+      for (const [w, d] of [[stage.wl, 1], [stage.wr, -1]]) {
+        if ((b.x - b.r - w) * d < 0) {
+          if (stage.shock >= 1) { if (typeof sparks === 'function') sparks(b.x, b.y, { n: 14, color: '#e8fdff', speed: 260, life: 0.4, size: 2.5 }); b.dead = true; }
+          else { b.x = w + d * b.r; b.vx = d * Math.abs(b.vx) * 0.6; }
+        }
+      }
+      if (b.age > b.life) b.dead = true;
+    },
+  });
+}
+// 床の電気: x〜x+w の床に、delay 秒の予告のあと hold 秒だけ電気が走る（跳ぶか足場へ）
+function zapFloor({ x, w, delay = 0.9, hold = 0.5, color = '#7ff6ff' }) {
+  const b = laser({ x1: x, y1: GROUND_Y - 7, x2: x + w, y2: GROUND_Y - 7, width: 14, delay, hold, color });
+  b.label = '▲';
+  return b;
+}
+// 天井のピストン: x に、上から地面まで太い柱がドンと落ちる（よける）
+function piston({ x, w = 70, delay = 0.8, hold = 0.3, color = '#ffe36e' }) {
+  return laser({ x1: x, y1: -60, x2: x, y2: GROUND_Y, width: w, delay, hold, color });
+}
 function zapPlayer(dir) {                     // 電気の壁にさわった
   player.x += dir * 36;
   player.vx = dir * 200;
@@ -1659,6 +1710,7 @@ function updateStage(dt) {
   stage.scroll += stage.conveyor * dt;
   for (const h of stage.holes) h.x += stage.conveyor * dt;     // 穴も床といっしょに流れる
   stage.holes = stage.holes.filter(h => songTime < h.close + 0.5);
+  stage.drops = stage.drops.filter(d => songTime < d.close + 0.5);
   if (stage.hint && songTime > stage.hint.t1) stage.hint = null;
 }
 

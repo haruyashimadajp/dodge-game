@@ -523,6 +523,22 @@ function drawStage(look, k, bp) {
   // 浮いている足場
   for (const p of platforms) {
     if (p.ground) continue;
+    const drop = stage.drops.find(d => songTime >= d.open - d.warn && songTime <= d.close);
+    if (drop && drop.p === p) {
+      if (songTime >= drop.open) {                           // くずれて消えている: 点線のわくだけ
+        ctx.strokeStyle = 'rgba(255,90,110,0.35)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
+        ctx.strokeRect(p.x, p.y, p.w, p.h); ctx.setLineDash([]);
+        continue;
+      }
+      ctx.save();                                            // もうすぐくずれる: ふるえて赤く点滅
+      ctx.translate((Math.random() - 0.5) * 3, 0);
+      if (th.platform) th.platform(p, look, k);
+      const on = Math.floor(songTime * 10) % 2 === 0;
+      ctx.fillStyle = `rgba(255,60,90,${on ? 0.55 : 0.2})`;
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.restore();
+      if (th.platform) continue;
+    }
     if (th.platform) { th.platform(p, look, k); continue; }
     roundRect(p.x, p.y, p.w, p.h, 5);
     ctx.fillStyle = 'rgba(8,10,24,0.85)';
@@ -753,7 +769,7 @@ function drawLaser(b, T, k) {
       ctx.font = '800 15px system-ui, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = rgba(mixC(c, [255, 255, 255], 0.4), on ? 0.95 : 0.4);
-      for (const f of [0.2, 0.5, 0.8]) ctx.fillText(b.label, W * f, b.y1 - 26 - 6 * p);
+      for (const f of [0.2, 0.5, 0.8]) ctx.fillText(b.label, b.x1 + (b.x2 - b.x1) * f, b.y1 - 26 - 6 * p);
     }
     return;
   }
