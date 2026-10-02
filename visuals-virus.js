@@ -9,14 +9,34 @@
      ため（ビルド）   … 「INSTALLING」の進みぐあいバーが 0% → 100%
      ドロップ中       … 拍ごとに画面のあちこちが壊れたブロックになる
      ブレイクの頭     … ブルースクリーン（すべての弾と感染が消える）
-     最後             … ブラウン管のテレビが消えるように、画面が横線 → 点になって消える
+     最後             … ブラウン管のテレビが消えるように、画面が横線 → 点になって消える → ウイルス駆除のログ
+   ずっと続く演出:
+     乗っ取られたマウス … だれかのカーソルが勝手に動いて、エラー画面をクリックして開いていく
+     画面のふちの感染   … 感染率といっしょに、画面のふちからドットのノイズが広がる（ブルースクリーンで消える）
+     ドクロ             … ドロップの頭に巨大なドット絵のドクロ。ドロップ中はウイルスの顔がドクロになる
+     スタッター         … ループバグのあいだ、画面そのものが少し前の絵にもどる（動画が止まったように）
+     とける画面         … ドロップ中、拍ごとに画面の一部がたてに流れ落ちる
+     ゲームの外まで感染 … 上の Time / Best / Lives の文字化け、タブの名前、ゲーム画面ごとガタつく
    ========================================================================= */
 
 (function () {
   const CX = W / 2, CY = 250;
   const MONO = 'ui-monospace, Menlo, Consolas, monospace';
   const WHITE = [255, 255, 255], GREEN = rgb('#39ff6a'), PINK = rgb('#ff2bd6'), CYAN = rgb('#4dfcff');
-  const st = { rot: 0, lastBeat: -99, blocks: [], tear: null, codeY: 0, code: null };
+  const st = { rot: 0, lastBeat: -99, blocks: [], tear: null, codeY: 0, code: null,
+    cur: { x: W / 2, y: H / 2, vis: 0, click: 0, idle: 9 }, drips: [], skullA: 0, snap: null, loopRef: null, loopI: 0, rep: 0,
+    hud: null, hudT: 0, cssT: 0, titleT: 0, intro: null, cells: null };
+  const SKULL = [
+    '..#######..', '.#########.', '###########', '##...#...##', '##...#...##', '##...#...##',
+    '###########', '#####.#####', '.####.####.', '..#######..', '..#.#.#.#..', '..#######..',
+  ];
+  const SPAM = ['Access violation', 'virus.exe stopped', 'Your PC is infected', 'FREE RAM >> CLICK', 'Memory leak',
+    'You won a prize!', 'DO NOT TURN OFF', 'Stack overflow', 'null pointer', 'Segmentation fault', 'Disk is full', '404 not found'];
+  const BIOS = ['MALWARE BIOS v4.04', 'Memory test: 655360K OK', 'Detecting drives ... C: D: ???', 'Loading kernel ......... OK',
+    'Loading gravity.dll .... FAILED', 'Gravity set to -1.00 g', 'Starting virus.exe ...', 'Press any key to panic'];
+  const ENDLOG = ['C:\\> scan /all', '1 threat found: malware.exe', 'C:\\> del malware.exe', 'deleted. system clean.'];
+  const GLYPH = '#$%&@!?01░▒▓█▚▞';
+  const scramble = t => t.replace(/[^ ]/g, c => (Math.random() < 0.6 ? GLYPH[(Math.random() * GLYPH.length) | 0] : c));
   // 演出の予定（拍）
   const TEARS = { 96: 'SYSTEM INFECTED', 208: 'SYSTEM CRASH', 272: 'FORMAT C:' };
   const BUILDS = [[80, 96], [192, 208]];
@@ -46,15 +66,87 @@
     return c;
   }
 
-  function reset() { Object.assign(st, { lastBeat: -99, blocks: [], tear: null }); }
+  function reset() {
+    Object.assign(st, { lastBeat: -99, blocks: [], tear: null, drips: [], skullA: 0, loopRef: null, rep: 0, intro: null });
+    Object.assign(st.cur, { x: W / 2, y: H / 2, vis: 0, click: 0, idle: 9 });
+  }
+
+  // ドット絵のドクロ（cell = 1マスの大きさ）
+  function skull(x, y, cell, color, a) {
+    ctx.fillStyle = rgba(color, a);
+    const x0 = x - SKULL[0].length * cell / 2, y0 = y - SKULL.length * cell / 2;
+    for (let r = 0; r < SKULL.length; r++) for (let c = 0; c < SKULL[r].length; c++) {
+      if (SKULL[r][c] === '#') ctx.fillRect(x0 + c * cell, y0 + r * cell, cell - 1, cell - 1);
+    }
+  }
+
+  // 画面のふちの感染ぐあい（0〜1）: だんだん広がり、ブルースクリーンで消えて、再起動からまた広がる
+  function corruptLevel(T) {
+    if (T < 64.5) return 0.55 * T / 64.5;
+    if (T < 77.3) return 0.05;
+    return Math.min(1, 0.1 + 0.9 * (T - 77.3) / 38);
+  }
+  function makeCells() {                               // ふちのマス（20px）。外側から 0, 1, 2 段目
+    const cells = [], S = 20, nx = W / S, ny = Math.ceil(H / S);
+    for (let d = 0; d < 3; d++) {
+      for (let i = d; i < nx - d; i++) { cells.push({ x: i * S, y: d * S, d, r: Math.random() }); cells.push({ x: i * S, y: (ny - 1 - d) * S, d, r: Math.random() }); }
+      for (let j = d + 1; j < ny - 1 - d; j++) { cells.push({ x: d * S, y: j * S, d, r: Math.random() }); cells.push({ x: (nx - 1 - d) * S, y: j * S, d, r: Math.random() }); }
+    }
+    return cells;
+  }
+
+  // はじまりのロゴ: 「MALWARE」の文字をドットに分けておく（集まってきて、はじけ飛ぶ）
+  function makeIntro() {
+    const c = document.createElement('canvas'), g = c.getContext('2d');
+    c.width = 420; c.height = 90;
+    g.font = `900 72px ${MONO}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+    g.fillText('MALWARE', 210, 46);
+    const data = g.getImageData(0, 0, 420, 90).data, out = [];
+    for (let y = 0; y < 90; y += 6) for (let x = 0; x < 420; x += 6) {
+      if (data[(y * 420 + x) * 4 + 3] < 128) continue;
+      const a = Math.random() * TAU, d = 300 + Math.random() * 500;
+      out.push({ tx: W / 2 - 210 + x, ty: H * 0.4 - 45 + y, sx: W / 2 + Math.cos(a) * d, sy: H * 0.4 + Math.sin(a) * d, c: Math.random() < 0.15 ? PINK : GREEN, k: Math.random() });
+    }
+    return out;
+  }
+
+  // ゲームの外（ページ）の演出: 上の文字の文字化け・タブの名前・ゲーム画面ごとガタつく
+  function hudLabels() {
+    if (!st.hud) st.hud = [...document.querySelectorAll('.hud .stat .label')].map(el => ({ el, text: el.textContent }));
+    return st.hud;
+  }
+  function corruptHud(all) {
+    const L = hudLabels();
+    (all ? L : [L[(Math.random() * L.length) | 0]]).forEach(h => { h.el.textContent = scramble(h.text); h.el.classList.add('mw-bad'); });
+    st.hudT = 0.22;
+  }
+  function restoreHud() {
+    for (const h of hudLabels()) { h.el.textContent = h.text; h.el.classList.remove('mw-bad'); }
+  }
+  function shakePage() {
+    document.body.classList.remove('mw-glitch');
+    void document.body.offsetWidth;                    // アニメーションを最初からもう一度
+    document.body.classList.add('mw-glitch');
+    st.cssT = 0.35;
+  }
+  const TAB = document.title;
 
   function onBeat(b) {
     if (TEARS[b]) {
       st.tear = { t: 0, text: TEARS[b], cuts: Array.from({ length: 9 }, () => [Math.random() * H, 10 + Math.random() * 60, (Math.random() - 0.5) * 140]) };
       window.flash(0.6); shake(18); punch(0.07); glitch(1);
+      corruptHud(true); shakePage();
     }
-    if (b === BSOD) { st.bsod = 0; shake(10); }
-    if (b === OFF) st.off = 0;
+    if (b === BSOD) { st.bsod = 0; shake(10); corruptHud(true); shakePage(); }
+    if (b === OFF) { st.off = 0; shakePage(); }
+    if (inside(b, DROPS)) {
+      if (b % 4 === 0) st.skullA = 1;
+      if (Math.random() < 0.45) corruptHud(false);
+      if (b >= 272 && b % 4 === 0) shakePage();         // FORMAT C: 小節ごとにガタつく
+      if (b % 2 === 0 && gfx === 2) for (let i = 0; i < 4; i++) {   // とける画面
+        st.drips.push({ t: 0, x: Math.random() * (W - 40), w: 12 + Math.random() * 40, y: 60 + Math.random() * 380, h: 120 + Math.random() * 160, d: 30 + Math.random() * 70 });
+      }
+    }
     if (inside(b, DROPS) && gfx > 0) {                    // 拍ごとに、壊れたブロック
       for (let i = 0; i < (gfx === 2 ? 3 : 1) + (b % 4 === 0 ? 2 : 0); i++) {
         st.blocks.push({ t: 0, x: Math.random() * W, y: Math.random() * GROUND_Y, w: 30 + Math.random() * 160, h: 6 + Math.random() * 40, c: Math.random() < 0.5 ? PINK : GREEN, dx: (Math.random() - 0.5) * 60 });
@@ -65,7 +157,40 @@
   function update(dt, T, look) {
     st.rot += dt * (0.25 + 0.15 * look.tier);
     st.codeY = (st.codeY + dt * (30 + 30 * look.tier)) % H;
-    if (scene !== 'play') { st.bsod = st.off = null; return; }
+    if (st.cssT > 0 && (st.cssT -= dt) <= 0) document.body.classList.remove('mw-glitch');
+    if (scene !== 'play') {
+      st.bsod = st.off = null;
+      if (st.hudT > -1) { restoreHud(); st.hudT = -1; document.title = TAB; }
+      if (scene === 'title') titleGlitch(dt);
+      return;
+    }
+    if (st.hudT > 0 && (st.hudT -= dt) <= 0) restoreHud();
+    if (Math.floor(T * 4) !== Math.floor((T - dt) * 4)) document.title = `■ virus.exe — ${(clamp01(T / SONG_END) * 100).toFixed(0)}% infected`;
+    st.skullA = Math.max(0, st.skullA - dt * 1.5);
+    for (const q of st.drips) q.t += dt;
+    st.drips = st.drips.filter(q => q.t < 0.35);
+    // ループバグが始まった瞬間の画面を取っておく（くり返すたびに、うっすら重ねる）
+    const L = malware.loop;
+    if (L && L !== st.loopRef && gfx > 0) {
+      st.loopRef = L; st.loopI = 0;
+      if (!st.snap) { st.snap = document.createElement('canvas'); }
+      st.snap.width = cv.width; st.snap.height = cv.height;
+      st.snap.getContext('2d').drawImage(cv, 0, 0);
+      if (Math.random() < 0.5) corruptHud(true);
+    }
+    if (L && L === st.loopRef && L.i !== st.loopI) { st.loopI = L.i; st.rep = 0.09; }
+    st.rep = Math.max(0, st.rep - dt);
+    // 乗っ取られたマウス: これから開くエラー画面へ飛んでいき、開く瞬間にクリックする
+    const cur = st.cur;
+    let tgt = null;
+    for (const b of bullets) {
+      if (b.kind !== 'popup') continue;
+      if (b.delay > 0) { if (!tgt || b.delay < tgt.delay) tgt = b; }
+      else if (!b.clicked) { b.clicked = true; cur.click = 1; }
+    }
+    if (tgt) { cur.idle = 0; cur.vis = Math.min(1, cur.vis + dt * 6); cur.x += (tgt.x + 6 - cur.x) * Math.min(1, dt * 14); cur.y += (tgt.y + 4 - cur.y) * Math.min(1, dt * 14); }
+    else { cur.idle += dt; if (cur.idle > 1.2) cur.vis = Math.max(0, cur.vis - dt * 2); }
+    cur.click = Math.max(0, cur.click - dt * 4);
     const b = Math.floor(beatPos(T) + 0.02);
     if (b !== st.lastBeat) { if (b === st.lastBeat + 1) onBeat(b); st.lastBeat = b; }
     if (st.tear) { st.tear.t += dt; if (st.tear.t > 0.7) st.tear = null; }
@@ -73,6 +198,16 @@
     if (st.off != null) st.off += dt;
     for (const q of st.blocks) q.t += dt;
     st.blocks = st.blocks.filter(q => q.t < 0.14);
+  }
+  // タイトル画面: ときどきロゴが文字化けする
+  function titleGlitch(dt) {
+    st.titleT -= dt;
+    const cur = ovTitle.textContent;
+    if (st.titleT <= 0) {
+      if (cur === 'DODGE') { setOverlayTitle(['D0DGE', 'DØD6E', 'MALWR', 'D▒DG3', 'ERROR'][(Math.random() * 5) | 0]); st.titleT = 0.12; st.titleBad = true; }
+      else if (st.titleBad) { setOverlayTitle('DODGE'); st.titleT = 1.5 + Math.random() * 2.5; st.titleBad = false; }
+      else st.titleT = 1;
+    }
   }
 
   // ウイルスの粒子: 膜の輪 ＋ 曲の音量で伸び縮みするトゲ
@@ -113,6 +248,7 @@
     }
     ctx.globalCompositeOperation = 'lighter';
     virusCore(CX, CY, 78 + 8 * k + 6 * bk, look, k, T);
+    if (scene === 'play' && inside(beatPos(T), DROPS)) skull(CX, CY + 4, 9, look.color, 0.18 + 0.6 * st.skullA);   // ドロップ中: ウイルスの顔はドクロ
     ctx.globalCompositeOperation = 'source-over';
     // 走査線のような横のしま（ゆっくり下へ）
     ctx.fillStyle = rgba(look.color, 0.04);
@@ -259,13 +395,34 @@
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.moveTo(x + 17, iy - 5); ctx.lineTo(x + 27, iy + 5); ctx.moveTo(x + 27, iy - 5); ctx.lineTo(x + 17, iy + 5); ctx.stroke();
     ctx.fillStyle = '#000'; ctx.font = `11px ${MONO}`; ctx.textAlign = 'left';
-    ctx.fillText(b.title === 'STOP' ? 'Fatal exception' : b.title === 'FORMAT' ? 'Erasing disk...' : 'Access violation', x + 40, iy - 6);
+    const msg = b.title === 'STOP' ? 'Fatal exception' : b.title === 'FORMAT' ? 'Erasing disk...' : SPAM[Math.abs((b.x * 31 + b.y * 17) | 0) % SPAM.length];
+    ctx.fillText(msg, x + 40, iy - 6);
     ctx.fillText('0x' + ((b.x * 7919 + b.y * 104729) % 0xffffff | 0).toString(16).toUpperCase().padStart(6, '0'), x + 40, iy + 8);
     if (h > 80) {
       ctx.fillStyle = '#c3c7cb'; ctx.fillRect(x + w / 2 - 26, y + h - 26, 52, 18);
       ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(x + w / 2 - 26 + 0.5, y + h - 26 + 0.5, 51, 17);
       ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.fillText('OK', x + w / 2, y + h - 17);
     }
+  }
+
+  // 乗っ取られたマウス（カメラの中に描く。エラー画面と同じ場所に重なるように）
+  function world(T) {
+    const c = st.cur;
+    if (c.vis <= 0.01 || scene !== 'play') return;
+    if (c.click > 0) {
+      ctx.strokeStyle = `rgba(255,255,255,${(0.8 * c.click).toFixed(3)})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(c.x, c.y, 6 + 26 * (1 - c.click), 0, TAU); ctx.stroke();
+    }
+    ctx.save();
+    ctx.translate(c.x, c.y); ctx.scale(1.5 - 0.2 * c.click, 1.5 - 0.2 * c.click);
+    ctx.globalAlpha = c.vis;
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.lineTo(0, 17); ctx.lineTo(4, 13); ctx.lineTo(7.5, 20); ctx.lineTo(10, 19); ctx.lineTo(6.5, 12); ctx.lineTo(12, 12); ctx.closePath();
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.font = `700 7px ${MONO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = rgba(PINK, 0.95); ctx.fillText('virus.exe', 12, 16);
+    ctx.restore();
   }
 
   function flash(look) {
@@ -275,7 +432,37 @@
 
   // 画面のいちばん上の演出（カメラの外）
   function overlay() {
-    const T = songTime, bp = beatPos(T);
+    const T = songTime, bp = beatPos(T), R = renderScale;
+    if (scene === 'play' && gfx > 0) {
+      for (const q of st.drips) {                      // とける画面: たての帯が下へずれ落ちる
+        const d = q.d * easeOut(q.t / 0.2);
+        ctx.globalAlpha = 1 - q.t / 0.35;
+        ctx.drawImage(cv, q.x * R, q.y * R, q.w * R, q.h * R, q.x, q.y + d, q.w, q.h);
+        ctx.globalAlpha = 1;
+      }
+      if (st.rep > 0 && st.snap) {                     // スタッター: 少し前の画面がちらっと重なる
+        const dx = (Math.random() - 0.5) * 16;
+        ctx.globalAlpha = 0.35;
+        ctx.drawImage(st.snap, dx, 0, W, H);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.18;
+        ctx.drawImage(st.snap, dx + 7, 0, W, H);
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.fillRect(0, (Math.random() * H) | 0, W, 3 + Math.random() * 20);
+      }
+      // 画面のふちの感染（ちらつくドット）
+      if (!st.cells) st.cells = makeCells();
+      const lv = corruptLevel(T), f = Math.floor(T * 10);
+      for (const c of st.cells) {
+        if (gfx === 1 && c.d > 1) continue;
+        if (c.r > lv * 1.25 - c.d * 0.33) continue;
+        const h = (c.x * 7 + c.y * 13 + f * 31) % 17;
+        ctx.fillStyle = h < 2 ? 'rgba(255,43,214,0.55)' : h < 9 ? 'rgba(0,0,0,0.6)' : `rgba(57,255,106,${(0.18 + 0.05 * (h % 4)).toFixed(2)})`;
+        ctx.fillRect(c.x, c.y, 20, 20);
+        if (h === 5) { ctx.fillStyle = 'rgba(57,255,106,0.7)'; ctx.fillRect(c.x + 4, c.y + 8, 12, 4); }
+      }
+    }
     for (const q of st.blocks) {                       // 壊れたブロック
       if (gfx === 2) {
         const R = renderScale;
@@ -296,6 +483,14 @@
       ctx.fillStyle = `rgba(0,255,140,${(0.7 * a).toFixed(3)})`; ctx.fillText(st.tear.text, W / 2 + 6 - j, H * 0.42);
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = `rgba(255,255,255,${(0.6 * a).toFixed(3)})`; ctx.fillText(st.tear.text, W / 2, H * 0.42);
+      ctx.globalCompositeOperation = 'lighter';           // 巨大なドクロ（赤と緑にずれて）
+      const sj = (Math.random() - 0.5) * 10 * a;
+      skull(W / 2 - 5 + sj, H * 0.42 - 150, 16, [255, 0, 120], 0.45 * a);
+      skull(W / 2 + 5 - sj, H * 0.42 - 150, 16, GREEN, 0.45 * a);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.font = `700 16px ${MONO}`;
+      ctx.fillStyle = `rgba(255,255,255,${(0.8 * a).toFixed(3)})`;
+      ctx.fillText('YOU HAVE BEEN INFECTED', W / 2, H * 0.42 + 46);
     }
     for (const [b0, b1] of BUILDS) {                   // インストール中のバー
       if (bp < b0 || bp >= b1 || scene !== 'play') continue;
@@ -320,6 +515,32 @@
       ctx.fillStyle = rgba(GREEN, 0.85);
       ctx.fillText(line[1].slice(0, n) + (Math.floor(T * 3) % 2 ? '█' : ''), 14, 16);
     }
+    if (scene === 'play' && T < 2.4) {                 // はじまり: 「MALWARE」のロゴがドットで集まって、はじける
+      if (!st.intro) st.intro = makeIntro();
+      const kin = easeOut((T - 0.3) / 0.6), out = clamp01((T - 1.75) / 0.5);
+      if (T > 0.3) {
+        for (const p of st.intro) {
+          let x = lerp(p.sx, p.tx, kin), y = lerp(p.sy, p.ty, kin);
+          if (out > 0) { x += (p.tx - W / 2) * out * (1 + p.k) * 1.5; y += (p.ty - H * 0.4) * out * (2 + p.k) * 1.5 + 200 * out * out * p.k; }
+          if (Math.random() < 0.04) x += (Math.random() - 0.5) * 30;
+          ctx.fillStyle = rgba(p.c, (1 - out) * (0.5 + 0.5 * kin));
+          ctx.fillRect(x, y, 5, 5);
+        }
+        ctx.font = `700 14px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = rgba(GREEN, (1 - out) * clamp01((T - 0.9) / 0.3));
+        ctx.fillText('> payload ready. executing ...', W / 2, H * 0.4 + 70);
+      }
+    }
+    if (bp >= 192 && bp < 208 && scene === 'play') {   // 再起動: BIOS の文字が打ちこまれていく
+      ctx.font = `13px ${MONO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      let left = Math.floor((bp - 192) * 14);
+      BIOS.forEach((l, i) => {
+        if (left <= 0) return;
+        const n = Math.min(l.length, left); left -= l.length + 4;
+        ctx.fillStyle = l.includes('FAILED') || l.includes('-1.00') ? 'rgba(255,43,214,0.8)' : 'rgba(170,255,190,0.55)';
+        ctx.fillText(l.slice(0, n), 16, 210 + i * 18);
+      });
+    }
     if (st.bsod != null) {                             // ブルースクリーン
       const t = st.bsod, a = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.9;
       ctx.fillStyle = `rgba(0,0,170,${(0.92 * a).toFixed(3)})`;
@@ -342,6 +563,16 @@
       if (t > 0.15) {
         ctx.fillStyle = `rgba(220,255,230,${clamp01(1 - (t - 0.5) / 0.6).toFixed(3)})`;
         ctx.fillRect(W / 2 - ww / 2, H / 2 - Math.min(hh, 4) / 2, ww, Math.min(hh, 4));
+      }
+      if (t > 0.7) {                                   // 真っ暗な画面に、ウイルス駆除のログ
+        ctx.font = `16px ${MONO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        let left = Math.floor((t - 0.7) * 45);
+        ENDLOG.forEach((l, i) => {
+          if (left <= 0) return;
+          const n = Math.min(l.length, left); left -= l.length + 6;
+          ctx.fillStyle = i === 3 ? '#39ff6a' : 'rgba(200,255,210,0.85)';
+          ctx.fillText(l.slice(0, n) + (left <= 0 && Math.floor(t * 3) % 2 ? '█' : ''), 120, 300 + i * 26);
+        });
       }
     }
   }
@@ -383,6 +614,6 @@
   THEMES.virus = {
     noTrails: true, glow: 1.4,
     clearColors: ['#39ff6a', '#ff2bd6', '#4dfcff', '#ffffff', '#ffe14d'],
-    reset, update, background, floor, platform, ceiling, infect, bullet, worm, popup, flash, banner, title,
+    reset, update, background, floor, platform, ceiling, infect, bullet, worm, popup, world, flash, banner, title,
   };
 })();

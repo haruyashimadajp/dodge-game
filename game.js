@@ -868,6 +868,7 @@ function selectSong(i) {
   }
   best = parseFloat(store.get(song.bestKey) || '0') || 0;
   showBest();
+  if (scene === 'title') setOverlayTitle('DODGE');   // （Malware のタイトル画面の文字化けを、曲を変えたら元にもどす）
   songName.textContent = song.title;
   songMeta.textContent = song.meta;
   document.body.dataset.theme = song.theme;    // CSS colors of the menus follow the song

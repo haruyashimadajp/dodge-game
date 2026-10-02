@@ -383,6 +383,7 @@ function drawScene() {
   drawEcho(T);
   drawHero(look, k);
   drawWalls(T, look, k);
+  if (th.world) th.world(T, look, k);            // 見た目のセットが、カメラの中（ゲームの世界）に描きたいもの
   ctx.restore();
   drawHint(T, look);
 
