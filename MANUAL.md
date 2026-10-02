@@ -17,6 +17,8 @@ dodge-game/
 ├── index.html   ← ブラウザで開くファイル（基本さわらない）
 ├── game.js      ← ゲームの中身（キャラ・当たり判定・曲の切りかえ・弾の道具）
 ├── songs/
+│   ├── firststep.js     ← 曲⑧「First Step」（オリジナル曲・初心者用。曲の一覧ではいちばん最初）の拍・場面・譜面
+│   ├── firststep-score.js / firststep-env.js / firststep-compose.py ← 曲⑧の楽譜データ / 音量データ / 作曲プログラム
 │   ├── emperror.js      ← 曲①「the EmpErroR」の拍・場面・譜面 ★よく編集する★
 │   ├── unknown.js       ← 曲②「Re:Unknown X」の拍・場面・譜面 ★よく編集する★
 │   ├── emperror-env.js  ← 曲①の音量データ（演出用に自動生成。さわらない）
@@ -44,6 +46,7 @@ dodge-game/
 ├── visuals-glass.js ← 曲④の見た目（ガラスの部屋・結晶・鍵盤の床・画面のひび）
 ├── visuals-gyro.js  ← 曲⑤の見た目（飛行機の姿勢計・流れる鉄板の床・水準器）
 ├── visuals-ex.js    ← 曲⑥の見た目（黒と赤の警告色・EXの紋章・WARNINGの帯）
+├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
 ├── style.css    ← 色やレイアウト（タイトル画面・ボタンの見た目）
 ├── the EmpErroR.mp3 / Re-Unknown_X.mp3 ← 曲
@@ -735,7 +738,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
 4. `index.html` の下の方、`songs/unknown.js` の次の行に `<script src="songs/mysong.js"></script>` を足す
 

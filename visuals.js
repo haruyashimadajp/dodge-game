@@ -742,6 +742,7 @@ function drawHint(T) {
   const p = (T - h.t0) / (h.t1 - h.t0);
   if (p < 0 || p > 1) return;
   const a = p < 0.15 ? p / 0.15 : p > 0.75 ? (1 - p) / 0.25 : 1;
+  if (theme().hint) { theme().hint(h, a, T); return; }   // 見た目のセットが、ヒントの出し方を決めている
   ctx.save();
   ctx.globalAlpha = clamp01(a) * (Math.floor(T * 8) % 2 ? 1 : 0.75);
   ctx.font = '800 30px ui-monospace, Menlo, Consolas, monospace';

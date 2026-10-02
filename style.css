@@ -772,3 +772,34 @@ body.mw-glitch canvas { animation: mw-jolt 0.32s steps(1); }
   75%  { transform: translate(2px, 1px); filter: none; }
   100% { transform: none; filter: none; }
 }
+
+/* First Step (beginner): bright daytime */
+body[data-theme="day"] {
+  --accent: #ffc93c;
+  --accent-2: #ff5f8f;
+  --text-dim: #3c4a6e;
+  background: linear-gradient(180deg, #5fb4ff, #cfeaff 70%, #9fdc8a);
+}
+body[data-theme="day"] .stat { background: rgba(255, 255, 255, 0.85); color: #283046; }
+body[data-theme="day"] .stat .label { color: #5a6488; }
+body[data-theme="day"] .stat .value { color: #283046; }
+body[data-theme="day"] .hint { color: #283046; }
+body[data-theme="day"] canvas { box-shadow: 0 0 0 3px #fff, 0 20px 50px rgba(40, 60, 120, 0.35); }
+body[data-theme="day"] .logo { text-shadow: 0 3px 0 #ff8a3c, 0 6px 18px rgba(40, 60, 120, 0.4); }
+body[data-theme="day"] .logo::before { color: #3c9dff; }
+body[data-theme="day"] .logo::after  { color: #ff5f8f; }
+body[data-theme="day"] .kicker { color: #fff; text-shadow: 0 1px 3px rgba(40, 60, 120, 0.6); }
+body[data-theme="day"] .song-tag { color: #283046; background: rgba(255, 255, 255, 0.9); border-color: #ffc93c; }
+body[data-theme="day"] .song-meta, body[data-theme="day"] .best-tag, body[data-theme="day"] .press-hint { color: #283046; }
+body[data-theme="day"] .best-tag b { color: #283046; }
+body[data-theme="day"] .song-arrow,
+body[data-theme="day"] .link-btn { background: rgba(255, 255, 255, 0.9); border-color: #ffc93c; color: #283046; }
+body[data-theme="day"] .start-btn {
+  background: linear-gradient(90deg, #ff8a3c, #ffc93c, #3ccf6e, #3c9dff, #ff8a3c);
+  background-size: 300% 100%;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0 calc(10px + var(--kick, 0) * 18px) rgba(255, 201, 60, 0.8), inset 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+body[data-theme="day"] .overlay.clear .logo { text-shadow: 0 3px 0 #3ccf6e, 0 6px 18px rgba(40, 60, 120, 0.4); }
+body[data-theme="day"] .seg-btn.active { background: linear-gradient(90deg, #ff8a3c, #3c9dff); }

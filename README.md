@@ -4,8 +4,9 @@ A 2D dodge game built with plain HTML / CSS / JavaScript (Canvas).
 Mario-like platformer controls — run, jump between platforms, and dodge
 bullets fired in time with the music. Survive to the end of the song to clear it.
 
-Seven songs, each with its own chart and look (pick one on the title screen with ◀ ▶):
+Eight songs, each with its own chart and look (pick one on the title screen with ◀ ▶):
 
+- **First Step** — the beginner song (first in the list): an original, cheerful 108 BPM pop track with a bell melody (`songs/firststep-compose.py`); slow bullets with long warnings, and on-screen hints that teach one thing at a time — moving, jumping over rolling balls, finding gaps in rings, and getting onto platforms when the floor lights up
 - **the EmpErroR** — 120 BPM, neon shapes, fireworks, meteors
 - **Re:Unknown X** — 190 BPM, a moonlit night with red / green / blue UFOs, searchlights and danmaku-style bullets; the effects grow with the song's intensity
 - **モラトリウム** (Moratorium) — an original 150 BPM song made for this game (composed and synthesized in `songs/moratorium-compose.py`); a clock tower at dusk with time stops, rewinds, pendulums, clock-hand beams and melody notes that land exactly when they sound
@@ -37,6 +38,7 @@ Open `index.html` in a web browser.
 | `visuals-gyro.js` | The attitude-indicator theme used by Vertigo |
 | `visuals-ex.js` | The black-and-red alarm theme used by ExtremeEX |
 | `visuals-virus.js` | The green terminal / virus theme used by Malware |
+| `visuals-day.js` | The bright daytime theme used by First Step |
 | `songs/moratorium-compose.py` | Composes and renders モラトリウム (Python + numpy/scipy) and writes its note timings |
 | `songs/segment-compose.py` | Composes and renders segment (piano, glockenspiel, breaking glass) and writes its note timings |
 | `style.css` | Colors and layout |
