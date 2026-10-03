@@ -175,7 +175,7 @@ let livesLeft = startLives;
 let invuln = 0;            // invincibility timer after taking a hit (s)
 let flashT = 0;            // screen flash on strong beats (1 = full, fades out)
 let bulletSpeedMul = 1;    // 弾の速さ multiplier（いまは設定から変えられない。常に 1）
-let slideMove = true;      // 移動の仕方: true = 滑る（いまは設定から変えられない）, false = 滑らない
+let slideMove = false;     // 移動の仕方: true = 滑る, false = 滑らない（いまはこちら。設定からは変えられない）
 
 function reset() {
   player.x = W / 2 - player.w / 2;
