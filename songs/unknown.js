@@ -54,7 +54,7 @@ const UNKNOWN_SECTIONS = [
   { t: 104.48, tier: 5,   name: '',             sub: '',               sky: ['#22082f', '#45124a'], color: '#ff4d6d', pulse: 0.030, sway: 1.3, stars: 110 },
   { t: 117.12, tier: 5,   name: '',             sub: '',   sky: ['#0a0e36', '#182a55'], color: '#4cc9f0', pulse: 0.030, sway: 1.3, stars: 110 },
   { t: 127.22, tier: 4,   name: '神楽',         sub: 'ダンマクカグラ ─ 拍に合わせて跳べ', sky: ['#1c0e2c', '#3a1a40'], color: '#ffd166', pulse: 0.022, sway: 0.9, stars: 60 },
-  { t: 137.33, tier: 1,   name: '',             sub: '',       sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.006, sway: 0.3, stars: 10 },
+  { t: 137.33, tier: 3,   name: '',             sub: '',       sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.006, sway: 0.3, stars: 10 },
 ];
 
 // 弾の速さの倍率: 弾の数はあまり変えずに、盛り上がりは「速さ」で出す。
@@ -342,19 +342,52 @@ function unknownChart() {
   crash(beat(420));                                                  // 132.9s
   hit(beat(406), 0.5);
 
-  // ===== FAREWELL 137.3〜145 ｜ tier 1: UFO が去っていく → 最後の一撃 ================
-  bossOn(bar(107.5), 0);
-  dash(bar(108), true, { color: RED, y: 160, bars: 3, drop: 110 });
-  for (let n = 0; n < 4; n++) fire(bar(108.5 + n), B2 * 1.5, delay => orb(delay, { vy: 100 }));
-  // 142.4s 最後の一撃: 真ん中に大きな「?」→ 星になって四方へはじける（正体不明のまま）
-  crash(bar(112), { at: 'center', stars: 8 });
-  fire(bar(112), 0.8, delay => glyph({ ch: '?', x: cx, y: cy, cell: 30, vx: 0, vy: 0, r: 9, delay, color: MOON, style: 'star' }));
-  burst(bar(112) + 0.5, () => {
+  // ===== FAREWELL 137.3〜142.4 ｜ ため: ボスがまん中に陣取り、規則正しい弾幕を撃ちつづける ==========
+  //   108〜110小節: 1拍ごとにお札の輪（1つおきに半分ずらす → 花の形）
+  //   110〜112小節: 半拍ごとに米つぶ弾の輪が少しずつ回る（うずを巻く腕）＋ 1拍ごとに左右の UFO から交互に扇
+  //   最後の1拍は弾が止み、まん中に「X」の予告がならぶ
+  boss(bar(107.5), cx, 140);
+  for (let n = 0; n < 8; n++) bossRing(bar(108) + n * B, 16, 140, TRI[n % 3], n % 2 ? Math.PI / 16 : 0);
+  for (let n = 0; n < 14; n++) {
+    const t = bar(110) + n * B / 2;
+    fire(t, B2, delay => ring({ x: THB.x, y: THB.y, count: 14, speed: 150, r: 7, start: n * 0.16, delay, color: TRI[n % 3], style: 'rice' }));
+    if (n % 2 === 0) fire(t, B2, delay => {
+      const left = n % 4 === 0, x = left ? 60 : W - 60, p = playerXY(), a0 = Math.atan2(p.y - 60, p.x - x);
+      for (let j = 0; j < 5; j++) { const a = a0 + (j - 2) * 0.2; spawn({ x, y: 60, vx: Math.cos(a) * 200, vy: Math.sin(a) * 200, r: 7, delay, color: MOON, style: 'star' }); }
+    });
+  }
+  for (let n = 0; n < 4; n++) hit(bar(110) + n * B * 2, 0.15 + n * 0.08);   // だんだん強く光る
+
+  // ===== FINALE 142.4〜 ｜ 最後の一撃: X の光線がいっせいに7本 → 夜空に X の花火 ==========================
+  // 7つの X を同時に（予告は4拍）。地面に届く線は 8 本で、そのすき間（約150px）に立っていればよけられる
+  const finaleX = (t, x, y, len, stars, { light = false, color = MOON, warn = XWARN } = {}) => {
+    fire(t, warn, delay => xStrike({ x, y, len, delay, color }));
+    burst(t, () => {
+      for (let i = 0; i < stars; i++) {
+        const a = Math.PI / 4 + i * TAU / stars, v = 150 + (i % 2) * 70;
+        spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 8, style: 'star', color: TRI[i % 3] });
+      }
+      if (light) { flash(0.2); shake(4); }
+    });
+  };
+  const T0 = bar(112);
+  bossOn(T0 + 0.2, 0);                                               // ボスは最後の一撃で去っていく
+  finaleX(T0, cx, 315, 1100, 8);                                     // まん中（いちばん大きい X）
+  for (const x of [130, 400, 670]) finaleX(T0, x, 180, 1500, 4);    // 上の段の3つ
+  for (const x of [250, 550]) finaleX(T0, x, 470, 700, 4);          // 下の段の2つ
+  burst(T0, () => { flash(1); shake(18); punch(0.06); });
+  fire(T0, 0.8, delay => glyph({ ch: '?', x: cx, y: cy, cell: 30, vx: 0, vy: 0, r: 9, delay, color: MOON, style: 'star' }));
+  burst(T0 + 0.5, () => {
     for (const b of bullets) if (b.style === 'star' && !b.kind && b.vx === 0 && b.vy === 0) {
       const a = Math.atan2(b.y - cy, b.x - cx); b.vx = Math.cos(a) * 240; b.vy = Math.sin(a) * 240; b.color = TRI[(Math.random() * 3) | 0];
     }
     flash(0.6); shake(10);
   });
+  // 余韻: 拍ごとに夜空で X の花火（高い所だけ。線は地面に届かない）
+  for (let n = 1; n <= 7; n++) {
+    const xs = n % 2 ? [cx] : [cx - 140, cx + 140];
+    for (const x of xs) finaleX(T0 + n * B, x + rand(-30, 30), 110 + (n % 3) * 40, 600, 6, { light: true, color: TRI[n % 3], warn: B * 2 });
+  }
 
   return cues.sort((a, b) => a.t - b.t);
 }

@@ -251,7 +251,6 @@ function update(dt) {
     player.coyoteT = 0;
     player.bufferT = 0;
     player.squash = 1;       // stretch on takeoff
-    sfxJump();
     fxJump();
   }
 
@@ -477,7 +476,6 @@ function beep(freq, dur, type, vol) {
     o.start(t); o.stop(t + dur);
   } catch (e) { /* ignore audio errors */ }
 }
-function sfxJump() { beep(620, 0.10, 'square', 0.8); }
 function sfxHit()  { beep(140, 0.30, 'sawtooth', 1); }
 
 // ---- Game flow ----------------------------------------------------------
