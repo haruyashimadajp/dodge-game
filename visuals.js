@@ -532,8 +532,10 @@ function drawStage(look, k, bp) {
   // 浮いている足場
   for (const p of platforms) {
     if (p.ground) continue;
-    const drop = stage.drops.find(d => songTime >= d.open - d.warn && songTime <= d.close);
-    if (drop && drop.p === p) {
+    // この足場の「くずれ」だけを見る（ほかの足場が先にくずれていても、予告を見落とさない）。消えている最中を優先
+    const mine = stage.drops.filter(d => d.p === p && songTime >= d.open - d.warn && songTime <= d.close);
+    const drop = mine.find(d => songTime >= d.open) || mine[0];
+    if (drop) {
       if (songTime >= drop.open) {                           // くずれて消えている: 点線のわくだけ
         ctx.strokeStyle = 'rgba(255,90,110,0.35)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
         ctx.strokeRect(p.x, p.y, p.w, p.h); ctx.setLineDash([]);
