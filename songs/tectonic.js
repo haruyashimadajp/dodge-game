@@ -3,8 +3,9 @@
 /* =========================================================================
    曲⑭  TECTONIC（オリジナル曲）  —  拍・場面・譜面
    重低音・地震。140 BPM のヘヴィなダブステップ（2回目のサビの後半は、倍の速さのドラムンベース）。
-   曲は songs/tectonic-compose.py で作曲・合成した（地鳴りのサブベース・しゃべるようにうなるグロウルベース・
-   リースベース・巨大なキック・サイレン・地震の衝撃音）。
+   曲は songs/tectonic-compose.py で作曲・合成した。音はぜんぶこの曲だけのもの: のどうた（ホーミー: 低いうなりの上で倍音が口笛のように
+   旋律を歌う）・石がこすれるようなベース・808のブーム・金床のスネア・砂利のシェイカー・石のマリンバ・弓でひくのこぎり・BRAAM（映画の金管）。
+   音階は F のフリジアン・ドミナント（F Gb A Bb C Db Eb）。
    難易度はむずかしい。演出は visuals-quake.js。
 
    ベースの音の形が、そのまま弾の形になる:
@@ -75,7 +76,7 @@ function tectonicChart() {
 
   // EQ の並び（10本）: H = 高い（よける）、L = 低い（跳び越える）、0 = なし（立てる）
   const EQS = [
-    'HLHH0HHLHH', 'H0HHLHH0HH', 'HHLHH0HHLH', 'LHH0HHLHH0', '0HHLHH0HHL',
+    '0HHLHH0HHL', 'LHH0HHLHH0', 'L0HHLHH0HL', '0HHL0HHLH0', 'LHHL0HHLHL',      // どれも両はしは安全（壁ぎわで逃げ場がなくならない）
   ];
   const eqH = (p, k) => [...p].map((c, i) => c === 'H' ? 230 + 50 * hsh(k, i) : c === 'L' ? 52 : 0);
 
@@ -99,30 +100,33 @@ function tectonicChart() {
       if (shape === 'yoi') { yoi(t, side = !side, { n: mean ? 4 : 3, spread: mean ? 0.3 : 0.24, v: mean ? 330 : 300 }); continue; }
       if (shape === 'stab') { boulder(t, px(off + hsh(b) * 4, -4, 16), { v: mean ? 380 : 340 }); continue; }
       if (shape === 'down') { slam(t, side = !side); continue; }
-      if (shape === 'wow') { eq(t, eqH(EQS[eqi++ % EQS.length], b)); continue; }
+      if (shape === 'wow') { eq(t, eqH(EQS[eqi++ % EQS.length], b), { warn: 1.0 }); continue; }
       if (shape === 'up') { erupt(t, { n: mean ? 7 : 6 }); continue; }
       if (shape === 'stut') { stut(t); continue; }
       if (shape === 'dive') { rock(t, { wave: mean ? 260 : 230 }); continue; }
       if (shape === 'screech') { if (L >= 0.5 && Math.round(b * 2) % 2 === 0) xs(t, { dx: side ? 60 : -60 }); continue; }
     }
     // キック（小節の頭）= 地割れの波。左右かわりばんこ
-    for (let k = k0; k < k1; k++) if (k % 2 === 0 || mean) quake(bar(k), k % 4 < 2, { h: 40, v: mean ? 430 : 400 });
+    // （イコライザーの棒が立つ小節は、地割れを出さない。棒のすき間に立ったまま跳ぶことになって、よけられない）
+    const eqBar = new Set(notes.filter(n => n[3] === 'wow').map(n => Math.floor(n[0] / 4)));
+    for (let k = k0; k < k1; k++) if ((k % 2 === 0 || mean) && !eqBar.has(k)) quake(bar(k), k % 4 < 2, { h: 40, v: mean ? 430 : 400 });
   }
 
-  // ===== RUMBLE 0〜8小節 ｜ 小石がぱらぱら ／ 4小節: 最初の地割れ ／ 鐘のメロディ = 小石 ==========================
+  // ===== RUMBLE 0〜8小節 ｜ 小石がぱらぱら ／ 4小節: 最初の地割れ ／ のどうたの倍音の旋律 = 小石 ==========================
   for (let k = 2; k < 8; k++) for (let i = 0; i < 3; i++) pebble(bar(k) + i * 1.33 * B, 80 + hsh(k, i) * (W - 160), { v: 150 + 30 * i });
   hint(bar(4) - 3 * B, '地割れ ─ 地面を走る岩の波は、跳び越える');
   quakeBoth(bar(4), CX, { h: 34, v: 280, warn: 1.0 });
-  SC.hook.filter(([b]) => inBars(b, 4, 8)).forEach(([b, , m], i) => pebble(beat(b), px(m, 64, 86), { v: 210, color: EMBER, r: 7 }));
+  SC.hook.filter(([b]) => inBars(b, 4, 8)).forEach(([b, , m], i) => pebble(beat(b), px(m, 74, 86), { v: 210, color: EMBER, r: 7 }));
 
-  // ===== PRESSURE 8〜16小節 ｜ キック = 地割れ ／ スネア = 3発 ／ 16分のアルペジオ = 小石（4つに1つ）==================
-  SC.kick.filter(b => inBars(b, 8, 14)).forEach((b, i) => quake(beat(b), i % 2 === 0, { h: 40, v: 380 }));
+  // ===== PRESSURE 8〜16小節 ｜ キック = 地割れ ／ スネア = 3発 ／ 石のマリンバ（4つに1つ）→ 10小節からのこぎりの旋律 = 小石==================
+  SC.kick.filter(b => inBars(b, 8, 14) && b % 4 !== 1.5).forEach((b, i) => quake(beat(b), i % 2 === 0, { h: 40, v: 380 }));
   SC.snare.filter(b => inBars(b, 8, 14)).forEach((b, i) => yoi(beat(b), i % 2 === 1, { n: 3, v: 260 }));
-  SC.arp.filter(([b]) => inBars(b, 8, 14) && b % 1 === 0).forEach(([b, m]) => pebble(beat(b), px(m, 60, 80), { v: 240, color: EMBER }));
-  // 14〜16: スネアの連打 = 岩の雨（すき間がある）／ サイレン = ロックオン ／ 最後の32分 = イコライザー
+  SC.arp.filter(([b]) => inBars(b, 8, 10) && b % 1 === 0).forEach(([b, m]) => pebble(beat(b), px(m, 38, 56), { v: 240, color: EMBER }));
+  SC.hook.filter(([b]) => inBars(b, 10, 14)).forEach(([b, , m]) => pebble(beat(b), px(m, 64, 76), { v: 250, color: EMBER, r: 7 }));      // のこぎりの旋律
+  // 14〜16: スネアの連打 = 岩の雨（すき間がある）／ BRAAM のうなり = ロックオン ／ 最後の32分 = イコライザー
   hint(bar(14) - 2 * B, 'イコライザー ─ 低い棒は跳び越え、高い棒はよける');
   for (const [k, gx] of [[14, 230], [14.5, 410]]) fire(bar(k), 0.9, delay => curtain({ gapX: gx, gapW: 140, spacing: 34, vy: 320, r: 8, delay }));
-  SC.siren.filter(b => b < 100).forEach(b => burst(beat(b), () => lockOn({ track: 0.9, lock: 0.4, r: 56, color: HOT })));
+  SC.siren.filter(b => b < 100).forEach(b => burst(beat(b), () => lockOn({ track: 0.6, lock: 0.35, r: 56, color: HOT })));
   eq(bar(15) + 2 * B, eqH('HHLHH0HHLH', 1), { warn: 0.8 });
   // ドロップの瞬間: 隕石がドン ＋ 両側へ地割れ
   hint(bar(16) - 4 * B, 'スピーカー ─ 低音がゆれるたびに音の輪');
@@ -130,21 +134,22 @@ function tectonicChart() {
 
   // ===== TECTONIC 16〜32小節 ｜ ドロップ（ベースの音 = 弾）==============================================
   dropBars(16, 32, false);
-  SC.hook.filter(([b]) => inBars(b, 24, 32)).forEach(([b, , m], i) => i % 2 === 0 && pebble(beat(b), px(m, 76, 98), { v: 230, color: EMBER, r: 6 }));
+  const wows = SC.growl.filter(g => g[3] === 'wow').map(g => g[0]);
+  SC.hook.filter(([b]) => inBars(b, 24, 32) && !wows.some(w => b > w - 2 && b < w + 1.5)).forEach(([b, , m], i) => i % 2 === 0 && pebble(beat(b), px(m, 76, 88), { v: 230, color: EMBER, r: 6 }));
 
-  // ===== AFTERSHOCK 32〜40小節 ｜ 静か。心臓の音 = まんなかのスピーカー ／ 鐘のメロディ = 小石 =========================
+  // ===== AFTERSHOCK 32〜40小節 ｜ 静か。心臓の音 = まんなかのスピーカー ／ のどうたの倍音 = 小石 =========================
   for (let k = 33; k < 40; k++) for (let i = 0; i < 2; i++) pebble(bar(k) + (i * 2 + 1) * B, 80 + hsh(k, i + 9) * (W - 160), { v: 130, color: '#8a7f9a' });
   const hearts = SC.kick.filter(b => inBars(b, 34, 40)).map(beat);
   spk(hearts[0], CX, 130, hearts, { n: 14, v: 120, color: VIOLET, size: 52, warn: 1.2 });
-  SC.hook.filter(([b]) => inBars(b, 36, 40)).forEach(([b, , m]) => pebble(beat(b), px(m, 64, 86), { v: 220, color: VIOLET, r: 7 }));
+  SC.hook.filter(([b]) => inBars(b, 36, 40)).forEach(([b, , m]) => pebble(beat(b), px(m, 74, 86), { v: 220, color: VIOLET, r: 7 }));
 
   // ===== MAGMA RISING 40〜48小節 ｜ 1回目より強い ==============================================================
-  SC.kick.filter(b => inBars(b, 40, 46)).forEach((b, i) => quake(beat(b), i % 2 === 0, { h: 44, v: 420 }));
+  SC.kick.filter(b => inBars(b, 40, 46) && b % 4 !== 1.5).forEach((b, i) => quake(beat(b), i % 2 === 0, { h: 44, v: 420 }));
   SC.snare.filter(b => inBars(b, 40, 46)).forEach((b, i) => yoi(beat(b), i % 2 === 1, { n: 4, spread: 0.3, v: 290 }));
-  SC.arp.filter(([b]) => inBars(b, 40, 46) && b % 1 === 0).forEach(([b, m]) => pebble(beat(b), px(m, 60, 80), { v: 260, color: EMBER }));
+  SC.hook.filter(([b]) => inBars(b, 40, 46)).forEach(([b, , m]) => pebble(beat(b), px(m, 64, 76), { v: 270, color: EMBER, r: 7 }));
   for (let k = 42; k < 46; k++) erupt(bar(k) + 3 * B, { n: 5 });
   for (const [k, gx] of [[46, 580], [46.5, 400]]) fire(bar(k), 0.9, delay => curtain({ gapX: gx, gapW: 135, spacing: 32, vy: 330, r: 8, delay }));
-  SC.siren.filter(b => b > 100).forEach(b => burst(beat(b), () => lockOn({ track: 0.85, lock: 0.38, r: 56, color: HOT })));
+  SC.siren.filter(b => b > 100).forEach(b => burst(beat(b), () => lockOn({ track: 0.6, lock: 0.35, r: 56, color: HOT })));
   eq(bar(47) + 2 * B, eqH('LHH0HHLHH0', 2), { warn: 0.8 });
   rock(bar(48), { r: 32, wave: 260 });
 
@@ -153,7 +158,7 @@ function tectonicChart() {
 
   // ===== FAULT LINE 56〜64小節 ｜ 倍速。リースの16分 = 音の高さの所に石が降る ／ スネア = 地割れ ===========================
   hint(bar(56) - 2 * B, '断層 ─ 音の高さの所に石が降る。すき間に立つ');
-  SC.reese.filter(([b, L]) => inBars(b, 56, 64) && L < 1).forEach(([b, , m]) => pebble(beat(b), px(m, 36, 53), { v: 330, warn: 0.5, color: HOT, r: 7 }));
+  SC.reese.filter(([b, L]) => inBars(b, 56, 64) && L < 1).forEach(([b, , m]) => pebble(beat(b), px(m, 36, 50), { v: 330, warn: 0.5, color: HOT, r: 7 }));
   SC.snare.filter(b => inBars(b, 56, 64) && b % 1 === 0).forEach((b, i) => quake(beat(b), i % 2 === 0, { h: 40, v: 460 }));
   for (const k of [57, 59, 61, 63]) yoi(bar(k) + 2.5 * B, k % 4 === 1, { n: 3, v: 320 });
   // 後半: まんなかに巨大なサブウーファー。キックのたびに、少しずつ回る音の輪
@@ -163,7 +168,7 @@ function tectonicChart() {
   // ===== COLLAPSE 64〜 ｜ 最後の大地震 → 静かに崩れていく ============================================================
   rock(bar(64), { r: 36, wave: 280 });
   quakeBoth(bar(64) + 0.02, CX, { h: 46, v: 420, warn: 0.9 });
-  eq(bar(64) + 2 * B, eqH('HH0HHLHH0H', 3), { warn: 1.0 });
+  eq(bar(64) + 2 * B, eqH('0HHLHH0HHL', 3), { warn: 1.0 });
   for (let k = 65; k < 67; k++) for (let i = 0; i < 3; i++) pebble(bar(k) + i * 1.33 * B, 80 + hsh(k, i + 3) * (W - 160), { v: 160 });
 
   return cues.sort((a, b) => a.t - b.t);

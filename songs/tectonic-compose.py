@@ -1,14 +1,25 @@
 """TECTONIC — original song for the dodge game (theme: heavy bass / earthquake).
-140 BPM heavy dubstep in F minor; the second drop switches to a double-time drum & bass section.
+140 BPM heavy dubstep in F Phrygian dominant (F Gb A Bb C Db Eb: dark, a little Middle-Eastern);
+the second drop switches to a double-time drum & bass section.
 Beat 0 at t = 0.5 s; 1 beat = 60/140 s (about 0.43 s); 1 bar = about 1.71 s.
-Sounds: a sub-bass rumble, huge kicks with a sub tail, a big roomy snare, FM "growl" basses that talk
-(the filter and formants move: "yoi", "wow", wobbles, stutters, dives), a detuned reese bass, dark supersaw pads,
-an FM bell hook, a plucked arpeggio, a siren, risers, sub drops and earthquake impacts.
+
+Every sound here is made for this song only, so it does not sound like the other songs:
+  throat singing  — a low buzzing drone with a whistling overtone melody on top (Tuvan khoomei style).
+                    The melody can only use the drone's harmonics (8 = F5, 9 = G5, 10 = A5, 12 = C6 ...).
+  grind bass      — the "growl" of this song: pitched noise in a resonating comb (sounds like stone grinding on stone),
+                    plus a square wave, ring-modulated and bit-crushed by the same LFO that opens its resonant filter
+  808 boom kick   — a long, sliding sine boom with a stone-thud attack (no click)
+  anvil snare     — metal partials that clang, with a short burst of noise
+  gravel shaker   — hats made of hundreds of tiny random clicks (pebbles rattling)
+  stone marimba   — a lithophone: inharmonic stone bars with a dry thump (the arpeggio)
+  bowed saw       — a bowed metal lead with a slow, wide vibrato (the hook)
+  BRAAM           — a huge cinematic brass blast (drops, the end of each build)
+  rock collapse   — an impact made of a sub boom and a shower of falling rocks
 Writes tectonic.wav and score.json (beat times for the chart).
 
 Run:  python3 tectonic-compose.py      (needs numpy + scipy)
 Then: ffmpeg -i tectonic.wav -b:a 192k Tectonic.mp3, and copy score.json into songs/tectonic-score.js.
-Form (bars): rumble 0-8 / build 8-16 / DROP 16-32 / aftershock (break) 32-40 / build 40-48 /
+Form (bars): rumble 0-8 / build 8-16 / DROP 16-32 / aftershock (throat-singing break) 32-40 / build 40-48 /
 DROP 2 48-56 / double-time 56-64 / collapse (outro) 64-68.
 """
 import json
@@ -21,11 +32,12 @@ BEAT = 60 / BPM
 T0 = 0.5
 BARS = 68
 N = int((T0 + BARS * 4 * BEAT + 6.0) * SR)
-rng = np.random.default_rng(1406)
+rng = np.random.default_rng(5150)
 
 def bt(b): return T0 + b * BEAT
 def bar(k): return bt(k * 4)
 def mtof(m): return 440.0 * 2 ** ((np.asarray(m, float) - 69) / 12)
+def ftom(f): return 69 + 12 * np.log2(f / 440.0)
 NOTE = {'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11}
 def midi(n): return 12 * (int(n[-1]) + 1) + NOTE[n[:-1]]
 
@@ -41,7 +53,7 @@ class Bus:
         self.R[i:i + n] += (sig[:n] * gain * np.sin((pan + 1) * np.pi / 4) * np.sqrt(2)).astype(np.float32)
     def stereo(self): return np.vstack([self.L, self.R])
 
-drums, snareb, sub, bass, pads, lead, fxb = (Bus() for _ in range(7))
+drums, snareb, sub, bass, voice, lead, fxb = (Bus() for _ in range(7))
 
 # ---- tools -------------------------------------------------------------------------------
 def tvec(d): return np.arange(int(d * SR)) / SR
@@ -53,7 +65,6 @@ def env(dur, a=0.004, r=0.04):
     tt = tvec(dur)
     return np.minimum(1, tt / max(a, 1e-4)) * np.clip((dur - tt) / max(r, 1e-4), 0, 1)
 def phase(f, n): return np.cumsum(np.broadcast_to(np.asarray(f, float), (n,))) / SR
-def saw_ph(f, n): return 2 * ((phase(f, n) + rng.random()) % 1.0) - 1
 
 def tv_filter(x, fc, q, kind='low', blk=64):
     """resonant RBJ biquad whose cutoff follows the array fc (Hz, one value per sample)"""
@@ -61,161 +72,213 @@ def tv_filter(x, fc, q, kind='low', blk=64):
     for i in range(0, len(x), blk):
         f = float(np.clip(fc[min(i, len(fc) - 1)], 30, SR * 0.42))
         w0 = 2 * np.pi * f / SR; al = np.sin(w0) / (2 * q); c = np.cos(w0)
-        if kind == 'low': b = [(1 - c) / 2, 1 - c, (1 - c) / 2]
-        else: b = [al, 0, -al]                                      # band-pass (0 dB peak)
+        b = [(1 - c) / 2, 1 - c, (1 - c) / 2] if kind == 'low' else [al, 0, -al]
         a0 = 1 + al
         sos = np.array([[b[0] / a0, b[1] / a0, b[2] / a0, 1, -2 * c / a0, (1 - al) / a0]])
         out[i:i + blk], zi = signal.sosfilt(sos, x[i:i + blk], zi=zi)
     return out
 
-def sweep_lp(x, f0, f1):
-    fc = f0 * (f1 / f0) ** (np.arange(len(x)) / max(1, len(x) - 1))
-    return tv_filter(x, fc, 0.8)
+def bend(make, f0, n, semis):
+    """render make(f0, length) and read it faster / slower so the pitch follows `semis` (array, semitones)"""
+    r = 2 ** (np.asarray(semis, float) / 12)
+    pos = np.cumsum(r)
+    base = make(f0, int(pos[-1]) + 4)
+    return np.interp(pos, np.arange(len(base)), base)
 
-# ---- bass sounds -----------------------------------------------------------------------------
+def crush(x, hold):
+    """sample-rate reduction; hold (samples, array) can change over time"""
+    step = np.floor(np.cumsum(1.0 / np.maximum(1.0, hold)))
+    inc = np.r_[True, np.diff(step) > 0]
+    idx = np.maximum.accumulate(np.where(inc, np.arange(len(x)), 0))
+    return x[idx]
+
+def glottal(f, n, bright=0.8, jitter=0.004):
+    """a buzzing voice source: a band-limited pulse train (harmonics falling off like a real voice)"""
+    vib = 1 + jitter * np.sin(2 * np.pi * 5.1 * np.arange(n) / SR) + jitter * 10 * lp(rng.standard_normal(n), 8)
+    ph = 2 * np.pi * phase(f * vib, n)
+    s = np.zeros(n)
+    for h in range(1, int(min(60, 8000 / f))):
+        s += np.sin(h * ph) / h ** bright
+    return s / 4
+
+# ---- the sounds of this song --------------------------------------------------------------
+def throat(f0, dur, harm_track=None, whistle=1.0):
+    """throat singing: drone at f0 through a nasal formant + a very narrow resonance that picks out one harmonic
+       (harm_track = harmonic number per sample; it glides, so the whistle melody slides like a real singer)"""
+    n = int(dur * SR)
+    src = glottal(f0, n, 0.7)
+    out = 0.9 * tv_filter(src, np.full(n, 420.0), 2.5, 'band') + 0.5 * tv_filter(src, np.full(n, 1150.0), 4, 'band') + 0.25 * lp(src, 250)
+    if harm_track is not None:
+        out = out + whistle * 3.0 * tv_filter(src, harm_track * f0, 45, 'band')
+    return np.tanh(1.5 * out) * env(dur, 0.25, 0.4)
+
+def grind_src(f, n):
+    """pitched noise in a comb (Karplus-Strong loop driven by noise): a gritty, stony tone"""
+    P = max(2, int(round(SR / f)))
+    a = np.zeros(P + 2); a[0] = 1; a[P] = -0.497; a[P + 1] = -0.497
+    g = signal.lfilter([1.0], a, rng.standard_normal(n))
+    g /= (np.std(g) + 1e-9)
+    sq = np.sign(np.sin(2 * np.pi * f * np.arange(n) / SR))
+    return 0.45 * g + 0.7 * sq
+
 def lfo_for(shape, tt, dur, rate):
     u = tt / max(dur, 1e-3)
     if shape == 'wob':   return 0.5 - 0.5 * np.cos(2 * np.pi * tt / (rate * BEAT))
-    if shape == 'yoi':   return np.sin(np.pi * np.clip(u * 1.15, 0, 1)) ** 0.7
-    if shape == 'wow':   return np.clip(u * 3, 0, 1) * (1 - 0.6 * u)
-    if shape == 'up':    return u ** 0.8
-    if shape == 'down':  return (1 - u) ** 1.3
-    if shape == 'stab':  return np.exp(-tt / 0.05) * 0.9 + 0.1
+    if shape == 'yoi':   return np.sin(np.pi * np.clip(u * 1.1, 0, 1)) ** 0.6
+    if shape == 'wow':   return np.clip(u * 4, 0, 1) * (1 - 0.7 * u)
+    if shape == 'up':    return u ** 0.7
+    if shape == 'down':  return (1 - u) ** 1.2
+    if shape == 'stab':  return np.exp(-tt / 0.06) * 0.85 + 0.15
     if shape == 'stut':  return ((tt / (rate * BEAT)) % 1.0 < 0.5) * 0.9 + 0.05
-    if shape == 'dive':  return 0.9 - 0.7 * u
-    if shape == 'screech': return 0.75 + 0.25 * np.sin(2 * np.pi * 7 * tt)
+    if shape == 'dive':  return 0.95 - 0.6 * u
+    if shape == 'screech': return 0.8 + 0.2 * np.sin(2 * np.pi * 11 * tt)
     return np.full_like(tt, 0.5)
 
-def growl(m, dur, shape='wob', rate=0.5, drive=3.0):
-    """FM growl bass: the FM index, the filter and two formants all follow one LFO, so it 'talks'"""
-    tt = tvec(dur); n = len(tt)
+def grind(m, dur, shape='wob', rate=0.5):
+    """the bass of this song. One LFO opens a resonant filter, adds a metallic ring (x1.5 ring modulation)
+       and crushes the sample rate when it is closed — so it rasps instead of 'talking' like an FM growl"""
+    n = int(dur * SR); tt = np.arange(n) / SR
     lfo = lfo_for(shape, tt, dur, rate)
-    bend = np.zeros(n)
-    if shape == 'dive': bend = -24 * (tt / dur) ** 2
-    if shape == 'yoi':  bend = -5 * np.exp(-tt / 0.04)
-    if shape == 'screech': bend = 3 * np.exp(-tt / 0.08)
-    f = float(mtof(m)) * 2 ** (bend / 12)
-    ph = 2 * np.pi * phase(f, n)
-    ratio = 2.0 if shape != 'screech' else 3.01
-    car = np.sin(ph + (0.6 + 7.5 * lfo) * np.sin(ratio * ph + 1.3 * lfo))
-    sw = saw_ph(f * 1.003, n) + saw_ph(f * 0.997, n)
-    x = np.tanh(drive * (0.7 * car + 0.35 * sw))
-    v = lfo
-    f1 = 280 + 700 * v; f2 = 800 + 1700 * v; fl = 160 + 4200 * v ** 1.5
-    if shape == 'screech': f1 = f1 * 2.2; f2 = f2 * 1.8; fl = fl + 3000
-    y = 1.1 * tv_filter(x, f1, 6, 'band') + 0.8 * tv_filter(x, f2, 7, 'band') + 0.6 * tv_filter(x, fl, 3.5)
-    y = np.tanh(2.2 * y)
-    y = y + 0.35 * np.roll(y, int(SR / max(60, float(mtof(m)) * 3)))   # a little metal (comb)
-    y = hp(y, 95, 3)
-    return np.tanh(1.4 * y) * env(dur, 0.003, 0.02)
+    semis = np.zeros(n)
+    if shape == 'dive':    semis = -26 * (tt / dur) ** 1.6
+    if shape == 'yoi':     semis = -7 * np.exp(-tt / 0.05)
+    if shape == 'up':      semis = -12 + 12 * np.clip(tt / (dur * 0.6), 0, 1)
+    if shape == 'screech': semis = 24 + 2 * np.exp(-tt / 0.06) + 0.6 * np.sin(2 * np.pi * 9 * tt)
+    f = float(mtof(m))
+    x = bend(grind_src, f, n, semis)
+    ring = x * np.sin(2 * np.pi * phase(f * 1.5 * 2 ** (semis / 12), n))
+    x = x * (1 - 0.6 * lfo) + ring * 0.9 * lfo
+    y = tv_filter(x, 140 + 4600 * lfo ** 1.6, 6.5 if shape != 'screech' else 9)
+    y = crush(y, 1 + 5 * (1 - lfo) ** 2)
+    y = np.tanh(3.0 * y)
+    y = hp(y, 90, 3)
+    return y * env(dur, 0.003, 0.02)
 
-def sub_tone(m, dur, a=0.004, r=0.03):
-    tt = tvec(dur); f = float(mtof(m))
+def sub_tone(m, dur, glide_from=None, a=0.004, r=0.03):
+    """808-style sub: pure sine, sliding into the note when glide_from is given"""
+    n = int(dur * SR); tt = np.arange(n) / SR
+    f = float(mtof(m))
     while f > 70: f /= 2
-    return np.tanh(2.0 * np.sin(2 * np.pi * f * tt)) * 0.8 * env(dur, a, r)     # driven a little: the harmonics carry it on small speakers
+    if glide_from is not None:
+        f0 = float(mtof(glide_from))
+        while f0 > 70: f0 /= 2
+        fr = f0 * (f / f0) ** np.clip(tt / 0.07, 0, 1)
+    else: fr = np.full(n, f)
+    return np.tanh(1.8 * np.sin(2 * np.pi * phase(fr, n))) * 0.85 * env(dur, a, r)
 
-def reese(m, dur, cut0=300, cut1=2500, lfo_rate=0):
-    """detuned saw bass, darker and wider than the growl; the filter opens over the note"""
-    tt = tvec(dur); n = len(tt); f = float(mtof(m))
-    s = saw_ph(f * 2 ** (0.14 / 12), n) + saw_ph(f * 2 ** (-0.14 / 12), n) + 0.6 * saw_ph(f * 2, n)
-    u = tt / max(dur, 1e-3)
-    fc = cut0 * (cut1 / cut0) ** np.clip(u * 1.5, 0, 1)
-    if lfo_rate: fc = fc * (0.55 + 0.45 * np.cos(2 * np.pi * tt / (lfo_rate * BEAT)))
-    y = np.tanh(2.0 * tv_filter(s / 2.6, fc, 2.5))
-    return hp(y, 90, 2) * env(dur, 0.004, 0.03)
+def kick808(g=1.0, dur=0.7, m=29):
+    """long sliding boom + the thud of a stone (low-passed noise), no click"""
+    tt = tvec(dur); f = float(mtof(m))
+    fr = f + f * 3 * np.exp(-tt / 0.035)
+    body = np.sin(2 * np.pi * phase(fr, len(tt))) * np.exp(-tt / (dur * 0.5))
+    thud = lp(noise(dur), 260, 4) * np.exp(-tt / 0.018) * 4
+    return np.tanh(2.0 * body + thud) * g
 
-# ---- drums -------------------------------------------------------------------------------------
-def kick(g=1.0, tail=0.5):
-    tt = tvec(tail); f = 46 + 210 * np.exp(-tt / 0.028) + 30 * np.exp(-tt / 0.004)
-    body = np.sin(2 * np.pi * phase(f, len(tt))) * np.exp(-tt / (tail * 0.45))
-    click = hp(noise(tail), 3000) * np.exp(-tt / 0.003) * 0.6
-    return np.tanh(2.2 * body + click) * g
-def snare(g=1.0):
-    d = 0.45; tt = tvec(d)
-    tone = np.sin(2 * np.pi * phase(185 + 60 * np.exp(-tt / 0.01), len(tt))) * np.exp(-tt / 0.07)
-    nz = bp(noise(d), 900, 9000) * np.exp(-tt / 0.16)
-    clap = np.zeros(len(tt))
-    for dd in (0, 0.008, 0.017):
-        mk = tt >= dd; clap[mk] += np.exp(-(tt[mk] - dd) / 0.012)
-    clap = bp(noise(d), 1200, 5000) * clap * 0.6
-    return np.tanh(1.8 * (0.9 * tone + 0.9 * nz + clap)) * g
-def hat(o=False):
-    d = 0.22 if o else 0.05
-    return hp(noise(d), 8500) * np.exp(-tvec(d) / (0.07 if o else 0.012))
-def ride():
+def anvil(g=1.0):
+    """anvil snare: inharmonic metal partials that ring, a short noise burst and a low body"""
     d = 0.5; tt = tvec(d)
-    s = sum(np.sin(2 * np.pi * f * tt) for f in (3150, 4430, 5870, 7210)) / 4
-    return (0.5 * s + hp(noise(d), 7000)) * np.exp(-tt / 0.18)
-def crash(d=2.2): return hp(noise(d), 3500) * np.exp(-tvec(d) / 0.6)
+    metal = sum(a * np.sin(2 * np.pi * f * tt + rng.random() * 6) * np.exp(-tt / dec)
+                for f, a, dec in [(523, 1.0, 0.16), (1187, 0.8, 0.12), (1931, 0.6, 0.09), (2711, 0.5, 0.07), (3517, 0.35, 0.05)])
+    nz = bp(noise(d), 1800, 7000) * np.exp(-tt / 0.06)
+    body = np.sin(2 * np.pi * phase(160 + 90 * np.exp(-tt / 0.01), len(tt))) * np.exp(-tt / 0.06)
+    return np.tanh(1.6 * (0.55 * metal + 1.1 * nz + 0.9 * body)) * g
 
-def impact(d=3.0):
-    """earthquake hit: a falling sub boom, a distorted thud and a long dirty noise tail"""
-    tt = tvec(d)
-    boom = np.sin(2 * np.pi * phase(28 + 70 * np.exp(-tt / 0.18), len(tt))) * np.exp(-tt / 1.0)
-    thud = lp(noise(d), 400) * np.exp(-tt / 0.12) * 3
-    tail = bp(noise(d), 200, 3000) * np.exp(-tt / 0.6) * 0.5
-    return np.tanh(1.6 * (boom * 1.4 + thud + tail))
+def gravel(d=0.09, dens=4000):
+    """a shake of gravel: lots of tiny clicks of random loudness"""
+    n = int(d * SR)
+    clicks = (rng.random(n) < dens / SR) * rng.standard_normal(n) * 3
+    s = bp(clicks + 0.15 * rng.standard_normal(n), 2500, 11000)
+    return s * np.sin(np.pi * np.arange(n) / n) ** 0.5
+
+def stone(m, dur=0.6):
+    """stone marimba (lithophone): partials 1 : 3.93 : 9.1 that die fast, and a dry thump"""
+    tt = tvec(dur); f = float(mtof(m))
+    s = (np.sin(2 * np.pi * f * tt) * np.exp(-tt / 0.22) + 0.5 * np.sin(2 * np.pi * f * 3.93 * tt) * np.exp(-tt / 0.05)
+         + 0.25 * np.sin(2 * np.pi * f * 9.1 * tt) * np.exp(-tt / 0.015))
+    thump = bp(noise(dur), f * 0.8, f * 2.5) * np.exp(-tt / 0.008) * 0.8
+    return (s + thump) * env(dur, 0.001, 0.08)
+
+def bowed_saw(m, dur):
+    """bowed metal (a musical saw / a bowed sheet): a soft saw with a slow wide vibrato and metal resonances"""
+    tt = tvec(dur); n = len(tt); f0 = float(mtof(m))
+    vib = 0.35 * np.sin(2 * np.pi * 4.6 * tt) * np.clip((tt - 0.1) / 0.25, 0, 1)
+    scoop = -1.5 * np.exp(-tt / 0.06)
+    f = f0 * 2 ** ((vib + scoop) / 12)
+    ph = phase(f, n)
+    src = 2 * (ph % 1.0) - 1
+    body = sum(tv_filter(src, np.full(n, f0 * r), 18, 'band') * a for r, a in [(1.0, 1.0), (2.0, 0.6), (2.9, 0.45), (4.7, 0.3)])
+    bow = bp(rng.standard_normal(n), f0 * 1.8, f0 * 6) * 0.06
+    return np.tanh(1.4 * (body + bow)) * env(dur, 0.09, 0.15)
+
+def braam(ms, dur=2.6, swell=0.25):
+    """cinematic brass blast: low saws and squares; the filter blares open, then closes; distorted"""
+    n = int(dur * SR); tt = np.arange(n) / SR; s = np.zeros(n)
+    for m in ms:
+        f = float(mtof(m))
+        for d in (-0.08, 0.08):
+            ph = phase(f * 2 ** (d / 12) * (1 + 0.002 * np.sin(2 * np.pi * 5 * tt)), n)
+            s += (2 * (ph % 1.0) - 1) + 0.6 * np.sign(np.sin(2 * np.pi * ph))
+    s /= 3 * len(ms)
+    fc = 150 + 2600 * np.clip(tt / swell, 0, 1) ** 2 * np.exp(-np.clip(tt - swell, 0, None) / 0.7)
+    y = np.tanh(3 * tv_filter(s, fc, 1.5))
+    return y * env(dur, 0.04, 0.8)
+
+def collapse(d=3.2):
+    """impact: a falling sub boom + a shower of rocks (random low clicks that thin out)"""
+    tt = tvec(d); n = len(tt)
+    boom = np.sin(2 * np.pi * phase(26 + 80 * np.exp(-tt / 0.15), n)) * np.exp(-tt / 1.1)
+    rate = 2500 * np.exp(-tt / 0.5)
+    rocks = (rng.random(n) < rate / SR) * rng.standard_normal(n) * 6
+    rocks = lp(rocks, 1800) + 0.4 * bp(rocks, 1800, 6000)
+    thud = lp(noise(d), 300) * np.exp(-tt / 0.1) * 3
+    return np.tanh(1.5 * (1.5 * boom + thud + rocks * np.exp(-tt / 1.4)))
+
 def subdrop(d=2.0):
     tt = tvec(d)
-    return np.tanh(1.5 * np.sin(2 * np.pi * phase(90 * (30 / 90) ** (tt / d), len(tt)))) * np.minimum(1, tt / 0.01) * np.clip((d - tt) / 0.3, 0, 1)
-def riser(d):
-    tt = tvec(d); u = tt / d
-    nz = sweep_lp(noise(d), 300, 14000) * u ** 2
-    tone = saw_ph(110 * 8 ** u, len(tt)) * u ** 2 * 0.25
-    return nz + lp(tone, 6000)
-def downlifter(d=2.0):
-    tt = tvec(d); u = tt / d
-    return sweep_lp(noise(d), 9000, 200) * (1 - u) ** 2
-def siren(d):
-    tt = tvec(d)
-    f = 600 * 2 ** (np.sin(2 * np.pi * tt / (2 * BEAT)) * 0.5 + tt / d)
-    s = np.sign(np.sin(2 * np.pi * phase(f, len(tt))))
-    return lp(s, 3000) * np.minimum(1, tt / 0.3) * np.clip((d - tt) / 0.05, 0, 1)
+    return np.tanh(1.5 * np.sin(2 * np.pi * phase(90 * (28 / 90) ** (tt / d), len(tt)))) * np.minimum(1, tt / 0.01) * np.clip((d - tt) / 0.3, 0, 1)
 
-# ---- tonal sounds ---------------------------------------------------------------------------------
-def supersaw(ms, dur, cut=1600, voices=6, spread=0.22, a=0.3, r=0.6):
-    n = int(dur * SR); s = np.zeros(n)
-    for m in ms:
-        for v in range(voices):
-            d = (v - (voices - 1) / 2) / ((voices - 1) / 2) * spread
-            s += saw_ph(float(mtof(m)) * 2 ** (d / 12), n)
-    return 4.0 * lp(s / (voices * len(ms)), cut) * env(dur, a, r)
-def bell(m, dur=1.6):
-    tt = tvec(dur); f = float(mtof(m))
-    s = np.sin(2 * np.pi * f * tt + 2.2 * np.exp(-tt / 0.25) * np.sin(2 * np.pi * f * 3.5 * tt)) * np.exp(-tt / 0.7)
-    s += 0.3 * np.sin(2 * np.pi * f * 2 * tt) * np.exp(-tt / 0.3)
-    return s * env(dur, 0.002, 0.2)
-def pluck(m, dur=0.3, cut=3000):
-    tt = tvec(dur); n = len(tt); f = float(mtof(m))
-    s = saw_ph(f, n) + saw_ph(f * 1.005, n)
-    return tv_filter(s * 0.5, 200 + cut * np.exp(-tt / 0.06), 2.0) * env(dur, 0.002, 0.05)
+def grind_riser(d):
+    """the build: grinding stone that rises two octaves, with a rattle that gets faster and faster"""
+    n = int(d * SR); tt = np.arange(n) / SR; u = tt / d
+    x = bend(grind_src, float(mtof(41)), n, 24 * u ** 1.5)
+    x = tv_filter(x, 300 + 6000 * u ** 2, 3)
+    trem = 0.6 + 0.4 * np.sin(2 * np.pi * phase(2 + 30 * u ** 2, n))
+    return np.tanh(2 * x) * trem * u ** 1.5
+
+def downlifter(d=2.0):
+    n = int(d * SR); tt = np.arange(n) / SR; u = tt / d
+    x = bend(grind_src, float(mtof(65)), n, -30 * u)
+    return tv_filter(x, 6000 * (1 - u) + 200, 2) * (1 - u) ** 2 * 0.5
 
 # ---- the score ---------------------------------------------------------------------------------------
 score = {'kick': [], 'snare': [], 'growl': [], 'reese': [], 'impact': [], 'subdrop': [], 'hook': [], 'arp': [], 'roll': [], 'siren': [], 'crash': []}
-def K(b, g=1.0, tail=0.5): drums.add(bt(b), kick(g, tail), 0.62); score['kick'].append(b)
+def K(b, g=1.0, dur=0.7, m=29): drums.add(bt(b), kick808(g, dur, m), 0.6); score['kick'].append(b)
 def S(b, g=1.0, mark=True):
-    snareb.add(bt(b), snare(), 0.36 * g, 0.03)
+    snareb.add(bt(b), anvil(), 0.32 * g, 0.05)
     if mark: score['snare'].append(b)
-def HH(b, g=1.0, o=False): drums.add(bt(b), hat(o), (0.09 if o else 0.11) * g, 0.35 if (b * 2) % 2 else -0.35)
-def RD(b, g=1.0): drums.add(bt(b), ride(), 0.06 * g, 0.4)
-def CR(b, g=1.0): drums.add(bt(b), crash(), 0.2 * g, -0.25); score['crash'].append(b)
-def IMP(b, g=1.0): fxb.add(bt(b), impact(), 0.62 * g); score['impact'].append(b)
-def SD(b, d=2.0): sub.add(bt(b), subdrop(d), 0.55); score['subdrop'].append(b)
+def HH(b, g=1.0, long=False): drums.add(bt(b), gravel(0.2 if long else 0.08, 6000 if long else 3500), 0.07 * g, 0.4 if (b * 2) % 2 else -0.4)
+def CR(b, g=1.0): fxb.add(bt(b), braam([29, 41, 48, 53], 2.6), 0.2 * g); score['crash'].append(b)
+def IMP(b, g=1.0): fxb.add(bt(b), collapse(), 0.6 * g); score['impact'].append(b)
+def SD(b, d=2.0): sub.add(bt(b), subdrop(d), 0.5); score['subdrop'].append(b)
 
 F2 = midi('F2')
+last_sub = [None]
 def G(b, L, off, shape='wob', rate=0.5, g=1.0, subon=True):
     m = F2 + off
-    bass.add(bt(b), growl(m, L * BEAT, shape, rate), 0.42 * g)
-    if subon and shape not in ('screech',):
-        sub.add(bt(b), sub_tone(m, L * BEAT if shape != 'dive' else min(L, 0.5) * BEAT), 0.42 * g)
+    bass.add(bt(b), grind(m, L * BEAT, shape, rate), 0.36 * g)
+    if subon and shape != 'screech':
+        sub.add(bt(b), sub_tone(m, (L if shape != 'dive' else min(L, 0.5)) * BEAT, last_sub[0]), 0.42 * g)
+        last_sub[0] = m
     score['growl'].append([b, L, off, shape, round(rate, 4)])
 
-# Fm – Db – Bbm – C  (i – VI – iv – V)
-CH = {'Fm': [29, 53, 56, 60, 65], 'Db': [25, 53, 56, 61, 65], 'Bbm': [34, 53, 58, 61, 65], 'C': [24, 52, 55, 60, 64]}
-PROG = ['Fm', 'Db', 'Bbm', 'C']
-def chord_at(k): return CH[PROG[k % 4]]
+# F – Gb – Ebm – F   (I – bII – vii – I in F Phrygian dominant); roots for the sub
+ROOT = {'F': 29, 'Gb': 30, 'Ebm': 27}
+PROG = ['F', 'Gb', 'Ebm', 'F']
+def root_at(k): return ROOT[PROG[k % 4]]
+CHORD_TONES = {'F': [53, 57, 60, 65], 'Gb': [54, 58, 61, 66], 'Ebm': [51, 54, 58, 63]}
+def tones_at(k): return CHORD_TONES[PROG[k % 4]]
 
-def parse(lines, start_bar, shift=0):
+def parse(lines, start_bar):
     notes, cur = [], None
     for bi, line in enumerate(lines):
         toks = line.split(); assert len(toks) == 8, line
@@ -226,123 +289,161 @@ def parse(lines, start_bar, shift=0):
                 continue
             if cur: notes.append(tuple(cur)); cur = None
             if tok == '.': continue
-            cur = [b, 0.5, midi(tok) + shift]
+            cur = [b, 0.5, tok]
     if cur: notes.append(tuple(cur))
     return notes
 
-HOOK = ['F5 - - Ab5 - - C6 -', 'Db6 - - C6 - Ab5 Bb5 -', 'Bb5 - - Ab5 - - F5 -', 'G5 - - - E5 - - -']
+# the hook (bowed saw): Phrygian dominant — the half step F→Gb and the fall to A give it its face
+HOOK = ['F4 . Gb4 F4 . . C5 .', 'Db5 - C5 . A4 . Gb4 -', 'F4 . Gb4 F4 . . Eb5 .', 'Db5 C5 Bb4 A4 Gb4 - F4 -']
+# the throat-singing melody: harmonic numbers over the F2 drone (8 = F5, 9 = G5, 10 = A5, 12 = C6, 7 = a low Eb5)
+OVERTONE = ['8 - - 9 - 10 - -', '12 - 10 - 9 - 8 -', '8 - - 9 - 10 - 12', '10 - - - 9 8 7 -']
 
-# drop phrases: (beat in bar, length in beats, semitones above F2, shape, rate)
-PA = [(0, 0.75, 0, 'yoi'), (0.75, 0.25, 0, 'stab'), (1, 1, 0, 'wob', 0.25), (2, 0.5, 3, 'down'), (2.5, 0.5, 0, 'stab'), (3, 1, -2, 'wob', 1 / 3)]
-PB = [(0, 1.5, 0, 'wow'), (1.5, 0.25, 12, 'stab'), (1.75, 0.25, 12, 'stab'), (2, 0.5, 7, 'yoi'), (2.5, 0.5, 5, 'down'), (3, 1, 0, 'wob', 1 / 3)]
-PC = [(0, 0.5, 0, 'yoi'), (0.5, 0.5, 0, 'yoi'), (1, 1, -4, 'up'), (2, 1, 3, 'wob', 0.5), (3, 0.5, 1, 'down'), (3.5, 0.5, 0, 'stut', 1 / 8)]
-PD = [(0, 1, 0, 'wob', 0.25), (1, 0.5, 8, 'yoi'), (1.5, 0.5, 7, 'yoi'), (2, 2, 0, 'dive')]
-# second drop: meaner (more stutters, a screech in every 2 bars)
-QA = [(0, 0.5, 0, 'yoi'), (0.5, 0.25, 0, 'stab'), (0.75, 0.25, 0, 'stab'), (1, 1, 0, 'stut', 1 / 8), (2, 0.5, 3, 'yoi'), (2.5, 0.5, 1, 'down'), (3, 1, 0, 'wob', 1 / 6)]
-QB = [(0, 1, 0, 'wow'), (1, 0.5, 24, 'screech'), (1.5, 0.5, 22, 'screech'), (2, 1, -2, 'wob', 0.25), (3, 0.5, 0, 'yoi'), (3.5, 0.5, 12, 'stab')]
-QC = [(0, 0.75, 0, 'yoi'), (0.75, 0.75, 0, 'yoi'), (1.5, 0.5, 3, 'stab'), (2, 1, 0, 'wob', 1 / 3), (3, 1, -4, 'up')]
-QD = [(0, 0.5, 0, 'stab'), (0.5, 0.5, 0, 'stab'), (1, 0.5, 8, 'screech'), (1.5, 0.5, 7, 'screech'), (2, 2, 0, 'dive')]
+# drop phrases: (beat in bar, length in beats, semitones above F2, shape, rate). 3+3+2 rhythm (dotted 8ths)
+PA = [(0, 0.75, 0, 'wow'), (0.75, 0.75, 1, 'yoi'), (1.5, 0.5, 0, 'stab'), (2, 1, 4, 'wob', 1 / 3), (3, 0.5, 1, 'down'), (3.5, 0.5, 0, 'stut', 1 / 8)]
+PB = [(0, 0.75, 0, 'yoi'), (0.75, 0.75, 1, 'yoi'), (1.5, 0.5, 4, 'stab'), (2, 1, 0, 'wob', 0.25), (3, 1, -4, 'up')]
+PC = [(0, 1.5, 0, 'wow'), (1.5, 0.5, 8, 'stab'), (2, 0.75, 7, 'yoi'), (2.75, 0.75, 1, 'down'), (3.5, 0.5, 0, 'stab')]
+PD = [(0, 0.75, 0, 'stut', 1 / 6), (0.75, 0.75, 1, 'yoi'), (1.5, 0.5, 4, 'stab'), (2, 2, 0, 'dive')]
+QA = [(0, 0.5, 0, 'yoi'), (0.5, 0.25, 0, 'stab'), (0.75, 0.75, 1, 'stut', 1 / 8), (1.5, 0.5, 0, 'stab'), (2, 1, 0, 'wob', 1 / 6), (3, 0.5, 1, 'screech'), (3.5, 0.5, 0, 'screech')]
+QB = [(0, 1, 0, 'wow'), (1, 0.5, 1, 'yoi'), (1.5, 0.5, 4, 'down'), (2, 1, -2, 'wob', 0.25), (3, 1, 1, 'up')]
+QC = [(0, 0.75, 0, 'yoi'), (0.75, 0.75, 1, 'yoi'), (1.5, 0.5, 0, 'stab'), (2, 1, 7, 'wob', 1 / 3), (3, 0.5, 8, 'screech'), (3.5, 0.5, 7, 'down')]
+QD = [(0, 0.5, 0, 'stab'), (0.5, 0.5, 1, 'stab'), (1, 0.5, 4, 'screech'), (1.5, 0.5, 1, 'screech'), (2, 2, 0, 'dive')]
 
 def drop_drums(k, fill):
     B = k * 4
-    K(B, 1.0, 0.7)
+    K(B, 1.0, 0.9); K(B + 0.75, 0.7, 0.5)
     S(B + 2)
-    if k % 2 == 1: K(B + 2.75, 0.8)
-    if k % 4 == 1: K(B + 3.5, 0.8)
-    for h in range(8): HH(B + h * 0.5 + 0.25 * 0, 0.7 + 0.3 * (h % 2))
+    if k % 2 == 1: K(B + 2.75, 0.8, 0.5)
+    for h in range(8): HH(B + h * 0.5 + 0.25, 0.8, long=(h % 4 == 3))
     if fill:
-        for i, h in enumerate((3, 3.25, 3.5, 3.75)): S(B + h, 0.5 + 0.15 * i)
+        for i, h in enumerate((3, 3.25, 3.5, 3.75)): S(B + h, 0.45 + 0.15 * i)
 
 def dnb_drums(k):
     B = k * 4
-    K(B, 1.0, 0.4); K(B + 2.5, 0.9, 0.4)
+    K(B, 1.0, 0.35); K(B + 2.5, 0.9, 0.35)
     S(B + 1); S(B + 3)
-    for h in range(8): HH(B + h * 0.5 + 0.25, 0.8)
-    for h in range(4): RD(B + h)
+    for h in range(16): HH(B + h * 0.25, 0.5 + 0.4 * (h % 2), long=(h % 8 == 6))
     if k % 2 == 1: K(B + 1.75, 0.6, 0.3)
     if k % 4 == 3:
         for h in (3.5, 3.75): S(B + h, 0.6)
 
-for k in range(BARS):
-    B = k * 4; ch = chord_at(k)
-    # ---- rumble (intro) 0-8 / aftershock 32-40: pads, bell hook, sub swells
-    if k < 8 or 32 <= k < 40:
-        pads.add(bar(k), supersaw(ch[1:], 4 * BEAT + 0.6, 900 if k < 4 else 1500, 6, 0.22, 0.5, 0.8), 0.12)
-        sub.add(bar(k), sub_tone(ch[0] + 12, 4 * BEAT, 0.6, 0.6), 0.2)
-    if k in (0, 4, 32, 36): IMP(B, 0.8 if k in (0, 32) else 0.6)
-    if 34 <= k < 40:
-        K(B, 0.7, 0.6); K(B + 0.75, 0.45, 0.4)                       # heartbeat
-    # ---- builds 8-16 and 40-48
+def throat_phrase(k0, nbars, lines=None, f0m=41, gain=0.2, whistle=1.0):
+    """one throat singer for nbars bars; lines = the overtone melody (or None for just the drone)"""
+    dur = nbars * 4 * BEAT + 0.6; n = int(dur * SR)
+    track = None
+    if lines:
+        cur = float(lines[0].split()[0]); vals = []
+        for li in range(nbars):
+            for tok in lines[li % len(lines)].split():
+                if tok not in '-.': cur = float(tok)
+                vals.append(cur)
+        step = 0.5 * BEAT * SR
+        idx = np.minimum((np.arange(n) / step).astype(int), len(vals) - 1)
+        steps = np.asarray(vals)[idx]
+        track = signal.lfilter([1 - 0.9985], [1, -0.9985], steps - steps[0]) + steps[0]     # glide between harmonics
+        for li in range(nbars):                                  # the overtone melody goes into the score
+            for kk, tok in enumerate(lines[li % len(lines)].split()):
+                if tok not in '-.':
+                    b = (k0 + li) * 4 + kk * 0.5
+                    score['hook'].append([b, 0.5, round(float(ftom(float(mtof(f0m)) * float(tok))), 2)])
+    voice.add(bar(k0), throat(float(mtof(f0m)), dur, track, whistle), gain)
+
+# ---- rumble 0-8: throat drone, a singer from bar 4, BRAAM at 0 and 4, stone marimba from bar 6
+throat_phrase(0, 4, None, 41, 0.16)
+throat_phrase(4, 4, OVERTONE, 41, 0.2)
+IMP(0, 0.6); fxb.add(bar(0), braam([29, 41], 3.5, 0.6), 0.16)
+IMP(16, 0.7); fxb.add(bar(4), braam([29, 41, 48], 3.0, 0.4), 0.2)
+for k in range(6, 8):
+    for h in range(8):
+        m = tones_at(k)[(0, 2, 1, 3, 2, 1, 3, 0)[h]] - 12
+        lead.add(bt(k * 4 + h * 0.5), stone(m), 0.13, -0.3 + 0.6 * (h % 2))
+for k in range(0, 8):
+    sub.add(bar(k), sub_tone(root_at(k) + 12, 4 * BEAT, None, 0.8, 0.8), 0.14)
+
+for k in range(8, BARS):
+    B = k * 4
+    # ---- builds 8-16 and 40-48: 808 + anvil, stone marimba in 16ths, the bowed-saw hook, a grinding bass line
     if 8 <= k < 16 or 40 <= k < 48:
         late = k in (14, 15, 46, 47)
-        pads.add(bar(k), supersaw(ch[1:], 4 * BEAT + 0.2, 1200 + 250 * (k % 8), 6, 0.22, 0.05, 0.3), 0.1)
         if not late:
-            K(B); S(B + 2)
-            if k % 2: K(B + 2.75, 0.7)
-            for h in range(8): HH(B + h * 0.5, 0.6 + 0.3 * (h % 2), o=h % 2 == 1)
-            reese_m = ch[0] + 12
-            bass.add(bar(k), reese(reese_m, 4 * BEAT, 250, 900 + 120 * (k % 8), lfo_rate=2), 0.2)
-            sub.add(bar(k), sub_tone(reese_m, 4 * BEAT), 0.22)
-            score['reese'].append([B, 4, reese_m])
-        for h in range(16):                                               # 16th arp
-            m = ch[1 + (0, 1, 2, 3, 2, 1, 3, 1)[h % 8]] + 12
-            lead.add(bt(B + h * 0.25), pluck(m, 0.25, 1500 + 400 * (k % 8)), 0.08, -0.3 + 0.6 * ((h % 4) / 3))
+            K(B, 0.9); K(B + 1.5, 0.6, 0.4); S(B + 2)
+            if k % 2: K(B + 2.75, 0.7, 0.4)
+            for h in range(8): HH(B + h * 0.5 + 0.25, 0.7, long=(h % 2 == 1))
+            rm = root_at(k) + 12
+            for h, L in ((0, 1.5), (1.5, 1), (2.5, 1.5)):
+                bass.add(bt(B + h), grind(rm + (1 if h == 1.5 else 0), L * BEAT, 'stab' if h else 'wow'), 0.2)
+                sub.add(bt(B + h), sub_tone(rm, L * BEAT), 0.24)
+                score['reese'].append([B + h, L, rm])
+        for h in range(16):                                                      # 16th stone marimba
+            m = tones_at(k)[(0, 1, 2, 3, 2, 1, 0, 2)[h % 8]] - 12 + (12 if k % 8 >= 4 and h % 4 == 3 else 0)
+            lead.add(bt(B + h * 0.25), stone(m, 0.4), 0.1, -0.4 + 0.8 * ((h * 5 % 16) / 15))
             score['arp'].append([B + h * 0.25, m])
-        if late:                                                          # snare roll that speeds up
+        if late:                                                                  # anvil roll that speeds up
             per = {14: 0.5, 15: 0.25, 46: 0.5, 47: 0.25}[k]
             if k in (15, 47):
                 for i in range(int(2 / per)): S(B + i * per, 0.5 + 0.25 * i * per / 2, False); score['roll'].append(B + i * per)
-                for i in range(16): S(B + 2 + i * 0.125, 0.75 + 0.25 * i / 16, False); score['roll'].append(B + 2 + i * 0.125)
+                for i in range(16): S(B + 2 + i * 0.125, 0.7 + 0.3 * i / 16, False); score['roll'].append(B + 2 + i * 0.125)
             else:
                 for i in range(int(4 / per)): S(B + i * per, 0.4 + 0.3 * i * per / 4, False); score['roll'].append(B + i * per)
             K(B, 0.8)
-    if k in (14, 46): fxb.add(bar(k), riser(8 * BEAT), 0.22)
-    if k in (15, 47): fxb.add(bt(B + 1), siren(2.5 * BEAT), 0.06, 0.2); score['siren'].append(B + 1)
+    if k in (14, 46): fxb.add(bar(k), grind_riser(8 * BEAT), 0.16)
+    if k in (15, 47):                                                              # a BRAAM swell before the drop
+        fxb.add(bt(B + 1), braam([29, 41, 48, 54], 2.6 * BEAT, 2.4 * BEAT), 0.18); score['siren'].append(B + 1)
     # ---- drops 16-32 and 48-56 (half-time)
     if 16 <= k < 32 or 48 <= k < 56:
         j = (k - 16) if k < 32 else (k - 48)
         pats = [PA, PB, PC, PD] if k < 32 else [QA, QB, QC, QD]
         pat = pats[j % 4]
-        if k < 32 and j >= 8 and j % 4 == 2: pat = PA                      # second half a little different
+        if k < 32 and j >= 8 and j % 4 == 2: pat = PA
         last = (k == 31)
         drop_drums(k, fill=(j % 4 == 3))
         for p in pat:
             if last and p[0] >= 2: continue
             G(B + p[0], p[1], p[2], p[3], p[4] if len(p) > 4 else 0.5, 1.0)
         if j % 8 == 0: CR(B)
-        if j % 4 == 0 and k >= 48:
-            for i, m in enumerate((77, 80, 84)): lead.add(bt(B + i * 0.5), bell(m, 1.2), 0.07, 0.3 - 0.3 * i)
     if k in (16, 48): IMP(B, 1.0); SD(B - 1, 1 * BEAT)
-    if k == 31: fxb.add(bt(B + 2), downlifter(2 * BEAT), 0.18); score['subdrop'].append(B + 2); sub.add(bt(B + 2), subdrop(2 * BEAT), 0.5)
-    # ---- double time 56-64
+    if k == 31: fxb.add(bt(B + 2), downlifter(2 * BEAT), 0.2); score['subdrop'].append(B + 2); sub.add(bt(B + 2), subdrop(2 * BEAT), 0.5)
+    # ---- aftershock 32-40: two throat singers (drone + melody), a heartbeat of 808s
+    if k == 32:
+        IMP(B, 0.7)
+        throat_phrase(32, 8, None, 41, 0.15)
+        throat_phrase(32, 4, None, 48, 0.07)                                         # a second singer a fifth up
+        throat_phrase(36, 4, OVERTONE, 41, 0.22, 1.2)
+    if 34 <= k < 40:
+        K(B, 0.65, 0.8); K(B + 0.75, 0.4, 0.5)
+    if 32 <= k < 40: sub.add(bar(k), sub_tone(root_at(k) + 12, 4 * BEAT, None, 0.5, 0.6), 0.16)
+    # ---- double time 56-64: rolling grind bass in 16ths, gravel hats, BRAAM stabs
     if 56 <= k < 64:
         dnb_drums(k)
-        line = [0, 0, 3, 0, -2, 0, 7, 5, 0, 0, 3, 0, 8, 7, 3, 1] if k % 2 == 0 else [0, 0, 3, 0, -2, 0, 12, 10, 0, 0, -4, 0, -2, -2, 1, 3]
+        line = [0, 0, 1, 0, 4, 0, 1, 0, 7, 8, 7, 4, 1, 0, -2, 0] if k % 2 == 0 else [0, 0, 1, 0, 4, 0, 8, 7, 0, 0, -4, -2, 0, 1, 4, 7]
+        prev = None
         for h in range(16):
             m = F2 + line[h]
             if h % 4 == 3 and k % 4 == 3: continue
-            bass.add(bt(B + h * 0.25), reese(m, 0.25 * BEAT + 0.01, 900, 5000), 0.3)
-            sub.add(bt(B + h * 0.25), sub_tone(m, 0.25 * BEAT), 0.36)
+            bass.add(bt(B + h * 0.25), grind(m, 0.25 * BEAT + 0.01, 'stab'), 0.3)
+            sub.add(bt(B + h * 0.25), sub_tone(m, 0.25 * BEAT, prev), 0.36); prev = m
             score['reese'].append([B + h * 0.25, 0.25, m])
-        for h in (0.5, 1.5, 2.75, 3.5):                                   # growl stabs on the off-beats
-            off = (12, 7, 3, 15)[int(h) % 4]
-            bass.add(bt(B + h), growl(F2 + off, 0.25 * BEAT, 'stab'), 0.34)
+        for h in (0.5, 2.75):
+            off = (12, 13)[int(h) % 2]
+            bass.add(bt(B + h), grind(F2 + off, 0.25 * BEAT, 'screech'), 0.16)
             score['growl'].append([B + h, 0.25, off, 'stab', 0])
-        pads.add(bar(k), supersaw(ch[1:], 4 * BEAT + 0.1, 2400, 6, 0.25, 0.02, 0.1), 0.07)
-        if k == 56: IMP(B, 0.9); CR(B)
-        if k == 60: CR(B)
+        if k in (56, 60): fxb.add(bar(k), braam([29, 41, 48, 53], 1.5), 0.17)
+        if k == 56: IMP(B, 0.9); score['crash'].append(B)
+        if k == 60: score['crash'].append(B)
     # ---- collapse 64-68
     if k == 64:
-        IMP(B, 1.0); CR(B, 1.2); K(B, 1.2, 1.2); SD(B + 4, 3.0)
+        IMP(B, 1.2); fxb.add(bar(64), braam([29, 41, 48, 53], 5.0, 0.3), 0.26); score['crash'].append(B)
+        K(B, 1.2, 1.4); SD(B + 4, 3.0)
         G(B, 2, 0, 'wow', 0.5, 1.1); G(B + 2, 2, 0, 'dive', 0.5, 1.0)
-    if 64 <= k < 68:
-        pads.add(bar(k), supersaw(CH['Fm'][1:], 4 * BEAT + 0.6, 1100 - 150 * (k - 64), 6, 0.22, 0.3, 1.0), 0.1 * (1 - (k - 64) / 5))
+        throat_phrase(65, 3, None, 41, 0.17)
 
-hook_notes = parse(HOOK, 4) + parse(HOOK, 36) + parse(HOOK, 24, 12) + parse(HOOK, 64)
-for (b, L, m) in hook_notes:
-    gain = 0.13 if b < 24 * 4 or b >= 64 * 4 else (0.05 if b < 32 * 4 else 0.13)
-    lead.add(bt(b), bell(m, max(1.2, L * BEAT + 0.6)), gain, 0.15)
+# the bowed-saw hook: build 1 (from bar 10), drop 1 second half (an octave up, quietly), build 2, the end
+hook_notes = parse(HOOK, 10) + parse(HOOK, 24) + parse(HOOK * 2, 40) + parse(HOOK, 64)
+for (b, L, tok) in hook_notes:
+    up = 24 * 4 <= b < 32 * 4
+    m = midi(tok) + (12 if up else 0)
+    lead.add(bt(b), bowed_saw(m, L * BEAT + 0.12), 0.05 if up else 0.12, 0.15)
     score['hook'].append([b, L, m])
+score['hook'].sort(key=lambda h: h[0])
 
 # ---- mix ---------------------------------------------------------------------------------------------
 def duck_curve(beats, depth, tau):
@@ -353,28 +454,28 @@ def duck_curve(beats, depth, tau):
         seg = 1 - depth * np.exp(-np.arange(min(n, N - i)) / SR / tau)
         d[i:i + len(seg)] = np.minimum(d[i:i + len(seg)], seg)
     return d
-dk = duck_curve(score['kick'], 0.8, 0.09)
-for bus_ in (sub, pads):
+dk = duck_curve(score['kick'], 0.85, 0.1)
+for bus_ in (sub, voice):
     bus_.L *= dk; bus_.R *= dk
 dk2 = duck_curve(score['kick'] + score['snare'], 0.45, 0.06)
 bass.L *= dk2; bass.R *= dk2
-# the growls get a little width: a short delay on one side, highs only
-w = hp(bass.R, 400); bass.R = (bass.R * 0.75 + 0.25 * np.concatenate([np.zeros(int(0.012 * SR)), w[:-int(0.012 * SR)]])).astype(np.float32)
-pads.R = np.concatenate([np.zeros(int(0.015 * SR), np.float32), pads.R[:-int(0.015 * SR)]])
+w = hp(bass.R, 400); bass.R = (bass.R * 0.75 + 0.25 * np.concatenate([np.zeros(int(0.011 * SR)), w[:-int(0.011 * SR)]])).astype(np.float32)
+voice.R = np.concatenate([np.zeros(int(0.009 * SR), np.float32), voice.R[:-int(0.009 * SR)]])
 
-def reverb(st, mix, dur=2.8, decay=0.8):
+def reverb(st, mix, dur=3.4, decay=1.0):
+    """a big stone hall"""
     tt = np.arange(int(dur * SR)) / SR
     out = []
     for ch in range(2):
-        ir = lp(rng.standard_normal(len(tt)) * np.exp(-tt / decay), 6000); ir /= np.sqrt(np.sum(ir ** 2))
+        ir = lp(rng.standard_normal(len(tt)) * np.exp(-tt / decay), 5000); ir[:int(0.03 * SR)] *= 0.2
+        ir /= np.sqrt(np.sum(ir ** 2))
         out.append(signal.fftconvolve(st[ch], ir)[:N])
     return np.vstack(out) * mix
 
-dry = drums.stereo() + snareb.stereo() + sub.stereo() * 1.15 + bass.stereo() + pads.stereo() + lead.stereo() + fxb.stereo()
-wet = reverb(snareb.stereo() * 0.8 + lead.stereo() + pads.stereo() * 0.6 + fxb.stereo() * 0.5, 0.3)
+dry = drums.stereo() + snareb.stereo() + sub.stereo() * 1.15 + bass.stereo() + voice.stereo() + lead.stereo() + fxb.stereo()
+wet = reverb(snareb.stereo() * 0.9 + lead.stereo() + voice.stereo() * 0.9 + fxb.stereo() * 0.4, 0.32)
 mix = dry + wet
 mix -= np.mean(mix, axis=1, keepdims=True)
-# bass stays mono below 120 Hz
 lowm = lp((mix[0] + mix[1]) / 2, 120, 4)
 mix = np.vstack([hp(mix[0], 120, 4) + lowm, hp(mix[1], 120, 4) + lowm])
 # limiter: look 5 ms ahead, pull the gain down fast and let it back up slowly, then a soft clip
@@ -385,7 +486,7 @@ pk = np.maximum.reduce([np.roll(pk, -i) for i in range(0, win, 8)])
 DRIVE, THR = 3.2, 0.9
 g = np.minimum(1, THR / np.maximum(pk * DRIVE, 1e-6))
 rel = np.exp(-1 / (0.12 * SR))
-g = signal.lfilter([1 - rel], [1, -rel], g[::-1])[::-1]            # smooth (the gain is already early, so smooth backwards)
+g = signal.lfilter([1 - rel], [1, -rel], g[::-1])[::-1]
 g = np.minimum(g, np.minimum(1, THR / np.maximum(pk * DRIVE, 1e-6)) * 1.15)
 mix = np.tanh(mix * DRIVE * g / THR * 0.9) * THR
 endi = int((bar(68) + 0.5) * SR)
@@ -395,6 +496,9 @@ mix *= 0.95 / np.max(np.abs(mix))
 
 from scipy.io import wavfile
 wavfile.write('tectonic.wav', SR, (mix.T * 32767).astype(np.int16))
+for key in score:
+    if isinstance(score[key], list) and score[key] and not isinstance(score[key][0], list): score[key].sort()
+score['growl'].sort(key=lambda g: g[0]); score['reese'].sort(key=lambda r: r[0])
 score['end'] = round(mix.shape[1] / SR, 2)
 json.dump(score, open('score.json', 'w'), default=lambda o: o.item() if hasattr(o, 'item') else o)
 print('done', mix.shape[1] / SR)

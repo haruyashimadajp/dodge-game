@@ -52,7 +52,7 @@ dodge-game/
 │   ├── shiki-score.js / shiki-env.js / shiki-compose.py ← 曲⑫の楽譜データ / 音量データ / 作曲プログラム
 │   ├── candy.js         ← 曲⑬「Candy Pop Parade」（オリジナル曲・かわいい）の拍・場面・譜面
 │   ├── candy-score.js / candy-env.js / candy-compose.py ← 曲⑬の楽譜データ / 音量データ / 作曲プログラム
-│   ├── tectonic.js      ← 曲⑭「TECTONIC」（オリジナル曲・重低音のダブステップ・地震）の拍・場面・譜面
+│   ├── tectonic.js      ← 曲⑭「TECTONIC」（オリジナル曲・重低音のダブステップ・地震。のどうた・石のベース・金床のスネア）の拍・場面・譜面
 │   └── tectonic-score.js / tectonic-env.js / tectonic-compose.py ← 曲⑭の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
