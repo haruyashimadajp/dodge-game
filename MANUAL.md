@@ -53,7 +53,9 @@ dodge-game/
 │   ├── candy.js         ← 曲⑬「Candy Pop Parade」（オリジナル曲・かわいい）の拍・場面・譜面
 │   ├── candy-score.js / candy-env.js / candy-compose.py ← 曲⑬の楽譜データ / 音量データ / 作曲プログラム
 │   ├── tectonic.js      ← 曲⑭「TECTONIC」（オリジナル曲・重低音のダブステップ・地震。のどうた・石のベース・金床のスネア）の拍・場面・譜面
-│   └── tectonic-score.js / tectonic-env.js / tectonic-compose.py ← 曲⑭の楽譜データ / 音量データ / 作曲プログラム
+│   ├── tectonic-score.js / tectonic-env.js / tectonic-compose.py ← 曲⑭の楽譜データ / 音量データ / 作曲プログラム
+│   ├── overture.js      ← 曲⑮「Grand Overture」（オリジナル曲・オーケストラ）の拍・場面・譜面
+│   └── overture-score.js / overture-env.js / overture-compose.py ← 曲⑮の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔の中・ステンドグラスのバラ窓の時計・光の筋・真鍮の歯車）
@@ -66,6 +68,7 @@ dodge-game/
 ├── visuals-shiki.js ← 曲⑫の見た目（動く水墨画・春夏秋冬・墨のにじみ・筆文字と落款）
 ├── visuals-candy.js ← 曲⑬の見た目（パステルのお菓子の国・虹・ケーキのお城・顔のある雲・うさぎ）
 ├── visuals-quake.js ← 曲⑭の見た目（地下の空洞のライブ会場・マグマの割れ目・スピーカーの山・地震計・震度メーター）
+├── visuals-hall.js  ← 曲⑮の見た目（コンサートホール・弾いているパートが光るオーケストラ・指揮者・幕・強弱記号）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
@@ -710,7 +713,19 @@ eqBars({ hs, delay, hold })                 // イコライザー: 床から棒�
 譜面では、ベースの音の形（score の growl の4つ目: yoi / wob / stab / down / wow / up / stut / dive / screech）ごとに、出す攻撃を決めています。
 ワブワブ（wob）のゆれの周期は growl の5つ目（拍）に入っているので、ゆれ1回 = 音の輪1つ、にしています。
 
-### 5-17. 軽くするための道具（visuals.js）
+### 5-17. 曲⑮「Grand Overture」で生まれた形（オーケストラ）
+
+```js
+staffNote({ y, fromLeft, v })               // 楽譜の音符が横から流れてくる（高さ y = 音の高さ。床すれすれの音符は跳び越える）
+lob({ x, y, vx, vy, g })                    // ティンパニ: 放物線をえがいて飛ぶ弾（g = 重力）
+cymbalClash({ y, v, n })                    // シンバル: 左右から円盤が飛んできて、まんなかでぶつかると n 発の輪
+harpString({ x })                           // ハープの弦: 細い縦のビームが一瞬ふるえる
+fanfare({ x, y, aims })                     // 金管: ベル (x, y) から、aims の角度へ金色のビーム
+organPipes({ cols, n })                     // パイプオルガン: 画面を n 列に分けて、cols の列に音の柱
+baton({ t0, beats, len })                   // 指揮棒: 上から光の棒が、4拍子の振り方（下・左・右・上）で beats 拍のあいだ動く
+```
+
+### 5-18. 軽くするための道具（visuals.js）
 
 ```js
 cachedLayer('名前', 3, 0, g => { /* g に背景を描く */ })   // ゆっくりしか変わらない層を絵にしておき、3コマに1回だけ描き直す

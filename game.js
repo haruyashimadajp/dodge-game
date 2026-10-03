@@ -2511,6 +2511,73 @@ function eqBars({ hs, x0 = 0, x1 = W, delay = 0.8, hold = 0.3, color = '#ff7a2a'
   }).filter(Boolean);
 }
 
+/* ---- ここから下は「Grand Overture」で生まれた形（オーケストラ）------------------------------------------
+     staffNote   … 楽譜の音符が横から流れてくる。高さ = 音の高さ（低い音は床を走るので跳び越える）
+     lob         … ティンパニ: 太鼓の皮から弾が放物線をえがいて飛ぶ
+     cymbalClash … シンバル: 左右から円盤が飛んできて、まんなかでぶつかった瞬間に弾がはじける
+     harpString  … ハープの弦: 細い縦のビームが一瞬ふるえる
+     fanfare     … 金管のベル（上）から、金色のビームが扇に広がる
+     organPipes  … パイプオルガン: 画面を n 列に分けて、cols の列に上から太い音の柱
+     baton       … 指揮棒: 上の支点から光の棒が、4拍子の振り方（下・左・右・上）で動く
+   -------------------------------------------------------------------------- */
+function staffNote({ y, fromLeft = false, v = 300, r = 9, delay = 0.5, color, style = 'qnote' }) {
+  return spawn({ x: fromLeft ? -20 : W + 20, y, vx: fromLeft ? v : -v, r, delay, color, style, lane: [fromLeft ? 1 : -1, 0] });
+}
+function lob({ x, y = GROUND_Y - 40, vx = 0, vy = -700, g = 900, r = 8, delay = 0.4, color, style = 'timp' }) {
+  return spawn({
+    x, y, vx, vy, r, delay, color, style, g, lane: [vx / 700, vy / 700],
+    move(b, dt) { b.vy += b.g * dt; b.x += b.vx * dt; b.y += b.vy * dt; if (b.y > GROUND_Y + 30) b.dead = true; },
+  });
+}
+function cymbalClash({ y, v = 520, r = 22, n = 16, speed = 170, delay = 0.6, color = '#ffd36b' }) {
+  return [-1, 1].map(s => spawn({
+    kind: 'cymbal', x: W / 2 + s * (W / 2 + 30), y, vx: -s * v, r, delay, color, spd: 1, side: s, spin: 0, lane: [-s, 0],
+    move(b, dt) {
+      b.x += b.vx * dt; b.spin += dt * 14;
+      if (b.side * (b.x - W / 2) <= b.r * 0.6) {                    // まんなかでぶつかった
+        b.dead = true;
+        if (b.side < 0) {
+          ring({ x: W / 2, y: b.y, count: n, speed, r: 7, color, style: 'gold', start: Math.random() * TAU });
+          flash(0.35); shake(8);
+          sparks(W / 2, b.y, { n: 40, color: '#fff3c0', speed: 420, life: 0.6, size: 3, gravity: 200 });
+          shockRing(W / 2, b.y, { color: '#ffe9a8', size: 260, life: 0.5, width: 5 });
+        }
+      }
+    },
+  }));
+}
+function harpString({ x, delay = 0.6, hold = 0.16, color = '#ffe6a0' }) {
+  const b = laser({ x1: x, y1: -20, x2: x, y2: GROUND_Y + 10, width: 8, delay, hold, color });
+  b.harp = true; return b;
+}
+function fanfare({ x, y = 70, aims, len = 1100, width = 16, delay = 0.7, hold = 0.24, color = '#ffc94d' }) {
+  return aims.map(a => { const b = laser({ x1: x, y1: y, x2: x + Math.cos(a) * len, y2: y + Math.sin(a) * len, width, delay, hold, color }); b.brass = true; return b; });
+}
+function organPipes({ cols, n = 8, delay = 0.8, hold = 0.32, color = '#ffd98a' }) {
+  const cw = W / n;
+  return cols.map(c => { const b = laser({ x1: (c + 0.5) * cw, y1: -40, x2: (c + 0.5) * cw, y2: GROUND_Y + 30, width: cw - 18, delay, hold, color }); b.organ = true; return b; });
+}
+// 4拍子の振り方: 1拍目 = 真下（長い）、2拍目 = 左、3拍目 = 右、4拍目 = 上（棒が短くなる）
+const BATON_KEYS = [[0, 1], [-0.8, 0.86], [0.8, 0.86], [0, 0.32]];
+function batonPose(bp) {
+  const k = Math.floor(bp), u = bp - k, a = BATON_KEYS[((k % 4) + 4) % 4], z = BATON_KEYS[(((k + 1) % 4) + 4) % 4];
+  const e = u * u * (3 - 2 * u);
+  return { ang: a[0] + (z[0] - a[0]) * e, len: a[1] + (z[1] - a[1]) * e };
+}
+function baton({ px = W / 2, py = 96, len = 620, t0, beats = 16, width = 12, delay = 1.0, color = '#fff6d8' }) {
+  return spawn({
+    kind: 'baton', x: px, y: py, r: width / 2, px, py, len, t0, beats, delay, color, spd: 1, tipX: px, tipY: py + len * 0.32,
+    move(b) {
+      const bp = (songTime - b.t0) / song.beat;
+      const out = clamp01((bp - b.beats) / 1.5);                   // 終わったら縮んで消える
+      const p = batonPose(Math.max(-1, bp)), L = b.len * p.len * (1 - out);
+      b.ang = p.ang; b.tipX = b.px + Math.sin(p.ang) * L; b.tipY = b.py + Math.cos(p.ang) * L;
+      if (out >= 1) b.dead = true;
+    },
+    hits: b => segmentHitsPlayer(b.px, b.py + 30, b.tipX, b.tipY, b.r),
+  });
+}
+
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
 let chart = [];
 let chartIndex = 0;
