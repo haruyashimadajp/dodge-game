@@ -969,3 +969,33 @@ body[data-theme="candy"] .overlay.result.clear { background: rgba(255, 230, 245,
 body[data-theme="candy"] .overlay.result.clear p, body[data-theme="candy"] .overlay.result.over p { color: #a0407a; font-weight: 800; text-shadow: 0 0 6px #fff, 0 0 3px #fff; }
 body[data-theme="candy"] .overlay.result.over { background: rgba(255, 220, 235, 0.55); }
 body[data-theme="candy"] .overlay.over .logo { color: #b88ad6; font-size: clamp(36px, 8vw, 72px); }
+
+/* the EmpErroR (remake): maimai ORANGE */
+body[data-theme="emperror"] {
+  --accent: #ff8c1a;
+  --accent-2: #ff5fa2;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 140, 26, 0.18), transparent 55%), #0b0604;
+}
+body[data-theme="emperror"] canvas { box-shadow: 0 0 0 3px #f0f0f5, 0 0 0 6px #ff8c1a, 0 20px 60px rgba(0, 0, 0, 0.7); }
+body[data-theme="emperror"] .logo { font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", system-ui, sans-serif; font-weight: 900; color: #fff; text-shadow: 0 0 0 transparent, 3px 3px 0 #ff8c1a, -2px -2px 0 #ff5fa2; }
+body[data-theme="emperror"] .logo::before { color: #ff5fa2; }
+body[data-theme="emperror"] .logo::after { color: #4fd6ff; }
+body[data-theme="emperror"] .kicker { color: #ffd84d; }
+body[data-theme="emperror"] .song-tag { color: #fff; background: rgba(255, 140, 26, 0.25); border-color: #ff8c1a; }
+body[data-theme="emperror"] .start-btn { background: linear-gradient(90deg, #ff5fa2, #ff8c1a, #ffd84d, #ff8c1a, #ff5fa2); background-size: 300% 100%; color: #2a1206; font-weight: 900; }
+body[data-theme="emperror"] .overlay.result.clear .logo { color: #ffd84d; text-shadow: 3px 3px 0 #ff5fa2, -2px -2px 0 #4fd6ff, 0 0 30px rgba(255, 216, 77, 0.8); }
+body[data-theme="emperror"] .overlay.over .logo { color: #ff2a2a; letter-spacing: 0.15em; }
+
+/* Re:Unknown X (remake): Touhou STG */
+body[data-theme="touhou"] {
+  --accent: #ff4d6d;
+  --accent-2: #c4b5fd;
+  background: radial-gradient(ellipse at 50% 30%, rgba(196, 181, 253, 0.16), transparent 60%), #08061a;
+}
+body[data-theme="touhou"] canvas { box-shadow: 0 0 0 1px rgba(196, 181, 253, 0.4), 0 0 0 6px #1a1238, 0 0 0 7px rgba(255, 77, 109, 0.5), 0 20px 70px rgba(0, 0, 0, 0.7); }
+body[data-theme="touhou"] .logo { font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; font-weight: 700; letter-spacing: 0.15em; color: #fff; text-shadow: 0 0 14px rgba(255, 77, 109, 0.8), 0 0 30px rgba(196, 181, 253, 0.6); }
+body[data-theme="touhou"] .kicker { color: #c4b5fd; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; letter-spacing: 0.3em; }
+body[data-theme="touhou"] .song-tag { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; color: #fff; background: rgba(26, 18, 56, 0.8); border-color: rgba(255, 77, 109, 0.6); }
+body[data-theme="touhou"] .start-btn { background: linear-gradient(90deg, #ff4d6d, #c4b5fd, #4cc9f0, #c4b5fd, #ff4d6d); background-size: 300% 100%; color: #120c26; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-weight: 700; letter-spacing: 0.2em; }
+body[data-theme="touhou"] .overlay.result.clear .logo { color: #fff; text-shadow: 0 0 18px rgba(255, 216, 77, 0.9), 0 0 40px rgba(255, 77, 109, 0.6); }
+body[data-theme="touhou"] .overlay.over .logo { color: #c4b5fd; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; letter-spacing: 0.3em; }

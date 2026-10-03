@@ -1,10 +1,13 @@
 "use strict";
 
 /* =========================================================================
-   曲②  Re:Unknown X  —  拍・場面・譜面（弾幕）
-   東方ダンマクカグラの曲。元になった「Unknown X」は「正体不明」「UFO」の曲なので、
-   テーマは「正体不明の夜」: 月夜の町の上に、赤・緑・青の三つの UFO が現れる。
-   見た目は visuals-night.js（theme: 'night'）。
+   曲②  Re:Unknown X（まらしぃ）  —  拍・場面・譜面（弾幕）  ※リメイク版
+   東方ダンマクカグラの曲。原曲は ZUN の「アンノウンX ～ Unfound Adventure」で、格闘ゲーム『東方非想天則』の
+   最終ステージの曲。物語では、幻想郷に「巨大な影」が現れ、早苗は「巨大ロボ」、チルノは「ダイダラボッチ」、
+   美鈴は「太歳星君」だと思って追いかける。正体は、河童が作った宣伝用の巨大な人形「非想天則」だった。
+   リメイクでは、東方の弾幕シューティングの画面を再現: ボス「Unknown X」と体力のバー、スペルカードの宣言と
+   「Get Spell Card Bonus!!」、グレイズ（かすり）の数。遠くの山の向こうを巨大な影が歩き、最後に正体がわかる。
+   赤・緑・青の UFO は『東方星蓮船』の UFO。見た目は visuals-touhou.js（theme: 'touhou'）。
 
    曲の形（解析で分かったこと。4小節 ≈ 5秒をひとかたまりとして比べた）:
        0.9〜 16.1  イントロ     しずか → 盛り上がって 11.0 秒でバンドが入る
@@ -35,23 +38,23 @@ function unknownBeatPos(t)  { return (t - 0.275) / UNKNOWN_BEAT; }  // t秒は�
      tier … 盛り上がりの段階 0〜5。UFO・探照灯・月・ホタル・空の点滅がこれで変わる
    -------------------------------------------------------------------------- */
 const UNKNOWN_SECTIONS = [
-  { t: 0,      tier: 0,   name: 'UNKNOWN',      sub: '正体不明の夜',         sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.002, sway: 0.2, stars: 6 },
-  { t: 5.96,   tier: 1,   name: 'SIGNAL',       sub: '近づく光',             sky: ['#0c0c30', '#1d1540'], color: '#8fd3ff', pulse: 0.005, sway: 0.3, stars: 10, zoom: [1, 1.02] },
-  { t: 11.01,  tier: 2.5, name: 'CONTACT',      sub: '未確認飛行物体',       sky: ['#130b33', '#271646'], color: '#ff4d6d', pulse: 0.010, sway: 0.4, stars: 18 },
-  { t: 16.06,  tier: 2,   name: 'DRIFT',        sub: 'Aメロ ─ ゆらめく光',   sky: ['#0a1030', '#14203f'], color: '#5cf2a4', pulse: 0.008, sway: 0.4, stars: 14 },
-  { t: 26.17,  tier: 2,   name: 'SPLIT',        sub: 'Aメロ ─ 分かれる光',   sky: ['#100c2e', '#211a42'], color: '#ffd166', pulse: 0.008, sway: 0.4, stars: 14 },
+  { t: 0,      tier: 0,   name: 'FINAL STAGE',  sub: '幻想郷の空に、巨大な影',         sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.002, sway: 0.2, stars: 6 },
+  { t: 5.96,   tier: 1,   name: '',             sub: '',             sky: ['#0c0c30', '#1d1540'], color: '#8fd3ff', pulse: 0.005, sway: 0.3, stars: 10, zoom: [1, 1.02] },
+  { t: 11.01,  tier: 2.5, name: 'Unknown X',    sub: '♪ アンノウンX ～ Unfound Adventure',       sky: ['#130b33', '#271646'], color: '#ff4d6d', pulse: 0.010, sway: 0.4, stars: 18 },
+  { t: 16.06,  tier: 2,   name: '',             sub: '',   sky: ['#0a1030', '#14203f'], color: '#5cf2a4', pulse: 0.008, sway: 0.4, stars: 14 },
+  { t: 26.17,  tier: 2,   name: '',             sub: '',   sky: ['#100c2e', '#211a42'], color: '#ffd166', pulse: 0.008, sway: 0.4, stars: 14 },
   { t: 33.75,  tier: 2.5, name: '',             sub: '',                     sky: ['#140c33', '#291848'], color: '#ffd166', pulse: 0.012, sway: 0.5, stars: 22, zoom: [1, 1.03] },
-  { t: 36.28,  tier: 3.5, name: 'UFO',          sub: 'サビ ─ 三色の円盤',     sky: ['#1a0b38', '#33164e'], color: '#ff4d6d', pulse: 0.018, sway: 0.7, stars: 40 },
-  { t: 46.38,  tier: 3,   name: 'PHANTOM',      sub: 'サビ ─ 正体不明',       sky: ['#120a36', '#26154c'], color: '#c4b5fd', pulse: 0.016, sway: 0.7, stars: 34 },
-  { t: 56.49,  tier: 2,   name: 'DRIFT II',     sub: 'Aメロ ─ 交差する光', sky: ['#0a1030', '#14203f'], color: '#5cf2a4', pulse: 0.008, sway: 0.4, stars: 14 },
-  { t: 66.59,  tier: 3.5, name: 'UFO II',       sub: 'サビ ─ 光線の雨',       sky: ['#081236', '#11254d'], color: '#4cc9f0', pulse: 0.018, sway: 0.7, stars: 40 },
-  { t: 76.70,  tier: 4.5, name: 'ASCENSION',    sub: '転調 ─ 最初の山場',     sky: ['#220a33', '#40164a'], color: '#ffb347', pulse: 0.024, sway: 1.0, stars: 70, zoom: [1, 1.04] },
-  { t: 86.80,  tier: 0,   name: '……',         sub: '静寂',                 sky: ['#05051a', '#0c0a24'], color: '#9aa4c8', pulse: 0,     sway: 0.15, stars: 4 },
-  { t: 96.91,  tier: 1.5, name: 'APPROACH',     sub: 'ふたたび近づく',       sky: ['#0c0c30', '#1d1540'], color: '#8fd3ff', pulse: 0.008, sway: 0.3, stars: 14, zoom: [1, 1.05] },
-  { t: 104.48, tier: 5,   name: 'Re:Unknown X', sub: '大サビ',               sky: ['#22082f', '#45124a'], color: '#ff4d6d', pulse: 0.030, sway: 1.3, stars: 110 },
-  { t: 117.12, tier: 5,   name: 'UNIDENTIFIED', sub: '大サビ ─ すべての光',   sky: ['#0a0e36', '#182a55'], color: '#4cc9f0', pulse: 0.030, sway: 1.3, stars: 110 },
-  { t: 127.22, tier: 4,   name: 'KAGURA',       sub: '神楽 ─ 拍に合わせて跳べ', sky: ['#1c0e2c', '#3a1a40'], color: '#ffd166', pulse: 0.022, sway: 0.9, stars: 60 },
-  { t: 137.33, tier: 1,   name: 'FAREWELL',     sub: '去っていく円盤',       sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.006, sway: 0.3, stars: 10 },
+  { t: 36.28,  tier: 3.5, name: '',             sub: '',     sky: ['#1a0b38', '#33164e'], color: '#ff4d6d', pulse: 0.018, sway: 0.7, stars: 40 },
+  { t: 46.38,  tier: 3,   name: '',             sub: '',       sky: ['#120a36', '#26154c'], color: '#c4b5fd', pulse: 0.016, sway: 0.7, stars: 34 },
+  { t: 56.49,  tier: 2,   name: '',             sub: '', sky: ['#0a1030', '#14203f'], color: '#5cf2a4', pulse: 0.008, sway: 0.4, stars: 14 },
+  { t: 66.59,  tier: 3.5, name: '',             sub: '',       sky: ['#081236', '#11254d'], color: '#4cc9f0', pulse: 0.018, sway: 0.7, stars: 40 },
+  { t: 76.70,  tier: 4.5, name: '',             sub: '',     sky: ['#220a33', '#40164a'], color: '#ffb347', pulse: 0.024, sway: 1.0, stars: 70, zoom: [1, 1.04] },
+  { t: 86.80,  tier: 0,   name: '……',         sub: 'ボスが消えた。影が近づいてくる',                 sky: ['#05051a', '#0c0a24'], color: '#9aa4c8', pulse: 0,     sway: 0.15, stars: 4 },
+  { t: 96.91,  tier: 1.5, name: '足音',         sub: 'ダイダラボッチ……？',       sky: ['#0c0c30', '#1d1540'], color: '#8fd3ff', pulse: 0.008, sway: 0.3, stars: 14, zoom: [1, 1.05] },
+  { t: 104.48, tier: 5,   name: '',             sub: '',               sky: ['#22082f', '#45124a'], color: '#ff4d6d', pulse: 0.030, sway: 1.3, stars: 110 },
+  { t: 117.12, tier: 5,   name: '',             sub: '',   sky: ['#0a0e36', '#182a55'], color: '#4cc9f0', pulse: 0.030, sway: 1.3, stars: 110 },
+  { t: 127.22, tier: 4,   name: '神楽',         sub: 'ダンマクカグラ ─ 拍に合わせて跳べ', sky: ['#1c0e2c', '#3a1a40'], color: '#ffd166', pulse: 0.022, sway: 0.9, stars: 60 },
+  { t: 137.33, tier: 1,   name: '',             sub: '',       sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.006, sway: 0.3, stars: 10 },
 ];
 
 // 弾の速さの倍率: 弾の数はあまり変えずに、盛り上がりは「速さ」で出す。
@@ -81,6 +84,17 @@ function unknownChart() {
   const bar  = k => beat(2 + k * 4);                  // k小節目の頭（小数もOK: 0.5 = 3拍目）
   const fire = (t, warn, fn) => burst(t - warn, () => fn(warn));
   const B = UNKNOWN_BEAT, B2 = B * 2;                 // 1拍 / 2拍（予告の基本の長さ）
+  // ---- ボスとスペルカード（東方の再現）----
+  const boss = (t, x, y) => burst(t, () => bossTo(x, y));
+  const bossOn = (t, on) => burst(t, () => { THB.on = on; if (on) { THB.x = THB.tx = cx; THB.y = -60; THB.ty = 140; } else THB.ty = -140; });   // 消えるときは上へ飛んでいく
+  const spell = (t, name, end, no) => burst(t, () => spellCard(name, end, no));
+  // ボスから、自機ねらいの米つぶ弾（扇）
+  const bossFan = (t, n = 5, spread = 0.22, v = 210, color = '#ff4d6d') => fire(t, B2, delay => {
+    const p = playerXY(), a0 = Math.atan2(p.y - THB.y, p.x - THB.x);
+    for (let j = 0; j < n; j++) { const a = a0 + (j - (n - 1) / 2) * spread; spawn({ x: THB.x, y: THB.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 7, delay, color, style: 'rice' }); }
+  });
+  // ボスから、お札（アミュレット）の輪
+  const bossRing = (t, n = 16, v = 150, color = '#ff6a6a', start = 0) => fire(t, B2, delay => ring({ x: THB.x, y: THB.y, count: n, speed: v, r: 7, start, delay, color, style: 'amulet' }));
 
   // ---- この曲の部品 ----
   const RED = '#ff4d6d', GREEN = '#5cf2a4', BLUE = '#4cc9f0', MOON = '#fff3c4', VIOLET = '#c4b5fd', GOLD = '#ffd166';
@@ -168,6 +182,7 @@ function unknownChart() {
 
   // ===== CONTACT 11.0〜16.1 ｜ tier 2.5: バンドが入る。最初の UFO が現れる =======
   crash(bar(8), { stars: 8 });                                       // 11.0s
+  bossOn(bar(8) - 1.0, 1);                                           // ボス「Unknown X」登場
   dash(bar(8.5), true,  { color: RED,  y: 200 });                    // 赤い UFO が左から
   dash(bar(10),  false, { color: BLUE, y: 250 });                    // 青い UFO が右から
   for (const k of [9, 10, 11]) fire(bar(k + 0.5), B2, delay => drip(delay, { color: GREEN }));
@@ -190,6 +205,7 @@ function unknownChart() {
     fire(bar(k + 0.75), B2, delay => stream({ x: playerXY().x, count: 5, vy: 320, delay, color: BLUE }));
   }
   hit(beat(55.5), 0.4); hit(beat(64), 0.5);                          // 17.8s / 20.5s
+  for (let k = 12; k < 20; k += 2) { boss(bar(k), k % 4 === 0 ? 260 : 540, 130 + (k % 3) * 20); bossFan(bar(k + 1), 3, 0.25, 200); }
 
   // ===== SPLIT 26.2〜36.3 ｜ tier 2→2.5: 2拍ごとに X の形に分かれる光 ===========
   for (let k = 20; k < 26; k++) {
@@ -203,7 +219,10 @@ function unknownChart() {
   fire(bar(27.5), B2, delay => ring({ x: cx, y: cy, count: 12, speed: 150, r: 9, delay, color: MOON }));
 
   // ===== UFO 36.3〜46.4 ｜ tier 3.5: サビ。三つの UFO が順番に撃つ ================
+  spell(bar(28) - 0.3, '神具「洩矢の鉄の輪」', bar(44), 1);
+  boss(bar(28), cx, 120);
   trio(bar(28), 32, [aimFan(3, 0.28, 220), burstRing(8, 150), starDrop(2)]);
+  for (const [k, L] of [[29, true], [33, false], [37, true], [41, false]]) fire(bar(k), B2 * 1.5, delay => ironRing({ x: L ? 80 : W - 80, y: 160, vx: L ? 170 : -170, vy: 140, r: 18, life: 8, delay }));
   crash(bar(30)); crash(bar(32)); crash(bar(34));                   // 38.8 / 41.3 / 43.9s
 
   // ===== PHANTOM 46.4〜56.5 ｜ tier 3: サビ後半。UFO が横切って光を落とす ========
@@ -234,6 +253,8 @@ function unknownChart() {
   // ===== UFO II 66.6〜76.7 ｜ tier 3.5: サビ 2。UFO の光線が降る ==================
   // 2拍ごとに、2本の光線（左右どちらかに寄る）。左右交互なので、反対側へ逃げる。
   // 光線を落とした UFO は、そのまま米つぶ弾をばらまく（逃げた先にも弾が来る）
+  spell(bar(52) - 0.3, '機械「巨大ロボの目からビーム」', bar(60), 2);
+  boss(bar(52), cx, 110);
   for (let i = 0; i < 15; i++) {
     const c = i % 2 === 0 ? [1, 2] : [5, 6];
     fire(bar(52 + i * 0.5), B2, delay => columns({ cols: c, delay, hold: 0.22, color: TRI[i % 3] }));
@@ -253,12 +274,18 @@ function unknownChart() {
 
   // ===== ASCENSION 76.7〜86.8 ｜ tier 4.5: 転調したサビ。最初の山場 ==============
   // 穴の空いた光の壁が下りてくる ＋ UFO の編隊が2拍ごとに撃つ
-  for (let k = 60; k < 68; k += 2) fire(bar(k), B2, delay => firewall({ gapX: rand(140, W - 140), gapW: 140, steps: 6, step: 1, delay, color: GOLD }));
+  spell(bar(60) - 0.3, '土着神「ケロちゃん風雨に負けず」', bar(68), 3);
+  boss(bar(60), cx, 130);
+  for (let k = 60; k < 68; k++) fire(bar(k), B2, delay => frogHop({ fromLeft: k % 2 === 0, apex: 110 + (k % 3) * 25, v: 180, delay }));
+  for (let n = 0; n < 32; n++) fire(bar(60) + n * B, B, delay => {                // 風雨: ななめに降る雨（米つぶ）
+    for (let j = 0; j < 2; j++) spawn({ x: rand(0, W + 200) - 100, y: -10, vx: -70, vy: 330, r: 5, delay, color: '#9fd8ff', style: 'rice' });
+  });
   trio(bar(60), 30, [aimFan(2, 0.2, 200), burstRing(6, 140, 'rice'), aimFan(2, 0.2, 200)], { y: 130, every: 2 });
   hit(beat(266), 0.5);                                               // 84.3s
   crash(beat(272.5), { at: 'center', stars: 8 });                    // 86.3s ブレイク前の一撃
 
-  // ===== …… 86.8〜96.9 ｜ tier 0: 音が消える。ゆっくりの玉が夜空にどんどん現れる ======
+  // ===== …… 86.8〜96.9 ｜ tier 0: 音が消える。ボスが消えて、巨大な影が近づく。ゆっくりの玉が現れる ======
+  bossOn(beat(276), 0);
   // 拍ごとに、空のあちこち（プレイヤーから離れた所）に玉がふわっと現れて、ゆっくり漂いながら落ちる。
   // 数が多く、そこそこの速さで漂う。すき間を見てよける。ピアノの音では大きな「?」
   for (let n = 0; n < 31; n++) {
@@ -278,11 +305,15 @@ function unknownChart() {
   hit(98.12, 0.25); hit(bar(78), 0.4); hit(bar(79), 0.5);
   for (let n = 0; n < 16; n++) fire(beat(2 + 76 * 4 + n * 2), B2, delay => stream({ x: rand(40, W - 40), count: 3, vy: 280, delay, color: VIOLET }));
   for (let n = 0; n < 16; n++) fire(beat(2 + 80 * 4 + n * 0.5), B2, delay => stream({ x: rand(40, W - 40), count: 2, vy: 340, delay, color: TRI[n % 3] }));
+  for (const k of [77, 78, 79]) fire(bar(k), 1.0, delay => stomp({ x: Math.max(80, Math.min(W - 80, playerXY().x)), delay }));   // 巨大な足が踏みつける
   fire(bar(80), B2 * 1.5, delay => floorStrike({ delay, color: GOLD }));   // 102.0s 床の光（跳ぶ練習）
   fire(bar(81), B2 * 1.5, delay => floorStrike({ delay, color: GOLD }));
 
   // ===== Re:Unknown X 104.5〜117.1 ｜ tier 5: 大サビ ================================
+  bossOn(bar(81.5), 1);
+  spell(bar(82) - 0.2, 'Last Spell「アンノウンX ～ Unfound Adventure」', bar(100), 4);
   crash(bar(82), { stars: 8 });                                      // 104.5s ドロップ
+  for (let k = 84; k < 100; k += 2) { boss(bar(k), k % 4 === 0 ? 220 : 580, 120); bossRing(bar(k + 1), 14, 150, TRI[k % 3], k * 0.2); }
   crash(bar(82), { at: 'center', stars: 0 });
   for (let n = 0; n < 40; n++) {                                     // 回る光のスプリンクラー（4方向、拍ごとに 22.5° 回る）
     fire(beat(2 + 82 * 4 + n), 0.3, delay => ring({ x: cx, y: cy, count: 4, speed: 210, r: 7, start: n * Math.PI / 8, delay, color: TRI[n % 3], style: 'rice' }));
@@ -314,6 +345,8 @@ function unknownChart() {
   hit(beat(406), 0.5);
 
   // ===== FAREWELL 137.3〜145 ｜ tier 1: UFO が去っていく → 最後の一撃 ================
+  bossOn(bar(107.5), 0);
+  burst(bar(110), () => { if (typeof thReveal === 'function') thReveal(); });   // 正体がわかる
   dash(bar(108), true, { color: RED, y: 160, bars: 3, drop: 110 });
   for (let n = 0; n < 4; n++) fire(bar(108.5 + n), B2 * 1.5, delay => orb(delay, { vy: 100 }));
   // 142.4s 最後の一撃: 真ん中に大きな「?」→ 星になって四方へはじける（正体不明のまま）
@@ -332,7 +365,7 @@ function unknownChart() {
 addSong({
   id: 'unknown',
   title: 'Re:Unknown X',
-  meta: '190 BPM · 2:25 · 正体不明の夜',
+  meta: '190 BPM · 2:25 · まらしぃ · 東方ダンマクカグラ',
   file: 'Re-Unknown_X.mp3',
   bpm: 190, beat: UNKNOWN_BEAT, end: 145.0,
   beatTime: unknownBeatTime,
@@ -341,10 +374,12 @@ addSong({
   env: ENV_UNKNOWN,                // 曲の音量データ（songs/unknown-env.js）
   sections: UNKNOWN_SECTIONS,
   build: unknownChart,
-  theme: 'night',                  // visuals-night.js の見た目のセット
+  theme: 'touhou',                 // visuals-touhou.js の見た目のセット（東方の弾幕シューティング）
   titleLook: { sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', tier: 2.5, pulse: 0.006, stars: 10 },
   titleBpm: 95,                    // タイトル画面は半分の速さでゆったり刻む
   preview: 107.0,                  // 試聴は大サビから
-  clearText: '正体不明のまま、夜が明けた！',
+  clearText: '巨大な影の正体は、ただの宣伝用の人形「非想天則」だった。',
+  clearTitle: 'ALL CLEAR!!',
+  overTitle: '満身創痍',
   bestKey: 'dodge_best_unknown',
 });

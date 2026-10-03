@@ -1144,7 +1144,7 @@ function homing({ x, y, speed = 170, turn = 1.8, seek = 2.2, r = 9, delay = 0 })
 // 隕石: 上から巨大な弾が落ちてきて、地面に当たると左右へ衝撃波（地面すれすれ → ジャンプ）
 //   ＋ 上向きに破片が飛び散る。fall=落ちる速さ / wave=衝撃波の速さ
 function meteor({ x, y = 40, fall = 1000, r = 28, wave = 220, delay = 0 }) {
-  spawn({
+  return spawn({
     x, y, r, delay, fall, wave, color: '#ffb347', fx: 'fire', lane: [0, 1],
     move(b, dt) {
       b.y += b.fall * dt;
@@ -2338,6 +2338,111 @@ function bubble({ x, popAt, vy = -70, r = 16, delay = 0.4, color = '#bfe8ff', st
       }
     },
   });
+}
+
+/* ---- ここから下は「the EmpErroR」（リメイク）で生まれた形 ─ maimai の画面の再現 ------------------------
+   画面のまん中に maimai のまるい画面（判定の輪）があり、外側に 8 つのボタン（1〜8。1 = 右上、時計回り）。
+     maiTap     … TAP / EACH / BREAK ノート。輪のまん中から、ボタン lane の方向へ飛んでいく
+     maiSpin    … TAP が lane を半分ずつずらしながら連続で出る（「回転」）
+     maiSlide   … スライドの☆が、点の列 path にそって走る（予告 = 矢印の道すじ）。slideLine / slideArc で道を作る
+     maiTouch   … TOUCH ノート。4つの三角がその場所に集まって、はじける（まわりに弾）
+     errorBand  … 画面の横一列がエラーでこわれる（予告のあと、その帯に当たる）
+     bolt       … 「神威」: 空から落ちる稲妻（たての光）
+     crownBeams … 皇帝の王冠の先から、扇のように光
+     knives     … 「Jack-the-Ripper◆」: ナイフの扇（プレイヤーをねらう）
+   -------------------------------------------------------------------------- */
+const MAI = { x: W / 2, y: 380, R: 330 };
+function maiAngle(lane) { return -Math.PI / 2 + (lane - 0.5) * Math.PI / 4; }
+function maiPos(lane, rr = MAI.R) { const a = maiAngle(lane); return { x: MAI.x + Math.cos(a) * rr, y: MAI.y + Math.sin(a) * rr }; }
+const MAI_COLOR = { tap: '#ff5fa2', each: '#ffd84d', break: '#ff8c1a', star: '#4fd6ff' };
+function maiTap({ lane, speed = 300, delay = 0.5, type = 'tap', r, color }) {
+  const a = maiAngle(lane), cs = Math.cos(a), sn = Math.sin(a);
+  return spawn({ x: MAI.x + cs * 34, y: MAI.y + sn * 34, vx: cs * speed, vy: sn * speed, r: r || (type === 'break' ? 15 : 12), delay, color: color || MAI_COLOR[type], style: 'mai-' + type, lane: [cs, sn], maiLane: lane });
+}
+function maiSpin({ from = 1, count = 16, dir = 1, step = 0.5, gap = 0.0625, speed = 300, delay = 0.5, type = 'tap', color }) {
+  for (let i = 0; i < count; i++) maiTap({ lane: from + dir * i * step, speed, delay: delay + i * gap, type, color });
+}
+function slideLine(a, b) { return [maiPos(a), maiPos(b)]; }
+function slideArc(a, b, dir = 1, n = 24) {
+  let span = (b - a) * dir; while (span <= 0) span += 8;
+  return Array.from({ length: n + 1 }, (_, i) => maiPos(a + dir * span * i / n));
+}
+function maiSlide({ path, speed = 420, delay = 0.9, r = 14, color = MAI_COLOR.star }) {
+  const cum = [0];
+  for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y));
+  const total = cum[cum.length - 1];
+  return spawn({
+    kind: 'slide', x: path[0].x, y: path[0].y, r, path, cum, total, speed, delay, color, spd: 1, rot: 0,
+    move(b, dt) {
+      const d = b.age * b.speed; b.rot += dt * 8;
+      if (d >= b.total) { b.dead = true; return; }
+      let i = 1; while (i < b.path.length - 1 && b.cum[i] < d) i++;
+      const p0 = b.path[i - 1], p1 = b.path[i], f = (d - b.cum[i - 1]) / ((b.cum[i] - b.cum[i - 1]) || 1);
+      b.x = p0.x + (p1.x - p0.x) * f; b.y = p0.y + (p1.y - p0.y) * f; b.prog = d;
+    },
+  });
+}
+function maiTouch({ x, y, delay = 0.9, n = 8, speed = 170, r = 7, color = '#ffd84d', start = 0 }) {
+  spawn({ kind: 'touch', x, y, r: 20, delay, color, safe: true, spd: 1, move(b) { if (b.age > 0.35) b.dead = true; } });
+  ring({ x, y, count: n, speed, r, delay, start, color, style: 'mai-touch' });
+}
+function errorBand({ y, h = 40, delay = 0.8, hold = 0.35, color = '#ff3b3b' }) {
+  const b = laser({ x1: -60, y1: y, x2: W + 60, y2: y, width: h, delay, hold, color });
+  b.glitch = true; b.spd = 1; return b;
+}
+function bolt({ x, delay = 0.8, hold = 0.25, width = 22, color = '#bfe4ff' }) {
+  const b = laser({ x1: x, y1: -40, x2: x, y2: GROUND_Y + 10, width, delay, hold, color });
+  b.bolt = true; b.seed = Math.random() * 100; b.spd = 1; return b;
+}
+function crownBeams({ x, y, n = 5, spread = 0.9, len = 900, width = 14, delay = 0.8, hold = 0.3, aim = Math.PI / 2, color = '#ffb21a' }) {
+  for (let i = 0; i < n; i++) {
+    const a = aim + (n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
+    const b = laser({ x1: x + Math.cos(a) * 30, y1: y + Math.sin(a) * 30, x2: x + Math.cos(a) * len, y2: y + Math.sin(a) * len, width, delay, hold, color });
+    b.crown = true; b.spd = 1;
+  }
+}
+function knives({ x, y, count = 5, spread = 0.5, speed = 330, delay = 0.6, color = '#e8eaf6' }) {
+  const p = playerXY(), a0 = Math.atan2(p.y - y, p.x - x);
+  for (let i = 0; i < count; i++) {
+    const a = a0 + (count > 1 ? (i / (count - 1) - 0.5) * spread : 0);
+    spawn({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: 6, delay: delay + i * 0.04, color, style: 'knife', lane: [Math.cos(a), Math.sin(a)] });
+  }
+}
+
+/* ---- ここから下は「Re:Unknown X」（リメイク）で生まれた形 ─ 東方の弾幕シューティングの再現 ----------------------
+   THB          … ボス「Unknown X」の位置・体力・いまのスペルカード（見た目は visuals-touhou.js が描く）
+   bossTo       … ボスがその場所へ（なめらかに）移動する
+   spellCard    … スペルカード宣言。end（曲の時刻）までに1回も当たらなければ「Get Spell Card Bonus!!」
+   ironRing     … 神具「洩矢の鉄の輪」: 大きな鉄の輪が、壁・天井・床で反射する
+   frogHop      … 土着神「ケロちゃん風雨に負けず」: カエルが床をぴょんぴょん跳ねてくる
+   stomp        … ダイダラボッチ（？）の巨大な足が、上から踏みつける
+   -------------------------------------------------------------------------- */
+const THB = { x: W / 2, y: 140, tx: W / 2, ty: 140, on: 0, hp: 1, spell: null, graze: 0 };
+function bossTo(x, y) { THB.tx = x; THB.ty = y; }
+function spellCard(name, end, no = 1) {
+  THB.spell = { name, no, start: songTime, end, hits0: hitsTaken, done: false };
+  if (typeof thSpell === 'function') thSpell(THB.spell);
+}
+function ironRing({ x, y, vx = 180, vy = 150, r = 18, life = 7, delay = 0.8, color = '#c8cdd8' }) {
+  return spawn({
+    x, y, vx, vy, r, life, delay, color, style: 'ironring', spd: 1, spin: 0, noTrail: true,
+    move(b, dt) {
+      b.x += b.vx * dt; b.y += b.vy * dt; b.spin += dt * 9;
+      if (b.x < b.r || b.x > W - b.r) { b.vx = -b.vx; b.x = Math.max(b.r, Math.min(W - b.r, b.x)); }
+      if (b.y < b.r) { b.vy = Math.abs(b.vy); }
+      if (b.y > GROUND_Y - b.r) { b.vy = -Math.abs(b.vy); b.y = GROUND_Y - b.r; }
+      if (b.age > b.life) { b.vy = Math.abs(b.vy) + 200 * dt; if (b.y > GROUND_Y - b.r - 1) b.dead = true; }
+    },
+  });
+}
+function frogHop({ fromLeft = true, apex = 130, v = 170, delay = 0.7, color = '#6fd36f' }) {
+  const b = gumdrop({ x: fromLeft ? 30 : W - 30, vx: fromLeft ? v : -v, apex, delay, color, bounces: 7, r: 12 });
+  b.style = 'frog';
+  return b;
+}
+function stomp({ x, w = 130, delay = 1.0, hold = 0.35, color = '#2a2238' }) {
+  const b = laser({ x1: x, y1: -60, x2: x, y2: GROUND_Y + 20, width: w, delay, hold, color });
+  b.foot = true; b.spd = 1; return b;
 }
 
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
