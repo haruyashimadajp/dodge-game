@@ -720,30 +720,29 @@ body[data-theme="gyro"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(240, 2
 body[data-theme="gyro"] .seg-btn.active { background: linear-gradient(90deg, #2f8fa6, #b8a03a); }
 
 /* ---- ExtremeEX: black / alarm red / caution gold ---- */
-body[data-theme="ex"] {
+body[data-theme="ex"], body[data-theme="exr"] {
   --accent: #ff2a3a;
   --accent-2: #ffd23f;
   --text-dim: #c99aa0;
   background: radial-gradient(ellipse at 50% 40%, rgba(255, 42, 58, 0.16), transparent 60%), #070002;
 }
-body[data-theme="ex"] .stat { background: rgba(26, 0, 6, 0.85); }
-body[data-theme="ex"] canvas { box-shadow: 0 0 0 1px rgba(255,42,58,0.3), 0 20px 60px rgba(0,0,0,0.7), 0 0 90px rgba(255, 42, 58, 0.15); }
-body[data-theme="ex"] .logo { text-shadow: 0 0 18px rgba(255, 42, 58, 0.9), 0 0 48px rgba(255, 210, 63, 0.35); }
-body[data-theme="ex"] .logo::before { color: #ffd23f; }
-body[data-theme="ex"] .logo::after  { color: #00c8ff; }
-body[data-theme="ex"] .kicker { color: #ffd23f; }
-body[data-theme="ex"] .song-tag { font-family: "Orbitron", system-ui, sans-serif; letter-spacing: 0.18em; color: #fff; background: rgba(26, 0, 6, 0.7); border-color: rgba(255, 42, 58, 0.6); }
-body[data-theme="ex"] .song-arrow,
-body[data-theme="ex"] .link-btn { background: rgba(26, 0, 6, 0.8); border-color: rgba(255, 42, 58, 0.4); color: #ffe9ec; }
-body[data-theme="ex"] .start-btn {
+body[data-theme="ex"] .stat, body[data-theme="exr"] .stat { background: rgba(26, 0, 6, 0.85); }
+body[data-theme="ex"] canvas, body[data-theme="exr"] canvas { box-shadow: 0 0 0 1px rgba(255,42,58,0.3), 0 20px 60px rgba(0,0,0,0.7), 0 0 90px rgba(255, 42, 58, 0.15); }
+body[data-theme="ex"] .logo, body[data-theme="exr"] .logo { text-shadow: 0 0 18px rgba(255, 42, 58, 0.9), 0 0 48px rgba(255, 210, 63, 0.35); }
+body[data-theme="ex"] .logo::before, body[data-theme="exr"] .logo::before { color: #ffd23f; }
+body[data-theme="ex"] .logo::after, body[data-theme="exr"] .logo::after { color: #00c8ff; }
+body[data-theme="ex"] .kicker, body[data-theme="exr"] .kicker { color: #ffd23f; }
+body[data-theme="ex"] .song-tag, body[data-theme="exr"] .song-tag { font-family: "Orbitron", system-ui, sans-serif; letter-spacing: 0.18em; color: #fff; background: rgba(26, 0, 6, 0.7); border-color: rgba(255, 42, 58, 0.6); }
+body[data-theme="ex"] .song-arrow, body[data-theme="ex"] .link-btn, body[data-theme="exr"] .song-arrow, body[data-theme="exr"] .link-btn { background: rgba(26, 0, 6, 0.8); border-color: rgba(255, 42, 58, 0.4); color: #ffe9ec; }
+body[data-theme="ex"] .start-btn, body[data-theme="exr"] .start-btn {
   background: linear-gradient(90deg, #ff2a3a, #ffd23f, #ff2a3a, #8a0010, #ff2a3a);
   background-size: 300% 100%;
   color: #fff;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
   box-shadow: 0 0 calc(18px + var(--kick, 0) * 26px) rgba(255, 42, 58, 0.7), inset 0 0 0 2px rgba(255, 255, 255, 0.45);
 }
-body[data-theme="ex"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(255, 255, 255, 0.95), 0 0 48px rgba(255, 210, 63, 0.6); }
-body[data-theme="ex"] .seg-btn.active { background: linear-gradient(90deg, #b0122a, #b8901a); }
+body[data-theme="ex"] .overlay.clear .logo, body[data-theme="exr"] .overlay.clear .logo { text-shadow: 0 0 18px rgba(255, 255, 255, 0.95), 0 0 48px rgba(255, 210, 63, 0.6); }
+body[data-theme="ex"] .seg-btn.active, body[data-theme="exr"] .seg-btn.active { background: linear-gradient(90deg, #b0122a, #b8901a); }
 
 /* Malware: black-and-green terminal */
 body[data-theme="virus"] {

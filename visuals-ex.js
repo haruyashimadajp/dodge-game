@@ -17,17 +17,21 @@
   const WHITE = [255, 255, 255], RED = rgb('#ff2a3a'), GOLD = rgb('#ffd23f');
   const st = { rot: 0, tape: 0, lastBeat: -99, slam: null, count: null, lines: [], bolts: [], cracks: null, box: 0, inv: 0 };
   // 演出の予定（拍）: ドロップ（叩きつけ）とカウントダウン、黒い帯の区間
-  const SLAMS = { 128: 'EX', 256: 'EX', 352: 'EX', 384: 'EX' };
-  const COUNTS = { 125: '3', 126: '2', 127: '1', 253: '3', 254: '2', 255: '1', 349: '3', 350: '2', 351: '1' };
-  const BOX = [[96, 128], [224, 256], [344, 352]];
-  const DROPS = [[128, 192], [256, 352], [352, 384]];
+  // 曲が exFx を持っていれば、そちらの予定を使う（3分のリメイク版など）
+  const FX0 = {
+    slams: { 128: 'EX', 256: 'EX', 352: 'EX', 384: 'EX' },
+    counts: { 125: '3', 126: '2', 127: '1', 253: '3', 254: '2', 255: '1', 349: '3', 350: '2', 351: '1' },
+    box: [[96, 128], [224, 256], [344, 352]],
+    drops: [[128, 192], [256, 352], [352, 384]],
+  };
+  const sched = () => (typeof song !== 'undefined' && song && song.exFx) || FX0;
   const inside = (b, list) => list.some(([a, z]) => b >= a && b < z);
 
   function reset() { Object.assign(st, { lastBeat: -99, slam: null, count: null, lines: [], bolts: [], cracks: null, box: 0, inv: 0 }); }
 
   function onBeat(b) {
-    if (SLAMS[b]) {                                  // ドロップ: 叩きつけ
-      st.slam = { t: 0, text: SLAMS[b] };
+    if (sched().slams[b]) {                                  // ドロップ: 叩きつけ
+      st.slam = { t: 0, text: sched().slams[b] };
       st.inv = 1;
       window.flash(0.65); shake(22); punch(0.08); glitch(0.8);   // （この中の flash は見た目のセット用なので、ゲームの flash を呼ぶ）
       shockRing(W / 2, H * 0.45, { color: '#ffffff', size: 900, life: 0.7, width: 10 });
@@ -41,8 +45,8 @@
       }
       st.cracks = { t: 0, lines };
     }
-    if (COUNTS[b]) { st.count = { t: 0, text: COUNTS[b] }; shake(6); }
-    if (inside(b, DROPS) && b % 8 === 0 && gfx > 0) {   // 稲妻（2小節ごと）
+    if (sched().counts[b]) { st.count = { t: 0, text: sched().counts[b] }; shake(6); }
+    if (inside(b, sched().drops) && b % 8 === 0 && gfx > 0) {   // 稲妻（2小節ごと）
       const x0 = Math.random() * W, pts = [[x0, -10]];
       let x = x0, y = -10;
       while (y < CY) { y += 30 + Math.random() * 30; x += (Math.random() - 0.5) * 80 + (CX - x) * 0.15; pts.push([x, y]); }
@@ -63,9 +67,9 @@
     for (const q of st.bolts) q.t += dt;
     st.bolts = st.bolts.filter(q => q.t < 0.35);
     const bp = beatPos(T);
-    st.box += ((inside(bp, BOX) ? 1 : 0) - st.box) * Math.min(1, dt * 6);
+    st.box += ((inside(bp, sched().box) ? 1 : 0) - st.box) * Math.min(1, dt * 6);
     // 集中線（ドロップ中）
-    if (inside(bp, DROPS) && st.lines.length < [0, 24, 48][gfx] && Math.random() < dt * 60) {
+    if (inside(bp, sched().drops) && st.lines.length < [0, 24, 48][gfx] && Math.random() < dt * 60) {
       const a = Math.random() * TAU;
       st.lines.push({ a, r: 80 + Math.random() * 60, v: 900 + Math.random() * 900, len: 60 + Math.random() * 140 });
     }
@@ -92,7 +96,7 @@
 
   function background(T, look, k, bk, bp) {
     if (!comb) makeComb();
-    const tier = look.tier, drop = scene === 'play' && inside(bp, DROPS);
+    const tier = look.tier, drop = scene === 'play' && inside(bp, sched().drops);
     // 部屋（色がゆっくり変わるだけなので4コマに1回）
     ctx.drawImage(cachedLayer('exRoom', 4, 0, g => {
       const gr = g.createRadialGradient(CX, CY, 20, CX, CY, 700);
@@ -324,7 +328,7 @@
       }
     }
     const bp = beatPos(songTime);
-    if (scene === 'play' && inside(bp, DROPS) && gfx > 0) {   // ドロップ中: キックのたびに画面のふちが赤く脈打つ
+    if (scene === 'play' && inside(bp, sched().drops) && gfx > 0) {   // ドロップ中: キックのたびに画面のふちが赤く脈打つ
       const kk = kickOf(bp);
       const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.8);
       g.addColorStop(0, 'rgba(255,20,50,0)'); g.addColorStop(1, `rgba(255,20,50,${(0.4 * kk).toFixed(3)})`);

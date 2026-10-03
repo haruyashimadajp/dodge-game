@@ -34,7 +34,9 @@ dodge-game/
 │   ├── vertigo.js       ← 曲⑤「Vertigo」（オリジナル曲）の拍・場面・譜面 ★よく編集する★
 │   ├── vertigo-score.js      ← 曲⑤の楽譜データ / vertigo-env.js ← 曲⑤の音量データ
 │   ├── vertigo-compose.py    ← 曲⑤を作曲・合成するプログラム（Python）
-│   ├── extremeex.js     ← 曲⑥「ExtremeEX」（オリジナル曲・最高難度）の拍・場面・譜面
+│   ├── extremeex.js     ← 曲⑥「ExtremeEX」（オリジナル曲・最高難度）の拍・場面・譜面（リメイク版: 3分の全曲メドレー）
+│   ├── extremeex-classic.js ← 曲⑥の旧譜面（リメイク前の2分の版）
+│   ├── extremeex-remake-score.js / extremeex-remake-env.js / extremeex-remake-compose.py ← リメイク版の楽譜データ / 音量データ / 作曲プログラム
 │   ├── extremeex-score.js / extremeex-env.js ← 曲⑥の楽譜データ / 音量データ
 │   ├── extremeex-compose.py  ← 曲⑥を作曲・合成するプログラム（「ヴイーン」のシンセ = vwoon）
 │   ├── malware.js       ← 曲⑦「Malware」（オリジナル曲・バグとウイルス）の拍・場面・譜面
@@ -56,6 +58,7 @@ dodge-game/
 ├── visuals-glass.js ← 曲④の見た目（ガラスの部屋・割れて集まるガラスの球・虹の光・鍵盤の床・画面のひび）
 ├── visuals-gyro.js  ← 曲⑤の見た目（らせん階段を見下ろすめまいショット・ソール・バス風のうずまき・傾き計・水準器）
 ├── visuals-ex.js    ← 曲⑥の見た目（暴走する炉心・六角形のトンネル・DANGERゲージ・WARNINGの帯）
+├── visuals-exr.js   ← 曲⑥リメイク版の見た目（炉心の背景 ＋ 場面ごとに、その曲の弾やビームの形に衣がえ）
 ├── visuals-horror.js ← 曲⑩の見た目（廃病院・懐中電灯・裏の世界・監視カメラ・ジャンプスケア）
 ├── visuals-prism.js ← 曲⑪の見た目（暗い美術館・光の絵・プリズム・光の筆・金の額縁）
 ├── visuals-shiki.js ← 曲⑫の見た目（動く水墨画・春夏秋冬・墨のにじみ・筆文字と落款）
