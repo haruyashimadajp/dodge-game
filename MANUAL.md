@@ -740,6 +740,10 @@ ogWorm({ x, dir, n, crawl })                       // いもむし: 弾が n 個
 ogRise({ x, a, v })                                // 逆走弾: 床の下から上へ飛ぶ
 ```
 曲の中の演出は `ogFx('warning' / 'nyan' / 'awaken' / 'defeat' / 'shooter')` で呼ぶ（visuals-ongeki.js）。
+別の譜面「怨撃・真」（`id: 'ongeki-shin'`。`ongekiChart(true)` の中の `shinZones()`）は、曲に `dragMove: true` と書いてあるので
+左右の移動が **ドラッグ移動** になる（game.js の `dragMode()` / `takeDrag()`）。画面のどこでも指 / マウスを左右に動かすと、
+動かしたぶん（画面の幅 = フィールドの幅）だけキャラが一瞬で動く。左右のキーと移動ボタンは使わず、ジャンプはいつもどおり。
+ほかの曲でも、addSong に `dragMove: true` を書けば同じ操作になる。
 「怨撃」は原曲（細江慎治・SEGA）の音源を使っています。拍は音の解析で合わせた（1拍目 = 0.122秒、220 BPM）。
 
 ### 5-19. 軽くするための道具（visuals.js）

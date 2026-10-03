@@ -46,14 +46,20 @@ const OG_SECTIONS = [
   { t: ogBar(125), tier: 0, name: '',               sub: '',                              sky: ['#120a02', '#2a1a04'], color: '#ffe9a0', pulse: 0.006, stars: 0 },
 ];
 
-// 弾の速さ: 1.0〜1.36倍
+// 怨撃・真: 場面は同じで、相手と説明だけちがう
+const OG_SECTIONS_SHIN = OG_SECTIONS.map((s, i) => ({ ...s,
+  ...(i === 0 ? { sub: 'こんじきニャン Lv.1 ─ 画面をドラッグして移動！', sky: ['#1a1002', '#3a2606'], color: '#ffd23a' } : {}),
+  ...(s.name === 'いもむし地帯' ? { sub: 'いもむしが両側から' } : {}) }));
+
+// 弾の速さ: 1.0〜1.36倍（怨撃・真は 1.05〜1.47倍）
 function ogSpeedAt(t) {
   let i = 0;
   while (i + 1 < OG_SECTIONS.length && OG_SECTIONS[i + 1].t <= t) i++;
   return 1.0 + 0.06 * OG_SECTIONS[i].tier;
 }
+function ogShinSpeedAt(t) { return 1.05 + 0.07 * ((ogSpeedAt(t) - 1) / 0.06); }
 
-function ongekiChart() {
+function ongekiChart(shin = false) {
   const cues = [];
   const burst = (t, fn) => cues.push({ t, fn });
   const B = OG_BEAT;
@@ -116,6 +122,14 @@ function ongekiChart() {
     return out;
   };
 
+  const TAPS = [[1, 4], [0, 3], [2, 5], [1, 4], [0, 5], [2, 3], [1, 3], [2, 4]];
+  if (shin) {                                                   // 怨撃・真（下の shinZones）
+    shinZones();
+    ogfx(bar(125) - 0.05, 'defeat');
+    ogfx(bar(125) + 0.6, 'shooter');
+    return cues.sort((a, b) => a.t - b.t);
+  }
+
   // ===== 1〜11 小節 ｜ BATTLE START: あかニャンが降りてくる。ゆっくりのねらい撃ち ＋ ベル ======================
   ogfx(0.1, 'appear');
   for (let k = 3; k <= 11; k++) {
@@ -128,7 +142,6 @@ function ongekiChart() {
   aimed(bt(11, 3), { from: HAND(1), n: 1, size: 'm', v: 260, hand: 1 });
 
   // ===== 12〜27 小節 ｜ ビートが入る: TAP ノーツ ＋ 2拍ごとのねらい撃ち ＋ ベルの列 ============================
-  const TAPS = [[1, 4], [0, 3], [2, 5], [1, 4], [0, 5], [2, 3], [1, 3], [2, 4]];
   for (let k = 12; k <= 27; k++) {
     const pr = TAPS[k % 8], dense = k >= 20;
     note(bar(k), pr[0]);
@@ -327,6 +340,189 @@ function ongekiChart() {
   ogfx(bar(125) + 0.6, 'shooter');
 
   return cues.sort((a, b) => a.t - b.t);
+
+  /* ========================================================================================================
+     怨撃・真（別の譜面）: 操作はドラッグ移動（指 / マウスを動かしたぶんだけ、一瞬で動ける）。
+     そのぶん弾の密度を原作に近づけた。すき間が1拍で遠くへ飛ぶ所もある（ドラッグでさっと動かす）。
+     ======================================================================================================== */
+  function shinZones() {
+    const rnd = (a, b) => hsh(a, b);
+    const gapX = (a, b) => 110 + rnd(a, b) * 580;                 // すき間の場所（110〜690）
+
+    // ===== 1〜11 小節 ｜ こんじきニャン、はじめから本気 ======================================================
+    ogfx(0.1, 'appear');
+    for (let k = 3; k <= 11; k++) {
+      aimed(bar(k), { n: 5, v: 250, spread: 0.24, warn: 0.35 });
+      aimed(bt(k, 2), { n: 3, v: 280, spread: 0.3 });
+      if (k % 2 === 1) for (let i = 0; i < 4; i++) bell(bt(k, 1 + i * 0.5), 120 + ((k * 3 + i) % 6) * 112, { vy: 230 });
+    }
+    for (const [k, i, n] of [[5, 2, 18], [7, 2, 22], [9, 2, 24], [10, 2, 26], [11, 0, 28]]) ringFrom(bt(k, i), MOUTH, n, 170, { start: k * 0.13 });
+
+    // ===== 12〜27 小節 ｜ ノーツ ＋ 毎拍のねらい撃ち ＋ 手からの紫 ＋ 2小節ごとの輪 ============================
+    for (let k = 12; k <= 27; k++) {
+      const pr = TAPS[k % 8];
+      note(bar(k), pr[0]); note(bt(k, 2), pr[1]);
+      note(bt(k, 1), (pr[0] + 3) % 6); note(bt(k, 3), (pr[1] + 3) % 6);
+      if (k >= 20) { note(bt(k, 1.5), (pr[0] + 1) % 6); note(bt(k, 3.5), (pr[1] + 2) % 6); }
+      for (let i = 0; i < 4; i++) aimed(bt(k, i), { n: 3, v: 340, spread: 0.2 });
+      aimed(bt(k, 2), { from: HAND(k % 2 ? 1 : -1), size: 'm', v: 300, n: 2, spread: 0.35, hand: k % 2 ? 1 : -1 });
+      if (k % 2 === 0) ringFrom(bt(k, 0), MOUTH, 24, 210, { start: k * 0.21 });
+      if (k % 4 === 2) for (let i = 0; i < 6; i++) bell(bt(k, i * 0.5), LANE_X((k / 2 + i) % 6), { vy: 300 });
+    }
+
+    // ===== 28〜29 小節 ｜ WARNING: 危険弾の扇 ＋ 輪 ========================================================
+    ogfx(bar(28), 'warning');
+    aimed(bt(28, 2), { from: HAND(-1), size: 'l', n: 3, spread: 0.5, v: 280, warn: 0.6, hand: -1 });
+    aimed(bt(29, 0), { from: HAND(1), size: 'l', n: 3, spread: 0.5, v: 280, warn: 0.6, hand: 1 });
+    ringFrom(bt(29, 2), MOUTH, 32, 190, { start: 0.05 });
+    for (let i = 0; i < 8; i++) bell(bt(29, i * 0.5), 560 + (i % 4) * 60, { vy: 320 });
+
+    // ===== 30〜44 小節 ｜ 誘導地帯: あいているのは 1 本のレーンだけ。2拍ごとに遠くのレーンへ飛ぶ ================
+    // （飛ぶときの 1 列は、前のレーンから次のレーンまでが全部あいている）
+    const routeZone = (k0, lanes, vy) => {
+      lanes.forEach((ln, si) => {
+        for (let q = 0; q < 4; q++) {
+          const t = bt(k0, si * 2 + q / 2);
+          const lo = Math.min(lanes[Math.max(0, si - 1)], ln), hi = Math.max(lanes[Math.max(0, si - 1)], ln);
+          const safe = q <= 1 ? Array.from({ length: hi - lo + 1 }, (_, m) => lo + m) : [ln];   // 飛ぶ列: あいだのレーンも全部あく
+          laneRow(t, safe, { vy });
+          if (q === 1) bell(t, ln * 100 + 50, { vy });
+        }
+      });
+    };
+    routeZone(30, [7, 7, 4, 1, 3, 6, 3, 0, 2, 5, 7, 4, 1, 3], 440);          // 1回に飛ぶのは 3 レーン（300px）まで
+    routeZone(37, [3, 6, 3, 0, 2, 5, 2, 5, 7, 4, 1, 4, 6, 3, 0, 2], 460);
+    for (let j = 2; j < 56; j += 2) aimed(bt(30, j), { from: HAND(j % 4 ? 1 : -1), size: 'm', v: 330, hand: j % 4 ? 1 : -1 });
+
+    // ===== 45〜60 小節 ｜ 切り返し: 毎拍、左右のかべが交互に（境目はばらばら）＋ 4拍目はすき間の列 =================
+    for (let k = 45; k <= 60; k++) {
+      for (let i = 0; i < 4; i++) {
+        const t = bt(k, i), d = 330 + rnd(k, i) * 140;             // 1拍で動くのは最大 250px くらい
+        if (k === 45 && i === 0) continue;                         // 入り口（誘導地帯の最後は左寄り）
+        if (i === 3) gapRow(t, 250 + rnd(k, 9) * 300, 130, { vy: 470, sp: 32 });
+        else if ((k * 4 + i) % 2 === 0) blockRow(t, 0, d, { vy: 470 });
+        else blockRow(t, d, W, { vy: 470 });
+      }
+      if (k % 2 === 0) aimed(bt(k, 1), { n: 3, v: 340, spread: 0.18 });
+      bell(bt(k, 1), (k * 4 + 1) % 2 === 0 ? 760 : 40, { vy: 470 });
+    }
+
+    // ===== 61〜68 小節 ｜ 鍵盤地帯: 16分のシンセ全部に TAP。キックで 2 つ同時。手から紫 ==========================
+    {
+      let last = -1, s = 0;
+      for (const i of onsetsIn(L, 61, 69, 1, 0.7)) {
+        let ln = Math.floor(rnd(i, 3) * 6); if (ln === last) ln = (ln + 3) % 6;
+        note(s16(i), ln, { v: 860 }); last = ln; s++;
+        if (i % 8 === 0) note(s16(i), (ln + 2 + (s % 3)) % 6, { v: 860 });
+      }
+      for (let k = 61; k <= 68; k++) {
+        for (const i of [1, 3]) aimed(bt(k, i), { from: HAND(i === 1 ? -1 : 1), size: 'm', v: 340, hand: i === 1 ? -1 : 1 });
+        wallNote(bar(k), k % 2 ? -1 : 1, 2 * B);
+      }
+    }
+
+    // ===== 69〜76 小節 ｜ イライラ棒地帯: すき間 84px が、1拍ごとに 50〜120px 動く（となりの列のすき間は必ず重なる） ========================================
+    {
+      const pts = [400];
+      for (let j = 1; j <= 33; j++) pts.push(Math.max(110, Math.min(690, pts[j - 1] + (rnd(j, 69) < 0.5 ? -1 : 1) * (50 + rnd(j, 70) * 70))));
+      const at = j => { const a = Math.floor(j), f = j - a; return pts[a] + (pts[a + 1] - pts[a]) * f; };
+      for (let q = 0; q < 64; q++) {
+        const j = q / 2, w = j < 1.5 ? 0 : j < 4 ? Math.max(84, 600 - (j - 1.5) * 210) : 84;
+        if (w) gapRow(bt(69, j), at(j), w, { vy: 400, sp: 30 });
+        if (q % 4 === 1) bell(bt(69, j), at(j), { vy: 400 });
+      }
+    }
+
+    // ===== 77〜84 小節 ｜ 鍵盤地帯 II: 8分のノーツ ＋ WALL ＋ ねらい撃ち =================================================
+    {
+      const PAIRS = [[0, 2], [3, 5], [1, 4], [0, 5], [2, 3], [1, 5], [0, 4], [2, 5]];
+      for (let k = 77; k <= 84; k++) {
+        for (let q = 0; q < 8; q++) {
+          const p = PAIRS[(k * 8 + q) % 8];
+          note(bt(k, q / 2), p[q % 2], { v: 800 });
+        }
+        if (k % 2 === 1) note(bar(k), k % 4 === 1 ? 1 : 4, { hold: 2 * B, v: 800 });
+        wallNote(bar(k), -1, 4 * B - 0.05); wallNote(bar(k), 1, 4 * B - 0.05);
+        aimed(bt(k, 1), { n: 3, v: 320, spread: 0.2 });
+        aimed(bt(k, 3), { n: 3, v: 320, spread: 0.2 });
+        bell(bt(k, 1.5), 400 + (k % 2 ? 120 : -120), { vy: 300 });
+      }
+    }
+
+    // ===== 85〜92 小節 ｜ ボコボコにしてやるニャン地帯: 毎拍のパンチ ＋ 毎小節の横パンチ ＋ ねらい撃ち =================
+    ogfx(bar(84), 'nyan');
+    for (let k = 85; k <= 92; k++) {
+      for (let i = 0; i < 4; i++) {
+        if (k === 92 && i >= 2) break;
+        const s = i % 2 ? 1 : -1;
+        fire(bt(k, i), 0.55, delay => {
+          const h = HAND(s);
+          ogPunch({ x0: h.x, y0: h.y, x1: clampX(pX(), 40), y1: GROUND_Y - 30, r: 30, delay, v: 2000, color: s < 0 ? '#ff3b4f' : '#ff7a3b' });
+          if (typeof ogFx === 'function') ogFx('punch', s);
+        });
+      }
+      const s = k % 2 ? -1 : 1;
+      if (k < 92) fire(bt(k, 3), 0.7, delay => ogPunch({ x0: s < 0 ? -40 : W + 40, y0: GROUND_Y - 24, x1: s < 0 ? W + 60 : -60, y1: GROUND_Y - 24, r: 24, v: 2200, delay, back: false, color: '#ffb02e' }));
+      aimed(bt(k, 1), { n: 3, v: 320, spread: 0.45 });
+      aimed(bt(k, 3), { n: 3, v: 320, spread: 0.45 });
+      bell(bt(k, 3), 120 + (k % 4) * 180, { vy: 300 });
+    }
+    fire(bt(92, 2), 0.7, delay => {
+      for (const s of [-1, 1]) ogPunch({ x0: HAND(s).x, y0: HAND(s).y, x1: s < 0 ? 170 : W - 170, y1: GROUND_Y - 30, r: 34, delay, color: '#ff3b4f' });
+      if (typeof ogFx === 'function') ogFx('punch', 0);
+    });
+
+    // ===== 93〜100 小節 ｜ 隕石地帯: 毎拍の隕石（小さい弾 9 つ）＋ 手からの紫 =========================================
+    for (let k = 93; k <= 100; k++) {
+      for (let i = 0; i < 4; i++) {
+        fire(bt(k, i) - 0.5, 0.7, delay => {
+          const tx = clampX(pX(), 50), x0 = clampX(tx + (rnd(k, i) - 0.5) * 600, 40);
+          ogMeteor({ x0, tx, delay, fall: 1200 + 40 * (k - 93), shards: 9 });
+        });
+      }
+      aimed(bt(k, 1), { from: HAND(-1), size: 'm', v: 320, hand: -1 });
+      aimed(bt(k, 3), { from: HAND(1), size: 'm', v: 320, hand: 1 });
+      for (let i = 0; i < 2; i++) bell(bt(k, 1 + i * 2), 80 + rnd(k, i + 7) * 640, { vy: 280 });
+    }
+
+    // ===== 101〜108 小節 ｜ いもむし地帯: 両側からいもむし ＋ 2拍ごとのすき間の雨 ＋ 輪 ===============================
+    ringFrom(bt(101, 0), MOUTH, 36, 180, { start: 0.1 });
+    ringFrom(bt(101, 2), MOUTH, 36, 200, { start: 0.19 });
+    for (let k = 102; k <= 108; k++) {
+      for (const s of [-1, 1]) fire(bar(k) + (s > 0 ? 2 * B : 0), 0.6, delay => ogWorm({ x: s < 0 ? 150 : W - 150, dir: s < 0 ? 1 : -1, delay, n: 5, gap: 12, amp: 100, crawl: 400, color: s < 0 ? GOLD : PURPLE }));
+      for (const i of [1, 3]) gapRow(bt(k, i), gapX(k, i), 200, { vy: 320, sp: 40 });
+      aimed(bt(k, 0), { n: 3, v: 300, spread: 0.3 });
+      bell(bt(k, 1), gapX(k, 1), { vy: 320 });
+    }
+
+    // ===== 109〜116 小節 ｜ 逆走地帯: 毎拍、自分の足もと ＋ 3 か所から上へ。ななめの列は毎小節 ==========================
+    for (let k = 109; k <= 116; k++) {
+      for (let i = 0; i < 4; i++) {
+        fire(bt(k, i), 0.5, delay => {
+          const x = clampX(pX(), 30);
+          ogRise({ x, v: 600, size: i % 2 ? 's' : 'm', delay });
+          for (let m = 0; m < 3; m++) { const xx = 40 + rnd(k * 4 + i, m) * 720; if (Math.abs(xx - x) > 60) ogRise({ x: xx, v: 560, size: 's', delay }); }
+        });
+      }
+      for (let i = 0; i < 6; i++) fire(bt(k, 1.5) + i * B / 4, 0.5, delay => ogRise({ x: k % 2 ? 40 + i * 30 : W - 40 - i * 30, a: k % 2 ? -Math.PI / 2 + 0.55 : -Math.PI / 2 - 0.55, v: 640, size: 's', delay }));
+      aimed(bt(k, 2), { n: 5, v: 320, spread: 0.22 });
+      bell(bt(k, 0.5), 400 + (k % 2 ? 200 : -200), { vy: 300 });
+    }
+
+    // ===== 117〜124 小節 ｜ 高速地帯: 8分ごとの速い列（すき間 120px が1拍ごとに飛ぶ）＋ ねらい撃ち ＋ 輪 ================
+    for (let k = 117; k <= 124; k++) {
+      for (let q = 0; q < 8; q++) {
+        if (k === 117 && q < 2) continue;                              // 入り口
+        const t = bt(k, q / 2), g = gapX(k, Math.floor(q / 2));
+        if (q % 2 === 0 && !(k === 117 && q === 2)) { const gp = gapX(q === 0 ? k - 1 : k, q === 0 ? 3 : q / 2 - 1); const xs = []; for (let x = 20; x < W; x += 40) if (Math.abs(x - g) > 60 && Math.abs(x - gp) > 60) xs.push(x); row(t, xs, { vy: 680 }); }
+        else gapRow(t, g, 120, { vy: 680, sp: 40 });
+      }
+      for (let i = 0; i < 4; i++) aimed(bt(k, i + 0.5), { from: HAND(i % 2 ? 1 : -1), size: 'm', v: 440, hand: i % 2 ? 1 : -1 });
+      ringFrom(bt(k, 2), MOUTH, 24, 270, { start: k * 0.17 });
+      bell(bt(k, 1), gapX(k, 1), { vy: 680 });
+    }
+    aimed(bt(124, 2), { size: 'l', v: 380, n: 5, spread: 0.35, warn: 0.4 });
+  }
 }
 
 addSong({
@@ -349,4 +545,32 @@ addSong({
   overTitle: 'LOSE',
   preview: 31.7,                   // タイトルで流す試聴の開始秒（ブレイクのあとの弾幕の入り）
   bestKey: 'dodge_best_ongeki',
+});
+
+// 怨撃・真（原作で 怨撃 に勝つと出てくる、もう 1 つの譜面）。相手は こんじきニャン Lv.1。
+// 操作は原作のレバーのように、画面をドラッグして左右に動く（dragMove。game.js の「ドラッグ移動」）。弾の密度は原作に近い。
+addSong({
+  id: 'ongeki-shin',
+  variantOf: 'ongeki',
+  variant: '怨撃・真',
+  title: '怨撃・真',
+  meta: 'BPM 220 · 2:15 · 細江慎治 · オンゲキ · ドラッグで移動（原作のレバー）· 鬼むずかしい',
+  file: 'Ongeki.mp3',
+  bpm: 220, beat: OG_BEAT, end: 137.6,
+  beatTime: ogBeatTime,
+  beatPos: ogBeatPos,
+  speedAt: ogShinSpeedAt,
+  env: ENV_ONGEKI,
+  sections: OG_SECTIONS_SHIN,
+  build: () => ongekiChart(true),
+  theme: 'ongeki',
+  shin: true,                      // visuals-ongeki.js: はじめから こんじきニャン
+  dragMove: true,                  // 左右はドラッグで動く（ジャンプはいつもどおり）
+  titleLook: { sky: ['#1a1002', '#3a2606'], color: '#ffd23a', tier: 1, pulse: 0.012, stars: 0 },
+  titleBpm: 220,
+  get clearTitle() { return hitsTaken === 0 ? 'WIN ─ NO DAMAGE' : 'WIN'; },
+  get clearText() { return ogStats.total && ogStats.got >= ogStats.total ? `FULL BELL!  YOU ARE A SUPER SHOOTER!!` : `BELL ${ogStats.got} / ${ogStats.total}  ─  YOU ARE A SUPER SHOOTER!!`; },
+  overTitle: 'LOSE',
+  preview: 31.7,
+  bestKey: 'dodge_best_ongeki_shin',
 });

@@ -212,7 +212,8 @@
     st.flame = st.flame.filter(f => f.life > 0);
   }
 
-  const goldAt = T => inSong() && st.awaken >= 0 && T >= st.awaken;
+  const isShin = () => !!(song && song.shin);                     // 怨撃・真: はじめから こんじきニャン
+  const goldAt = T => isShin() || (inSong() && st.awaken >= 0 && T >= st.awaken);
   function catPos(T, k) {
     let y = OG_CAT.y;
     if (inSong() && st.appear >= 0 && T - st.appear < 2.2) y = OG_CAT.y - 220 * Math.pow(1 - easeOut((T - st.appear) / 2.2), 1);
@@ -506,11 +507,29 @@
   function hpAt(T) {
     const t3 = BAR(3), t101 = BAR(101), t125 = BAR(125);
     if (T < t3) return 1;
+    if (isShin()) return 1 - clamp01((T - t3) / (t125 - t3));
     if (st.awaken < 0 || T < st.awaken) return 1 - 0.88 * clamp01((T - t3) / (t101 - t3));
     return 1 - clamp01((T - st.awaken - 0.8) / (t125 - st.awaken - 0.8)) * (T - st.awaken < 0.8 ? 0 : 1);
   }
   function banner() {
     const T = songTime, gold = goldAt(T);
+    if (scene === 'play' && typeof dragMode === 'function' && dragMode()) {
+      // オンゲキのレバー: 画面の下に、いまの左右の位置を示すつまみ（ドラッグで動かす）
+      const px = player.x + player.w / 2, y = H - 18;
+      ctx.fillStyle = 'rgba(10,2,10,0.7)'; roundRect(30, y - 6, W - 60, 12, 6); ctx.fill();
+      ctx.strokeStyle = rgba(GOLD, 0.5); ctx.lineWidth = 1.5; ctx.stroke();
+      const g = ctx.createLinearGradient(0, y - 14, 0, y + 14); g.addColorStop(0, '#fff3c0'); g.addColorStop(1, '#c08a10');
+      ctx.fillStyle = g; roundRect(px - 22, y - 13, 44, 26, 9); ctx.fill();
+      ctx.strokeStyle = '#5a3a02'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = 'rgba(90,58,2,0.8)'; for (const dx of [-8, 0, 8]) ctx.fillRect(px + dx - 1, y - 7, 2, 14);
+      if (T < 4.5) {                                                   // はじめだけ: 操作の説明
+        const a = clamp01((4.5 - T) / 0.6) * (0.75 + 0.25 * Math.sin(T * 6));
+        ctx.font = `800 20px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = `rgba(255,243,192,${a.toFixed(3)})`;
+        ctx.fillText('⟵  画面をドラッグして移動  ⟶', W / 2, 470);
+        ctx.font = `700 14px ${FONT}`; ctx.fillText('動かしたぶんだけ、一瞬で動く ─ ジャンプはいつものボタン', W / 2, 498);
+      }
+    }
     if (scene === 'play' || scene === 'over' || scene === 'clear') {
       // 相手の名前と体力
       const hp = st.defeat >= 0 && T >= st.defeat ? 0 : (st.awaken >= 0 && T >= st.awaken && T < st.awaken + 0.8 ? clamp01((T - st.awaken) / 0.8) : hpAt(T));
@@ -612,8 +631,8 @@
     const T = titleClock();
     ctx.globalAlpha = 0.12 + 0.08 * k; ctx.drawImage(st.kanji, W / 2 - 200, 110, 400, 400); ctx.globalAlpha = 1;
     const y = 300 - 8 * k;
-    for (const sgn of [-1, 1]) drawGlove(W / 2 + sgn * (150 + 10 * k), y + 30 + Math.sin(T * 2 + sgn) * 6, 32, sgn, false, 1, k);
-    drawCat(W / 2, y, 1.6, false, T, k);
+    for (const sgn of [-1, 1]) drawGlove(W / 2 + sgn * (150 + 10 * k), y + 30 + Math.sin(T * 2 + sgn) * 6, 32, sgn, isShin(), 1, k);
+    drawCat(W / 2, y, 1.6, isShin(), T, k);
   }
 
   THEMES.ongeki = {

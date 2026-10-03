@@ -233,6 +233,7 @@ details.settings-group[open] > summary { margin-bottom: 4px; }
    the zone and jumps to wherever the finger lands. */
 .stick-base { display: none; }
 .move-zone.stick .lr-pad { display: none; }
+.touch.drag .move-zone { visibility: hidden; }   /* ドラッグ移動の譜面（怨撃・真）: 画面全体がドラッグの場所 */
 .move-zone.stick {
   border-radius: 24px;
   background: rgba(91, 140, 255, 0.07);

@@ -193,6 +193,7 @@ function reset() {
   freezeUntil = -1;
   hitsTaken = 0;
   songTime = 0;
+  drag.dx = 0; drag.id = null;
   stageReset();
   echoReset();
   malwareReset();
@@ -209,7 +210,8 @@ function update(dt) {
   if (held(LEFT))  dir -= 1;
   if (held(RIGHT)) dir += 1;
   let maxSpeed = PHYS.moveSpeed;
-  if (touchMove.x !== 0) {             // on-screen pad / stick wins over keys
+  if (dragMode()) dir = 0;             // ドラッグ移動の譜面（怨撃・真）: 左右のキーとボタンは使わない
+  else if (touchMove.x !== 0) {        // on-screen pad / stick wins over keys
     dir = touchMove.x;
     maxSpeed = PHYS.moveSpeed * touchMove.k;
   }
@@ -355,8 +357,11 @@ function segmentHitsPlayer(x1, y1, x2, y2, r) {
 function moveAndCollide(dt) {
   // Horizontal（自分の速さ ＋ 傾きですべる速さ ＋ 地面にいればベルトコンベアの速さ）
   const onFloor = player.onGround && player.y + player.h >= GROUND_Y - 1;
-  const dx = (player.vx + stage.slideV + (onFloor ? stage.conveyor : 0)) * dt;
+  const dd = takeDrag();                // ドラッグ移動: 指 / マウスが動いたぶんだけ、そのまま動く（速さの上限なし）
+  if (dd) player.facing = Math.sign(dd);
+  const dx = (player.vx + stage.slideV + (onFloor ? stage.conveyor : 0)) * dt + dd;
   player.x += dx;
+  player.x = Math.max(0, Math.min(W - player.w, player.x));   // 画面の外へは出ない（速く動くと床からはみ出して落ちるのを防ぐ）
   for (const p of platforms) {
     if (p.ground || platformGone(p)) continue;   // ground spans full width; no side walls
     if (overlapRect(player, p)) {
@@ -711,6 +716,7 @@ setMoveStyle(store.get('dodge_slideMove') || 'slide');
 function updateTouchControls() {
   const show = controlMode === 'mobile' && running;
   touchControls.classList.toggle('hidden', !show);
+  touchControls.classList.toggle('drag', dragMode());     // ドラッグ移動の譜面: 移動ボタンを消して、画面全体をドラッグできるように
   if (!show) { releaseMove(); releaseJump(); }
   fitStage();
 }
@@ -818,6 +824,27 @@ jumpBtn.addEventListener('pointerdown', e => {
 for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) {
   jumpBtn.addEventListener(ev, e => { if (e.pointerId === jumpPointer) releaseJump(); });
 }
+
+// ---- ドラッグ移動（譜面に dragMove: true と書いた曲だけ。怨撃・真 = オンゲキのレバーの再現）----------
+// 画面のどこでも、指 / マウス（ボタンを押したまま）を左右に動かすと、動かしたぶんだけキャラが動く。
+// 画面のはしからはしまで指を動かせば、キャラもフィールドのはしからはしまで動く（一瞬で動かせば一瞬で動く）。
+// ジャンプはいつものボタン / キーのまま。
+const drag = { id: null, lastX: 0, dx: 0 };
+function dragMode() { return !!(song && song.dragMove); }
+function takeDrag() { const d = drag.dx; drag.dx = 0; return d; }
+const dragIgnore = e => e.target.closest && e.target.closest('.overlay, .pause-btn, .modal, #jumpBtn, button, input');
+document.addEventListener('pointerdown', e => {
+  if (!dragMode() || !running || paused || drag.id !== null || dragIgnore(e)) return;
+  drag.id = e.pointerId; drag.lastX = e.clientX;
+});
+document.addEventListener('pointermove', e => {
+  if (e.pointerId !== drag.id) return;
+  if (!running || paused) { drag.id = null; return; }
+  const r = cv.getBoundingClientRect();
+  drag.dx += (e.clientX - drag.lastX) * W / Math.max(1, r.width);   // 画面の幅 = フィールドの幅
+  drag.lastX = e.clientX;
+});
+for (const ev of ['pointerup', 'pointercancel']) document.addEventListener(ev, e => { if (e.pointerId === drag.id) drag.id = null; });
 
 // Block the long-press text selection / context menu (iOS & Android). Without
 // this, holding a touch button could start selecting the pause or arrow
