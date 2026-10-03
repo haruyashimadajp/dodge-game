@@ -29,7 +29,7 @@ const ogBar = k => ogBeatTime((k - 1) * 4);             // k 小節目の頭（�
 const OG_CAT = { x: 400, y: 112 };                      // あかニャンのいる所（弾の出どころ）
 
 const OG_SECTIONS = [
-  { t: 0,          tier: 0, name: 'BATTLE START',  sub: 'あかニャン Lv.60 があらわれた',  sky: ['#12030a', '#2a0610'], color: '#ff5fb4', pulse: 0.004, stars: 0 },
+  { t: 0,          tier: 0, name: 'BATTLE START',  sub: 'あかニャン Lv.60 ─ 画面をドラッグして移動！',  sky: ['#12030a', '#2a0610'], color: '#ff5fb4', pulse: 0.004, stars: 0 },
   { t: ogBar(12),  tier: 1, name: '怨撃',          sub: '細江慎治 ─ 220 BPM ─ LUNATIC',  sky: ['#1a040c', '#3a0814'], color: '#ff5fb4', pulse: 0.012, stars: 0 },
   { t: ogBar(28),  tier: 1, name: 'WARNING',       sub: '弾幕が来る',                    sky: ['#2a0306', '#0a0003'], color: '#ff3b3b', pulse: 0.004, stars: 0 },
   { t: ogBar(30),  tier: 2, name: '誘導地帯 I',     sub: 'ベルの道をたどれ ─ まずは右はじへ', sky: ['#200410', '#46081c'], color: '#ff5fb4', pulse: 0.016, stars: 0 },
@@ -528,7 +528,7 @@ function ongekiChart(shin = false) {
 addSong({
   id: 'ongeki',
   title: '怨撃',
-  meta: 'BPM 220 · 2:15 · 細江慎治 · オンゲキ bright MEMORY · LUNATIC（とてもむずかしい）',
+  meta: 'BPM 220 · 2:15 · 細江慎治 · オンゲキ · ドラッグで移動 · LUNATIC',
   file: 'Ongeki.mp3',
   bpm: 220, beat: OG_BEAT, end: 137.6,
   beatTime: ogBeatTime,
@@ -538,6 +538,7 @@ addSong({
   sections: OG_SECTIONS,
   build: ongekiChart,
   theme: 'ongeki',                 // visuals-ongeki.js（オンゲキのレーンと あかニャン）
+  dragMove: true,                  // 左右はドラッグで動く（原作のレバー。ジャンプはいつもどおり）
   titleLook: { sky: ['#1a040c', '#3a0814'], color: '#ff5fb4', tier: 1, pulse: 0.012, stars: 0 },
   titleBpm: 220,
   get clearTitle() { return hitsTaken === 0 ? 'WIN ─ NO DAMAGE' : 'WIN'; },
@@ -554,7 +555,7 @@ addSong({
   variantOf: 'ongeki',
   variant: '怨撃・真',
   title: '怨撃・真',
-  meta: 'BPM 220 · 2:15 · 細江慎治 · オンゲキ · ドラッグで移動（原作のレバー）· 鬼むずかしい',
+  meta: 'BPM 220 · 2:15 · 細江慎治 · オンゲキ · ドラッグで移動 · 鬼むずかしい',
   file: 'Ongeki.mp3',
   bpm: 220, beat: OG_BEAT, end: 137.6,
   beatTime: ogBeatTime,
