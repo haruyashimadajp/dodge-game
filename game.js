@@ -2578,6 +2578,147 @@ function baton({ px = W / 2, py = 96, len = 620, t0, beats = 16, width = 12, del
   });
 }
 
+/* ---- ここから下は「怨撃」で生まれた形態（オンゲキ）-----------------------------------
+   オンゲキ（SEGA の音ゲー）の弾幕を再現したもの。
+     弾の大きさ   … ピンク（小）/ 紫（中）/ オレンジ（大きい「危険弾」）
+     ベル         … 金色の鈴。さわると取れる（当たりではない）。全部取ると FULL BELL
+     ノーツ       … 赤・緑・青の TAP（平たい板）と HOLD（長い板）。判定ライン（床）にちょうど拍で着く
+     ネコパンチ   … あかニャンのグローブ。予告の帯の上を一気に飛んでくる（ボコボコにしてやるニャン地帯）
+     隕石         … 大きい火の玉。床に着くと小さい弾が飛び散る（隕石地帯）
+     いもむし     … 弾がつながったいもむし。くねくね降りてきて、床をはう（いもむし地帯）
+     逆走         … 床の下から上へ飛ぶ弾（逆走地帯）
+   -------------------------------------------------------------------------------------- */
+const OG_SHOT = { s: { r: 7, color: '#ff5fb4' }, m: { r: 10, color: '#b36bff' }, l: { r: 15, color: '#ff8a1f' } };
+const ogStats = { bells: 0, got: 0, total: 0 };          // ベルの数（譜面を作るときに total を数える）
+
+// ★オンゲキの弾★ a = 飛ぶ向き（ラジアン）。aim = true なら、飛び出す瞬間にプレイヤーをねらう（spread だけずらす）
+// accel = 1秒ごとに速さが何倍になるか（1 より大きいと加速、小さいと減速）
+function ogShot({ x, y, a = Math.PI / 2, v = 300, size = 's', aim = false, spread = 0, accel = 1, vmin = 0, delay = 0, color, spd }) {
+  const S = OG_SHOT[size];
+  return spawn({
+    x, y, r: S.r, delay, color: color || S.color, style: 'og-' + size, spd, a, v, aim, spread, accel, vmin,
+    move(b, dt) {
+      if (b.aim && !b.aimed) { const p = playerXY(); b.a = Math.atan2(p.y - b.y, p.x - b.x) + b.spread; b.aimed = true; }
+      if (b.accel !== 1) b.v = Math.max(b.vmin, b.v * Math.pow(b.accel, dt));
+      b.vx = Math.cos(b.a) * b.v; b.vy = Math.sin(b.a) * b.v;
+      b.x += b.vx * dt; b.y += b.vy * dt;
+    },
+  });
+}
+
+// ★ベル★ 上から落ちてくる金色の鈴。さわると取れる（safe なので当たりにはならない）
+function ogBell({ x, y = -14, vx = 0, vy = 280, delay = 0 }) {
+  return spawn({
+    kind: 'bell', x, y, vx, vy, r: 11, delay, safe: true, spd: 1,
+    move(b, dt) {
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (scene === 'play' && circleHitsPlayer(b.x, b.y, b.r + 6)) {
+        b.dead = true; ogStats.got++;
+        if (typeof ogBellGot === 'function') ogBellGot(b);
+      } else if (b.y > GROUND_Y + 14) b.dead = true;
+    },
+  });
+}
+
+// ★ノーツ★ 曲の時刻 t に、x の所の判定ライン（床）へちょうど着く平たい板。hold > 0 なら HOLD（hold 秒ぶん長い）
+// 当たり判定は板の四角。床に着いたらはじけて（hold は最後まで流れて）消える。{at, go} を返す（keyDrop と同じ）
+function ogNote(t, x, { w = 104, h = 16, v = 760, hold = 0, color = '#ff4d6d', warn = 0.3, wall = false } = {}) {
+  const len = h + hold * v, y0 = -12, travel = (GROUND_Y - y0) / v;
+  return { at: t - travel - warn, go: () => spawn({
+    kind: 'ognote', x, y: y0, w, h: len, r: len, vy: v, delay: warn, color, spd: 1, hold, wall,
+    move(b, dt) {
+      b.y += b.vy * dt;                                           // b.y = 板の下のはし
+      if (!b.landed && b.y >= GROUND_Y) { b.landed = true; if (typeof ogNoteHit === 'function') ogNoteHit(b); }
+      if (b.y - b.h > GROUND_Y - 2) b.dead = true;
+    },
+    hits: b => {
+      const top = b.y - b.h, bot = Math.min(b.y, GROUND_Y);
+      return bot > top && player.x < b.x + b.w / 2 - 3 && player.x + player.w > b.x - b.w / 2 + 3 && player.y < bot - 3 && player.y + player.h > top + 3;
+    },
+  }) };
+}
+
+// ★ネコパンチ★ (x0, y0) に現れたグローブが、予告（delay 秒、通り道が光る）のあと (x1, y1) へ一気に飛び、少し止まってもどる
+// back = false なら、もどらずにそのまま画面の外へ（横からのパンチ）
+function ogPunch({ x0, y0, x1, y1, r = 30, delay = 0.7, v = 1800, hold = 0.14, back = true, color = '#ff3b4f' }) {
+  return spawn({
+    kind: 'glove', x: x0, y: y0, x0, y0, x1, y1, r, delay, v, hold, back, color, spd: 1, noFreeze: true,
+    move(b, dt) {
+      const L = Math.hypot(b.x1 - b.x0, b.y1 - b.y0), tOut = L / b.v, a = b.age;
+      let k;
+      if (!b.back && a >= tOut) { b.dead = true; return; }
+      if (a < tOut) k = a / tOut;
+      else if (a < tOut + b.hold) {
+        k = 1;
+        if (!b.hitFx) { b.hitFx = true; if (typeof ogPunchFx === 'function') ogPunchFx(b); }
+      } else k = Math.max(0, 1 - (a - tOut - b.hold) / (tOut * 1.4 + 0.1));
+      b.k = k;
+      b.x = b.x0 + (b.x1 - b.x0) * k; b.y = b.y0 + (b.y1 - b.y0) * k;
+      if (a > tOut * 2.4 + b.hold + 0.1) b.dead = true;
+    },
+    hits: b => circleHitsPlayer(b.x, b.y, b.r),
+  });
+}
+
+// ★隕石★ (x0, -40) から、床の tx の所へ落ちる大きい火の玉。予告 = 床に「!」の照準。着くと小さい弾が上へ飛び散る
+function ogMeteor({ x0, tx, fall = 900, r = 26, shards = 7, delay = 0.8, color = '#ff8a1f' }) {
+  const y0 = -40, ty = GROUND_Y - r, L = Math.hypot(tx - x0, ty - y0);
+  return spawn({
+    kind: 'ogmeteor', x: x0, y: y0, x0, y0, tx, ty, r, delay, color, shards, spd: 1,
+    vx: (tx - x0) / L * fall, vy: (ty - y0) / L * fall,
+    move(b, dt) {
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.y >= b.ty) {
+        b.dead = true;
+        for (let i = 0; i < b.shards; i++) {                      // 上向きの扇に飛び散る（床すれすれには飛ばない）
+          const a = -Math.PI + 0.5 + i / (b.shards - 1) * (Math.PI - 1.0);
+          ogShot({ x: b.tx, y: GROUND_Y - 14, a, v: 250, size: 's', accel: 0.75, vmin: 120 });
+        }
+        if (typeof ogMeteorFx === 'function') ogMeteorFx(b);
+      }
+    },
+    hits: b => circleHitsPlayer(b.x, b.y, b.r),
+  });
+}
+
+// ★いもむし★ 弾が n 個つながったいもむし。上からくねくね降りてきて（ゆれ幅 amp）、床に着いたら dir の向きへ床をはう
+// （1拍ごとに、ぐっとのびる）。床をはうときは跳びこえるか、足場の上へ
+function ogWorm({ x, dir = 1, n = 6, gap = 14, vy = 230, amp = 110, freq = 0.7, crawl = 300, r = 10, delay = 0.6, color = '#ff5fb4' }) {
+  const y = -20;
+  return spawn({
+    kind: 'imomushi', x, y, x0: x, dir, n, gap, vy, amp, freq, crawl, r, delay, color, spd: 1, trail: [{ x, y }], segs: [{ x, y }], floor: false,
+    move(b, dt) {
+      if (!b.floor) {
+        b.y += b.vy * dt;
+        b.x = b.x0 + Math.sin(b.age * b.freq * TAU) * b.amp;
+        if (b.y >= GROUND_Y - b.r) { b.y = GROUND_Y - b.r; b.floor = true; }
+      } else {
+        b.x += b.dir * b.crawl * (0.6 + 0.8 * beatKick(songTime)) * dt;    // しゃくとりむしのように、拍でぐっとのびる
+      }
+      b.trail.unshift({ x: b.x, y: b.y });
+      const segs = [{ x: b.x, y: b.y }];
+      let dist = 0, need = b.gap, i = 1;
+      for (; i < b.trail.length && segs.length < b.n; i++) {
+        const A = b.trail[i - 1], B = b.trail[i], L = Math.hypot(B.x - A.x, B.y - A.y);
+        while (L > 0 && dist + L >= need && segs.length < b.n) { const k = (need - dist) / L; segs.push({ x: A.x + (B.x - A.x) * k, y: A.y + (B.y - A.y) * k }); need += b.gap; }
+        dist += L;
+      }
+      const last = b.trail[b.trail.length - 1];
+      while (segs.length < b.n) segs.push({ x: last.x, y: last.y });
+      if (b.trail.length > i + 2) b.trail.length = i + 2;
+      b.segs = segs;
+      if (b.floor && segs.every(s => s.x < -40 || s.x > W + 40)) b.dead = true;
+    },
+    hits: b => b.segs.some((s, i) => circleHitsPlayer(s.x, s.y, i ? b.r * 0.85 : b.r)),
+  });
+}
+
+// ★逆走弾★ 床の下から上へ飛ぶ（ふつうの弾と逆向き）。予告 = 床から上へのびる光の帯
+function ogRise({ x, v = 520, a = -Math.PI / 2, size = 'm', delay = 0.6, color }) {
+  const S = OG_SHOT[size];
+  return spawn({ x, y: GROUND_Y + 16, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: S.r, delay, color: color || S.color, style: 'og-' + size, lane: [Math.cos(a), Math.sin(a)], rise: true });
+}
+
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
 let chart = [];
 let chartIndex = 0;

@@ -55,7 +55,9 @@ dodge-game/
 │   ├── tectonic.js      ← 曲⑭「TECTONIC」（オリジナル曲・重低音のダブステップ・地震。のどうた・石のベース・金床のスネア）の拍・場面・譜面
 │   ├── tectonic-score.js / tectonic-env.js / tectonic-compose.py ← 曲⑭の楽譜データ / 音量データ / 作曲プログラム
 │   ├── overture.js      ← 曲⑮「Grand Overture」（オリジナル曲・オーケストラ）の拍・場面・譜面
-│   └── overture-score.js / overture-env.js / overture-compose.py ← 曲⑮の楽譜データ / 音量データ / 作曲プログラム
+│   ├── overture-score.js / overture-env.js / overture-compose.py ← 曲⑮の楽譜データ / 音量データ / 作曲プログラム
+│   ├── ongeki.js        ← 曲⑯「怨撃」（細江慎治・オンゲキの LUNATIC ボス曲）の拍・場面・譜面。小節の番号は原作の譜面と同じ
+│   └── ongeki-score.js / ongeki-env.js ← 曲⑯の音の解析データ（キック・ハイハット・シンセの位置）/ 音量データ
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔の中・ステンドグラスのバラ窓の時計・光の筋・真鍮の歯車）
@@ -69,11 +71,12 @@ dodge-game/
 ├── visuals-candy.js ← 曲⑬の見た目（パステルのお菓子の国・虹・ケーキのお城・顔のある雲・うさぎ）
 ├── visuals-quake.js ← 曲⑭の見た目（地下の空洞のライブ会場・マグマの割れ目・スピーカーの山・地震計・震度メーター）
 ├── visuals-hall.js  ← 曲⑮の見た目（コンサートホール・弾いているパートが光るオーケストラ・指揮者・幕・強弱記号）
+├── visuals-ongeki.js ← 曲⑯の見た目（オンゲキのレーン・あかニャン／こんじきニャン・体力・ベルの数・YOU ARE A SUPER SHOOTER!!）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
 ├── style.css    ← 色やレイアウト（タイトル画面・ボタンの見た目）
-├── the EmpErroR.mp3 / Re-Unknown_X.mp3 ← 曲
+├── the EmpErroR.mp3 / Re-Unknown_X.mp3 / Ongeki.mp3 ← 原曲の曲
 └── MANUAL.md    ← この説明書
 ```
 
@@ -725,7 +728,21 @@ organPipes({ cols, n })                     // パイプオルガン: 画面を 
 baton({ t0, beats, len })                   // 指揮棒: 上から光の棒が、4拍子の振り方（下・左・右・上）で beats 拍のあいだ動く
 ```
 
-### 5-18. 軽くするための道具（visuals.js）
+### 5-18. 曲⑯「怨撃」で生まれた形（オンゲキ）
+
+```js
+ogShot({ x, y, a, v, size, aim, spread, accel })   // オンゲキの弾。size = 's' ピンク（小）/ 'm' 紫（中）/ 'l' オレンジ（危険弾）。aim = true で発射の瞬間にねらう
+ogBell({ x, y, vy })                               // ベル（金色の鈴）。さわると取れる（当たりではない）。ogStats.got / ogStats.total に数える
+ogNote(t, x, { w, hold, color, wall })             // ノーツ: 時刻 t に判定ライン（床）へちょうど着く板。hold で HOLD、wall で横はしの WALL。{at, go} を返す
+ogPunch({ x0, y0, x1, y1, r, back })              // ネコパンチ: 予告の帯の上を (x0,y0) → (x1,y1) へ一気に飛んでもどる。back: false でもどらない
+ogMeteor({ x0, tx })                               // 隕石: 床の tx（「！」の照準）へ落ちて、小さい弾が上向きの扇に飛び散る
+ogWorm({ x, dir, n, crawl })                       // いもむし: 弾が n 個つながる。くねくね降りてきて、床を dir の向きにはう（跳びこえる）
+ogRise({ x, a, v })                                // 逆走弾: 床の下から上へ飛ぶ
+```
+曲の中の演出は `ogFx('warning' / 'nyan' / 'awaken' / 'defeat' / 'shooter')` で呼ぶ（visuals-ongeki.js）。
+「怨撃」は原曲（細江慎治・SEGA）の音源を使っています。拍は音の解析で合わせた（1拍目 = 0.122秒、220 BPM）。
+
+### 5-19. 軽くするための道具（visuals.js）
 
 ```js
 cachedLayer('名前', 3, 0, g => { /* g に背景を描く */ })   // ゆっくりしか変わらない層を絵にしておき、3コマに1回だけ描き直す
