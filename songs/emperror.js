@@ -5,6 +5,7 @@
    maimai FiNALE の「PANDORA BOXXX」6曲目（maimai ORANGE を表す曲）。BPM 240（この譜面は半分の 120 で数える）。
    タイトルは Emperor（皇帝）と Error（エラー）をかけた言葉。曲の中で、sasakure.UK の昔の曲を引用している:
      0:03 と 0:43「麒麟」／ 0:28「神威」／ 0:42「Jack-the-Ripper◆」／ 0:43「ガラクタドールプレイ」／ 2:00「ガラテアの螺旋」
+     最後（2:00〜2:05）の「デレレレレレレ…」という 32 分音符の連打は、TAP の高速の連打が降ってくる形で再現
    リメイクでは、画面のまん中に maimai のまるい画面（8 つのボタンと判定の輪）を置き、弾を maimai のノートにした
    （TAP / EACH / BREAK / スライドの☆ / TOUCH）。引用の場所には、その曲にちなんだ弾幕が出る。
    見た目は visuals-emperror.js（theme: 'emperror'）。
@@ -193,10 +194,33 @@ function emperrorChart() {
   spin(bar(56), 1, 1, 48, { gap: 0.03, v: 220, color: WHITE });
   [228, 230, 234].forEach((n, i) => { burst(beat(n), () => flash(0.5)); fire(beat(n), 0.7, delay => { const p = playerXY(); closeIn({ x: p.x, y: p.y, count: 14, size: 380, speed: 130, spin: i % 2 ? 0.5 : -0.5, r: 8, delay }); }); });
 
-  // ===== ガラテアの螺旋 119.9〜 ｜ 2:00 の引用: 二重のらせん → ゆっくりの☆ ===========================================
+  // ===== ガラテアの螺旋 119.9〜 ｜ 2:00 の引用 ＋ 最後の「デレレレレレレ…」=====================================
+  // 120.75〜124.75秒（240〜248拍）に、32分音符（0.0625秒ごと）の高速の連打が 64 回鳴る（だんだん大きくなる）。
+  // maimai の「同じボタンの連打」のように、1拍（8音）ずつ同じ場所へ TAP がつぎつぎ降ってくる。
+  // 1つ1つのノートは、その音が鳴る瞬間にちょうど自機の高さに届く。場所は 1拍ごとに自機をねらって変わる
+  // （上にならんで点滅している 8 つが予告）→ 1拍ごとに横へよける。後半は列が増えて、よけられる場所がせまくなる。
   quote(120.0, 'ガラテアの螺旋', "Galatea's spiral ─ 2:00");
-  for (const [st, dir] of [[0, 1], [Math.PI, 1]]) fire(120.3, 0.7, delay => spiral({ x: cx, y: cy, count: 28, speed: 150, r: 7, turns: 1.5 * dir, gap: 0.07, start: st, delay, color: GOLD }));
-  for (let t = beat(244); t < 126; t += 1.0) burst(t, () => spawn({ x: rand(20, W - 20), y: -10, vy: rand(70, 100), r: 6, style: 'mai-star', color: '#4fd6ff' }));
+  const ROLL0 = beat(240), R32 = 0.0625, FALL = 600, FROM = -16, HIT_Y = GROUND_Y - 18;
+  const travel = (HIT_Y - FROM) / FALL;                              // 降りはじめてから自機の高さに届くまで（約1.15秒）
+  const clampX = x => Math.max(40, Math.min(W - 40, x));
+  for (let g = 0; g < 8; g++) {
+    const warn = 0.4, t0 = ROLL0 + g * 8 * R32 - travel;              // t0 = この拍の1音目が降りはじめる時刻
+    burst(t0 - warn, () => {
+      const px = clampX(playerXY().x), side = px < W / 2 ? 1 : -1;
+      const cols = [px];                                             // 自機をねらう列 ＋ 後半は別の列（よけ場所がせまくなる）
+      if (g >= 4) cols.push(clampX(px + side * rand(150, 230)));
+      if (g >= 6) cols.push(clampX(px - side * rand(150, 230)));
+      cols.forEach((x, i) => {
+        for (let j = 0; j < 8; j++) {
+          const last = g === 7 && j === 7 && i === 0;                // 最後の1音は BREAK
+          spawn({ x, y: FROM, vy: FALL, r: last ? 14 : 10, delay: warn + j * R32,
+            color: last ? '#ff3b5c' : ['#ff5fa2', '#ffd84d', '#4fd6ff'][i], style: last ? 'mai-break' : 'mai-tap' });
+        }
+      });
+    });
+    burst(ROLL0 + g * 8 * R32, () => flash(0.12 + 0.04 * g));      // 拍の頭で少し光る（だんだん強く）
+  }
+  burst(ROLL0 + 64 * R32, () => { flash(0.6); shake(8); });
 
   return cues.sort((a, b) => a.t - b.t);
 }
