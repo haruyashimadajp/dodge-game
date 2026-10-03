@@ -672,6 +672,8 @@ bezierPts(p0, c1, c2, p3, n) / arcPts(cx, cy, r, a0, a1, n)   // 一筆の形（
 branch({ x, y, ang, len, depth, seed })         // 桜の枝: 一筆が枝分かれしてのびる（枝の先に花が咲く）
 fireworkRays({ x, y, n, r1, delay })            // 花火: 玉が上がり、n 本の光の筋がひらく
 enso({ cx, cy, r })                             // 円相: ひと筆の円（中は安全）
+koi({ x0, x1, h, dur })                         // 鯉: 水面の x0 から高さ h の弧をえがいて x1 へ跳ぶ（頭と胴に当たる）
+greatWave({ fromLeft, h, v })                   // 大波: 高さ h の波頭が床を走ってくる（跳び越える）
 mapleLeaf({ x, y, vx, vy })                     // もみじ: 風に流されて飛ぶ
 icicle({ x, len })                              // つらら: 天井から落ちる
 aurora({ x0, amp, w, period, life })            // オーロラのカーテン: x0 を中心に左右にゆれる光の帯

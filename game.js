@@ -2237,6 +2237,35 @@ function aurora({ x0, amp = 140, w = 70, period = 4.8, life = 9.6, delay = 1.2, 
   });
 }
 
+// ★鯉★ 水面の x0 から跳び上がり、高さ h の弧をえがいて x1 の水面へ（dur 秒）。頭と胴に当たる
+function koi({ x0, x1, h = 260, dur = 1.3, r = 13, delay = 0.9, color = '#ff6a3a' }) {
+  const at = t => { const u = Math.max(0, Math.min(1, t / dur)); return { x: x0 + (x1 - x0) * u, y: GROUND_Y + 12 - 4 * h * u * (1 - u) }; };
+  const p = at(0);
+  return spawn({
+    kind: 'koi', x: p.x, y: p.y, r, x0, x1, h, dur, at, delay, color, spd: 1, tail: p,
+    move(b) {
+      const q = at(b.age), t = at(b.age - 0.07);
+      b.ang = Math.atan2(q.y - t.y, q.x - t.x); b.x = q.x; b.y = q.y; b.tail = t;
+      if (b.age > b.dur) { b.dead = true; if (typeof fxSplash === 'function') fxSplash(b.x, GROUND_Y, b); }
+    },
+    hits: b => circleHitsPlayer(b.x, b.y, b.r) || circleHitsPlayer(b.tail.x, b.tail.y, b.r * 0.8),
+  });
+}
+// ★大波★ 床の上を、高さ h の波頭が速さ v で走ってくる（タイミングよく跳び越える）。fromLeft = 左から
+function greatWave({ fromLeft = true, h = 60, v = 320, delay = 1.0, color = '#2a4a7a' }) {
+  const dir = fromLeft ? 1 : -1, FRONT = 50, BACK = 100;
+  const height = (b, x) => {                                    // 場所 x での水の高さ（d > 0 が進む先）
+    const d = (x - b.x) * b.dir;
+    if (d > FRONT || d < -BACK) return 0;
+    return d >= 0 ? b.h * Math.pow(1 - d / FRONT, 0.7) : b.h * Math.pow(1 + d / BACK, 1.6);
+  };
+  return spawn({
+    kind: 'wave', x: fromLeft ? -FRONT : W + FRONT, y: GROUND_Y - h / 2, r: h / 2, h, v, dir, delay, color, spd: 1, height, lane: [dir, 0],
+    move(b, dt) { b.x += b.dir * b.v * dt; if (b.x < -BACK - 60 || b.x > W + BACK + 60) b.dead = true; },
+    hits: b => { const px = player.x + player.w / 2; return player.y + player.h > GROUND_Y - Math.max(b.height(b, px - 6), b.height(b, px + 6)) + 9; },
+  });
+}
+
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
 let chart = [];
 let chartIndex = 0;

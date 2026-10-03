@@ -4,8 +4,8 @@
    曲⑫  Shiki（四季）（オリジナル曲）  —  拍・場面・譜面
    春 → 夏 → 秋 → 冬 → また春。動く水墨画の中を、3分かけて一年が過ぎていく。
    100 BPM。琴・尺八・太鼓・鐘・風鈴・オルゴール。曲は songs/shiki-compose.py で作曲・合成した。
-   丸い弾はあまり使わない。攻撃は「形」: 墨の一筆・桜の枝・花火の光の筋・円相・もみじ・三日月・つらら・オーロラ・風。
-   難易度はふつう。演出は visuals-shiki.js。
+   丸い弾はあまり使わない。攻撃は「形」: 墨の一筆・桜の枝・花火の光の筋・円相・鯉・大波・もみじ・三日月・つらら・オーロラ・風。
+   難易度はむずかしめ。演出は visuals-shiki.js。
    ========================================================================= */
 
 // 100 BPM: 1拍 = 0.6秒、1小節 = 2.4秒。0拍目 = 0.5秒
@@ -44,7 +44,7 @@ function shikiChart() {
   const hsh = (a, b = 0) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
 
   // 墨の一筆（ベジェ）: p0 → p3。曲がりぐあいは c1, c2
-  const stroke = (t, p0, c1, c2, p3, o = {}) => fire(t, o.warn || 0.85, delay => inkStroke({ pts: bezierPts(p0, c1, c2, p3, 24), width: o.width || 18, speed: o.speed || 900, delay, color: o.color || INK }));
+  const stroke = (t, p0, c1, c2, p3, o = {}) => fire(t, o.warn || 0.75, delay => inkStroke({ pts: bezierPts(p0, c1, c2, p3, 24), width: o.width || 18, speed: o.speed || 900, delay, color: o.color || INK }));
   // 地面すれすれを横切る一筆（跳び越える）
   const lowSweep = (t, fromLeft, o = {}) => {
     const y = G - 14, a = fromLeft ? -40 : W + 40, z = fromLeft ? W + 40 : -40;
@@ -53,7 +53,7 @@ function shikiChart() {
   // 上から落ちる墨のしずく（縦の一筆）
   const drip = (t, x, o = {}) => stroke(t, { x, y: -30 }, { x: x + 20, y: 200 }, { x: x - 20, y: 450 }, { x: x + 10, y: G + 20 }, { width: o.width || 16, speed: 1300, color: o.color, warn: o.warn || 0.7 });
   // ななめに払う一筆（プレイヤーの近くを通る）
-  const slash = (t, i, color = INK) => fire(t, 0.85, delay => {
+  const slash = (t, i, color = INK) => fire(t, 0.75, delay => {
     const p = playerXY(), s = i % 2 ? 1 : -1, off = (hsh(i) - 0.5) * 160;
     const p0 = { x: p.x + off - s * 380, y: -40 }, p3 = { x: p.x + off + s * 260, y: G + 40 };
     inkStroke({ pts: bezierPts(p0, { x: p0.x + s * 140, y: 260 }, { x: p3.x - s * 220, y: 420 }, p3, 24), width: 20, speed: 1000, delay, color });
@@ -78,51 +78,73 @@ function shikiChart() {
   const frost = (t) => fire(t, 0.7, delay => { const b = laser({ x1: -40, y1: G - 9, x2: W + 40, y2: G - 9, width: 18, delay, hold: 0.2, color: ICE }); b.label = '❄ JUMP ❄'; b.spd = 1; });
   const curtain = (t, x0, o = {}) => fire(t, 1.2, delay => aurora({ x0, amp: o.amp || 150, w: o.w || 70, period: o.period || 8 * B, life: o.life || 16 * B, delay, color: o.color || '#5cffb0', ph: o.ph || 0 }));
   const pitchX = (m, lo, hi) => 70 + (W - 140) * Math.max(0, Math.min(1, (m - lo) / (hi - lo)));
-
-  // ===== 序 0〜4小節 ｜ 墨が一滴落ちて、絵が始まる。最初の一筆は低く（跳ぶ）==================================
-  burst(bar(1), () => stageHint('墨の一筆 ─ 墨のついた所に当たる', 4 * B));
-  lowSweep(bar(2), true, { speed: 700 });
-  drip(bar(3), 220); drip(bar(3) + 2 * B, W - 220);
-
-  // ===== 春 4〜20小節 ｜ 桜の枝がのびて、花が咲く。尺八の長い音 = ななめの一筆。12小節から低い一筆も ===========
-  for (let k = 4; k < 20; k += 2) {
-    const L = (k / 2) % 2 === 0;
-    tree(bar(k), L ? -10 : W + 10, 40 + hsh(k) * 80, L ? 0.55 + hsh(k, 1) * 0.3 : Math.PI - 0.55 - hsh(k, 1) * 0.3, { len: 330 + hsh(k, 2) * 60, seed: k });
-  }
-  SC.flute.filter(([b, L]) => inBars(b, 4, 20) && L >= 1.5).forEach(([b], i) => { if (i % 2 === 0) slash(beat(b), i, '#3a2a30'); });
-  for (let k = 12; k < 20; k += 2) lowSweep(bar(k) + 2 * B, k % 4 === 0, { color: SAKURA });
-
-  // ===== 夏 20〜36小節 ｜ 夜祭り: 花火の光の筋 ／ 大太鼓 = 円相（中は安全）／ 金の一筆 ============================
-  burst(bar(20), () => stageHint('花火 ─ 光の筋のすき間へ', 4 * B));
-  SC.fw.forEach((b, i) => hanabi(beat(b), 140 + hsh(b) * (W - 280), 240 + hsh(b, 1) * 160, { n: i % 3 === 2 ? 16 : 12, rot: hsh(b, 2) * 0.5, color: ['#ffd27f', '#ff8fb0', '#8fd8ff', '#c9a0ff'][i % 4] }));
-  for (const k of [21, 25, 29, 33]) ensoAt(bar(k));
-  for (let k = 22; k < 34; k += 2) lowSweep(bar(k) + 3 * B, k % 4 === 2, { color: GOLD, speed: 1100 });
-  for (let i = 0; i < 8; i++) drip(bar(34) + i * B, 80 + ((i * 3) % 8) * 92, { color: '#1a1830', warn: 0.6 });   // 34〜36: 夕立
-
-  // ===== 秋 36〜52小節 ｜ 風（流される）＋ もみじ ／ 尺八の長い音 = 三日月の一筆 ／ 後半は琴の音で落ちる墨 =========
-  SC.wind.filter(([b]) => inBars(b, 36, 52)).forEach(([b, beats], i) => {
-    const v = i % 2 ? -130 : 130;
-    gust(beat(b), v, beats); leaves(beat(b), v, 9);
+  // 鯉: プレイヤーの横から跳んで、今いる所の近くに落ちてくる
+  const carp = (t, i, o = {}) => fire(t, 0.9, delay => {
+    const p = playerXY(), sd = i % 2 ? 1 : -1;
+    const x1 = Math.max(40, Math.min(W - 40, p.x + sd * (hsh(i, 5) * 60 - 20)));
+    koi({ x0: x1 - sd * (300 + hsh(i) * 120), x1, h: 220 + hsh(i, 2) * 80, dur: 1.2, delay, color: o.color || ['#ff6a3a', '#f4f0e8', '#ffb030'][i % 3] });
   });
-  SC.flute.filter(([b, L]) => inBars(b, 36, 52) && L >= 2).forEach(([b], i) => moonSlash(beat(b), i));
-  for (let k = 44; k < 52; k += 2) drip(bar(k) + 2 * B, pitchX(40 + (k % 7) * 4, 38, 68), { color: '#5a1a10' });
+  const nami = (t, fromLeft) => {
+    burst(t - 1.0 - B, () => stageHint(fromLeft ? '大波 ─▶ 跳べ' : '跳べ ◀─ 大波', B * 2));
+    fire(t, 1.0, delay => greatWave({ fromLeft, delay }));
+  };
 
-  // ===== 冬 52〜66小節 ｜ オルゴールの音 = つらら ／ オーロラのカーテン ／ 62〜: 霜の線（跳ぶ）＋ つららの雨 ======
-  SC.box.forEach(([b, , m]) => ice(beat(b), pitchX(m, 76, 94)));
-  curtain(bar(54), 220, { ph: 0 });
-  curtain(bar(57), W - 220, { ph: Math.PI, color: '#9f8bff' });
-  for (const k of [62, 63, 64, 65]) frost(bar(k) + 2 * B);
-  for (let i = 0; i < 12; i++) ice(bar(64) + i * B * 0.66, 60 + ((i * 5) % 12) * 62, 0.7);
+  // ===== 序 0〜4小節 ｜ 絵巻がひらいて、墨が一滴。最初の一筆は低く（跳ぶ）==================================
+  burst(bar(1), () => stageHint('墨の一筆 ─ 墨のついた所に当たる', 4 * B));
+  lowSweep(bar(2), true, { speed: 750 });
+  drip(bar(3), 220); drip(bar(3) + B, CX); drip(bar(3) + 2 * B, W - 220);
 
-  // ===== 輪廻 66〜74小節 ｜ また春: 桜の枝（左右から）＋ 花火 ＋ 円相 ＋ 一筆 ＋ 風 ============================
-  for (let k = 66; k < 74; k += 2) {
-    tree(bar(k), -10, 60 + hsh(k) * 60, 0.6, { len: 340, seed: k * 7, color: '#3a2228' });
-    tree(bar(k) + 2 * B, W + 10, 60 + hsh(k, 3) * 60, Math.PI - 0.6, { len: 340, seed: k * 11, color: '#3a2228' });
+  // ===== 春 4〜20小節 ｜ 桜の枝（毎小節）／ 尺八の長い音 = ななめの一筆 ／ 低い一筆 ／ 鯉が跳ぶ ============================
+  for (let k = 4; k < 20; k++) {
+    const L = k % 2 === 0;
+    tree(bar(k), L ? -10 : W + 10, 40 + hsh(k) * 100, L ? 0.5 + hsh(k, 1) * 0.35 : Math.PI - 0.5 - hsh(k, 1) * 0.35, { len: 320 + hsh(k, 2) * 80, seed: k, speed: 700 });
   }
-  for (const k of [67, 69, 71]) hanabi(bar(k) + 2 * B, 200 + ((k * 137) % 400), 260, { n: 14, color: SAKURA });
+  SC.flute.filter(([b, L]) => inBars(b, 4, 20) && L >= 1.5).forEach(([b], i) => slash(beat(b), i, '#3a2a30'));
+  for (let k = 8; k < 20; k++) lowSweep(bar(k) + 2 * B, k % 2 === 0, { color: SAKURA, speed: 1050 });
+  burst(bar(9) - 2 * B, () => stageHint('鯉 ─ 水から跳んでくる', 3 * B));
+  for (const k of [9, 11, 13, 15, 17, 19]) carp(bar(k) + 3 * B, k);
+
+  // ===== 夏 20〜36小節 ｜ 夜祭り: 花火 ／ 円相 ／ 金の一筆 ／ 琴の旋律 = 墨のしずく ／ 大波 ／ 夕立 ==========================
+  burst(bar(20), () => stageHint('花火 ─ 光の筋のすき間へ', 4 * B));
+  SC.fw.forEach((b, i) => hanabi(beat(b), 140 + hsh(b) * (W - 280), 240 + hsh(b, 1) * 160, { n: i % 3 === 2 ? 16 : 14, rot: hsh(b, 2) * 0.5, color: ['#ffd27f', '#ff8fb0', '#8fd8ff', '#c9a0ff'][i % 4] }));
+  for (const k of [23, 27, 31, 33]) fire(bar(k), 1.2, delay => { const p = playerXY(); fireworkRays({ x: Math.max(120, Math.min(W - 120, p.x + (k % 2 ? 90 : -90))), y: 330, n: 14, r1: 440, rot: k * 0.2, delay, color: '#ffe8b0' }); });
+  for (const k of [21, 25, 29]) ensoAt(bar(k));
+  for (let k = 21; k < 34; k++) if (k % 4 !== 1) lowSweep(bar(k) + 3 * B, k % 2 === 0, { color: GOLD, speed: 1150 });
+  SC.koto.filter(([b, L]) => inBars(b, 28, 34) && L >= 1).forEach(([b, , m], i) => { if (i % 2 === 0) drip(beat(b), pitchX(m, 66, 86), { color: '#1a1830', warn: 0.65 }); });
+  nami(bar(26) + 2 * B, true); nami(bar(30) + 2 * B, false);
+  for (let i = 0; i < 16; i++) drip(bar(34) + i * B / 2, 60 + ((i * 5) % 16) * 45, { color: '#1a1830', warn: 0.6, width: 14 });   // 34〜36: 夕立
+
+  // ===== 秋 36〜52小節 ｜ 強い風 ＋ もみじ ／ 尺八 = 三日月の一筆 ／ 琴 = 墨のしずく ／ 嵐の大波 ============================
+  SC.wind.filter(([b]) => inBars(b, 36, 52)).forEach(([b, beats], i) => {
+    const v = i % 2 ? -170 : 170;
+    gust(beat(b), v, beats); leaves(beat(b), v, 13);
+  });
+  SC.flute.filter(([b, L]) => inBars(b, 36, 52) && L >= 1.5).forEach(([b], i) => moonSlash(beat(b), i));
+  SC.koto.filter(([b, L]) => inBars(b, 44, 52) && L >= 1).forEach(([b, , m]) => drip(beat(b), pitchX(m, 50, 70), { color: '#5a1a10', warn: 0.65 }));
+  nami(bar(48), false); nami(bar(50) + 2 * B, true);
+
+  // ===== 冬 52〜66小節 ｜ オルゴール = つらら（＋ねらうつらら）／ オーロラ3枚 ／ 霜の線 ／ つららの雨 ======================
+  SC.box.forEach(([b, , m], i) => {
+    ice(beat(b), pitchX(m, 76, 94));
+    if (i % 2 === 0) fire(beat(b) + B / 2, 0.75, delay => icicle({ x: playerXY().x, delay, len: 64, color: '#e8f4ff' }));
+  });
+  curtain(bar(54), 200, { ph: 0 });
+  curtain(bar(56), W - 200, { ph: Math.PI, color: '#9f8bff' });
+  curtain(bar(59), CX, { ph: Math.PI / 2, amp: 220, color: '#7fe0ff', life: 12 * B });
+  for (let k = 58; k < 66; k++) frost(bar(k) + 2 * B);
+  for (let i = 0; i < 20; i++) ice(bar(64) + i * B * 0.4, 50 + ((i * 7) % 20) * 36, 0.7);
+
+  // ===== 輪廻 66〜74小節 ｜ また春: ぜんぶ ==========================================================================
+  for (let k = 66; k < 74; k++) {
+    tree(bar(k), -10, 60 + hsh(k) * 60, 0.6, { len: 340, seed: k * 7, color: '#3a2228', speed: 760 });
+    tree(bar(k) + 2 * B, W + 10, 60 + hsh(k, 3) * 60, Math.PI - 0.6, { len: 340, seed: k * 11, color: '#3a2228', speed: 760 });
+  }
+  for (let k = 66; k < 74; k++) hanabi(bar(k) + 3 * B, 160 + ((k * 137) % 480), 250 + (k % 3) * 40, { n: 14, rot: k * 0.3, color: [SAKURA, GOLD, '#8fd8ff'][k % 3] });
   for (const k of [68, 72]) ensoAt(bar(k), { color: '#5a2030' });
-  for (const k of [69, 73]) lowSweep(bar(k), k === 69, { color: SAKURA });
-  gust(bar(70), 90, 6);
+  for (const k of [67, 69, 71, 73]) { lowSweep(bar(k), k % 4 === 1, { color: SAKURA, speed: 1150 }); carp(bar(k) + 2 * B, k, { color: k % 2 ? '#ff6a3a' : '#f4f0e8' }); }
+  SC.flute.filter(([b, L]) => inBars(b, 66, 74) && L >= 1.5).forEach(([b], i) => slash(beat(b), i + 1, '#5a2030'));
+  nami(bar(70) + 2 * B, true);
+  gust(bar(70), 100, 6);
 
   return cues.sort((a, b) => a.t - b.t);
 }
@@ -130,7 +152,7 @@ function shikiChart() {
 addSong({
   id: 'shiki',
   title: 'Shiki',
-  meta: '100 BPM · 3:02 · オリジナル曲 · 四季の水墨画',
+  meta: '100 BPM · 3:02 · オリジナル曲 · 四季の水墨画 · むずかしめ',
   file: 'Shiki.mp3',
   bpm: 100, beat: SK_BEAT, end: 182.5,
   beatTime: skBeatTime,

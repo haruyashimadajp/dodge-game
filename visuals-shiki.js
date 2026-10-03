@@ -22,7 +22,8 @@
   const PAPER = [244, 236, 220];
   const WHITE = [255, 255, 255];
   const MOONINK = [236, 232, 255];
-  const st = { made: false, mtn: null, tree: null, canopy: null, tex: null, stars: null, petals: [], leaves: [], snow: [], flies: [], lanterns: [], fws: [], blooms: [], lastBeat: -99, gone: [] };
+  const st = { made: false, mtn: null, tree: null, canopy: null, tex: null, stars: null, petals: [], leaves: [], snow: [], flies: [], lanterns: [], fws: [], blooms: [], lastBeat: -99, gone: [],
+    stains: null, splats: [], shooters: [], geese: [], streaks: [], gold: [], ripples: [], snowDepth: 0, lastHits: 0, torii: null, frame: null };
   let FW = null, TAIKO_BIG = null;
   const inSong = () => scene !== 'title';
   const hsh = (a, b = 0) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
@@ -140,24 +141,54 @@
     st.stars = Array.from({ length: 90 }, (_, i) => ({ x: hsh(i, 9) * W, y: hsh(i, 8) * 380, s: 0.6 + hsh(i, 7) * 1.4, p: hsh(i, 6) * TAU }));
     st.lanterns = Array.from({ length: 6 }, (_, i) => ({ x: i * 150 + hsh(i) * 80, v: 8 + hsh(i, 1) * 10 }));
     st.flies = Array.from({ length: 36 }, (_, i) => ({ x: hsh(i, 4) * W, y: 380 + hsh(i, 5) * 300, p: hsh(i, 6) * TAU }));
+    // 墨の跡（乾いた一筆が、紙にうすく残る）。半分の大きさ
+    st.stains = document.createElement('canvas'); st.stains.width = W / 2; st.stains.height = H / 2;
+    // 水の中に立つ鳥居
+    const tr = document.createElement('canvas'); tr.width = 200; tr.height = 230;
+    const z = tr.getContext('2d');
+    z.fillStyle = '#c0391f';
+    z.fillRect(42, 40, 14, 190); z.fillRect(144, 40, 14, 190);                 // 柱
+    z.fillRect(26, 62, 148, 10);                                               // 貫
+    z.beginPath(); z.moveTo(6, 22); z.quadraticCurveTo(100, 34, 194, 22); z.lineTo(190, 38); z.quadraticCurveTo(100, 48, 10, 38); z.closePath(); z.fill();   // 笠木
+    z.fillStyle = '#1c1416';
+    z.beginPath(); z.moveTo(0, 14); z.quadraticCurveTo(100, 28, 200, 14); z.lineTo(196, 24); z.quadraticCurveTo(100, 36, 4, 24); z.closePath(); z.fill();
+    z.fillRect(94, 38, 12, 26);                                                // 額束
+    z.fillStyle = 'rgba(255,255,255,0.18)'; z.fillRect(44, 40, 3, 190); z.fillRect(146, 40, 3, 190);
+    st.torii = tr;
+    // 画面のふちの墨のにじみ（昼の季節だけ、うすく）
+    const fr = document.createElement('canvas'); fr.width = W; fr.height = H;
+    const q2 = fr.getContext('2d');
+    for (let i = 0; i < 160; i++) {
+      const side = i % 4, u = hsh(i, 21) * (side < 2 ? W : H), d = hsh(i, 22) * 26;
+      const x = side === 0 ? u : side === 1 ? u : side === 2 ? d : W - d, y = side === 0 ? d : side === 1 ? H - d : u;
+      const r = 14 + hsh(i, 23) * 30;
+      const gr = q2.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, 'rgba(30,20,26,0.09)'); gr.addColorStop(1, 'rgba(30,20,26,0)');
+      q2.fillStyle = gr; q2.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+    st.frame = fr;
   }
   function reset() {
     if (!st.made) make();
-    Object.assign(st, { petals: [], leaves: [], snow: [], fws: [], blooms: [], lastBeat: -99, gone: [] });
+    Object.assign(st, { petals: [], leaves: [], snow: [], fws: [], blooms: [], lastBeat: -99, gone: [], splats: [], shooters: [], geese: [], streaks: [], gold: [], ripples: [], snowDepth: 0, lastHits: 0 });
+    st.stains.getContext('2d').clearRect(0, 0, st.stains.width, st.stains.height); st.stainN = 0;
   }
 
   // ---- 粒（花びら・もみじ・雪）・背景の花火・季節のかわり目 ------------------------------------------
   function bgFirework(x, y, big) {
     const n = big ? 70 : 40, col = rgb(['#ffd27f', '#ff8fb0', '#8fd8ff', '#c9a0ff', '#ffffff'][(Math.random() * 5) | 0]);
-    const willow = Math.random() < 0.35;
-    const parts = Array.from({ length: n }, (_, i) => { const a = i * TAU / n + Math.random() * 0.05, v = (big ? 170 : 110) * (0.85 + Math.random() * 0.3); return { vx: Math.cos(a) * v, vy: Math.sin(a) * v }; });
-    st.fws.push({ x, y, t: 0, parts, col, willow, life: willow ? 2.6 : 1.8 });
+    const kind = ['peony', 'willow', 'ring', 'peony', 'double'][(Math.random() * 5) | 0];
+    const willow = kind === 'willow';
+    const parts = Array.from({ length: n }, (_, i) => { const a = i * TAU / n + Math.random() * 0.05, v = (big ? 170 : 110) * (kind === 'ring' ? 1 : 0.85 + Math.random() * 0.3) * (kind === 'double' && i % 2 ? 0.55 : 1); return { vx: Math.cos(a) * v, vy: Math.sin(a) * v }; });
+    st.fws.push({ x, y, t: 0, parts, col: willow ? rgb('#ffcf70') : col, col2: rgb(['#ffffff', '#8fffd0', '#ff8fb0'][(Math.random() * 3) | 0]), willow, kind, life: willow ? 2.8 : 1.8 });
   }
   function onBeat(b) {
     if (!FW) { FW = new Set(SCORE_SHIKI.fw); TAIKO_BIG = new Set(SCORE_SHIKI.taiko.filter(x => x % 4 === 0)); }
     if (FW.has(b)) for (let i = 0; i < 2; i++) bgFirework(100 + Math.random() * (W - 200), 90 + Math.random() * 180, true);
     if (b >= 80 && b < 144 && TAIKO_BIG.has(b)) bgFirework(80 + Math.random() * (W - 160), 70 + Math.random() * 160, false);
     if (b >= 264 && b < 296 && b % 4 === 2) bgFirework(80 + Math.random() * (W - 160), 70 + Math.random() * 160, false);
+    if (b >= 208 && b < 264 && b % 6 === 3) st.shooters.push({ t: 0, x: 200 + Math.random() * 500, y: 30 + Math.random() * 120, a: 2.6 + Math.random() * 0.3 });
+    if (b === 150 || b === 172 || b === 194) st.geese.push({ t: 0, dir: b === 172 ? -1 : 1, y: 120 + Math.random() * 80 });
     for (const [s] of BOUNDS) if (b === s && s < 296) st.blooms.push({ t: 0, x: 200 + Math.random() * 400, y: 200 + Math.random() * 200, seed: Math.random() * 100 });
   }
 
@@ -200,6 +231,49 @@
     for (const bl of st.blooms) bl.t += dt;
     st.blooms = st.blooms.filter(bl => bl.t < 2.4);
     for (const l of st.lanterns) { l.x += l.v * dt; if (l.x > W + 30) l.x = -30; }
+    // 乾いた一筆は、紙に墨の跡として残る（昼の季節）。季節がかわると、広がる墨の下で紙が新しくなる
+    if (scene === 'play') {
+      const g = st.stains.getContext('2d');
+      for (const s of bullets) if (s.kind === 'ink' && s.safe && !s.stained) {
+        s.stained = true;
+        if (night() > 0.5) continue;
+        st.stainN = (st.stainN || 0) + 1;
+        g.strokeStyle = 'rgba(40,30,36,0.035)'; g.lineWidth = s.r * 0.8; g.lineCap = 'round'; g.lineJoin = 'round';
+        g.beginPath(); s.pts.forEach((q, i) => (i ? g.lineTo(q.x / 2, q.y / 2) : g.moveTo(q.x / 2, q.y / 2))); g.stroke();
+        g.fillStyle = 'rgba(40,30,36,0.06)';
+        const e = s.pts[s.pts.length - 1];
+        for (let i = 0; i < 4; i++) { g.beginPath(); g.arc((e.x + (Math.random() - 0.5) * 30) / 2, (e.y + (Math.random() - 0.5) * 30) / 2, 1 + Math.random() * 3, 0, TAU); g.fill(); }
+      }
+      for (const bl of st.blooms) if (bl.t > 0.55 && !bl.wiped) { bl.wiped = true; g.clearRect(0, 0, st.stains.width, st.stains.height); st.stainN = 0; }
+      if (hitsTaken > st.lastHits) {                                         // 当たった: 画面に墨がとびちる
+        const p = playerXY();
+        st.splats.push({ t: 0, x: p.x, y: p.y, seed: Math.random() * 100, drops: Array.from({ length: 14 }, () => [(Math.random() - 0.5) * 260, (Math.random() - 0.5) * 200, 3 + Math.random() * 10]) });
+      }
+      st.lastHits = hitsTaken;
+    } else if (scene === 'title') st.lastHits = 0;
+    for (const sp of st.splats) sp.t += dt;
+    st.splats = st.splats.filter(sp => sp.t < 1.6);
+    // 風の筋
+    if (Math.abs(wind) > 40 && Math.random() < dt * 14 && st.streaks.length < 30) st.streaks.push({ x: wind > 0 ? -200 : W + 200, y: 60 + Math.random() * 560, len: 120 + Math.random() * 200, v: wind * 6, a: Math.random() * TAU, t: 0 });
+    for (const q of st.streaks) { q.x += q.v * dt; q.t += dt; }
+    st.streaks = st.streaks.filter(q => q.t < 2.5 && q.x > -500 && q.x < W + 500);
+    for (const q of st.shooters) q.t += dt;
+    st.shooters = st.shooters.filter(q => q.t < 1.2);
+    for (const q of st.geese) q.t += dt;
+    st.geese = st.geese.filter(q => q.t < 16);
+    for (const q of st.ripples) q.t += dt;
+    st.ripples = st.ripples.filter(q => q.t < 1.4);
+    // 冬は床に雪が積もり、春になると消える
+    st.snowDepth = clamp01(st.snowDepth + dt * (SW.winter > 0.5 ? 0.05 : -0.4));
+    // 輪廻: 四季がいっしょに舞う（もみじ・雪・金の粉も）
+    const rb = SW.rebirth;
+    if (rb > 0.3) {
+      if (Math.random() < dt * 4 && st.leaves.length < 60) st.leaves.push({ x: Math.random() * W, y: -10, vx: 0, vy: 50 + Math.random() * 30, r: 3.5 + Math.random() * 2.5, a: Math.random() * TAU, c: rgb(['#d8452a', '#f08a2a'][(Math.random() * 2) | 0]) });
+      if (Math.random() < dt * 20 && st.snow.length < 120) st.snow.push({ x: Math.random() * (W + 200) - 100, y: -10, z: 0.3 + Math.random() * 0.7, p: Math.random() * TAU });
+      if (Math.random() < dt * 10 && st.gold.length < 80) st.gold.push({ x: Math.random() * W, y: -10, vy: 30 + Math.random() * 40, a: Math.random() * TAU, s: 2 + Math.random() * 4 });
+    }
+    for (const q of st.gold) { q.y += q.vy * dt; q.x += Math.sin(T + q.a) * 20 * dt + wind * 0.4 * dt; q.a += dt * 3; }
+    st.gold = st.gold.filter(q => q.y < H);
   }
 
   // ---- 背景 ---------------------------------------------------------------------------------
@@ -233,15 +307,20 @@
     if (SW.rebirth + SW.end > 0.01) {                                       // 輪廻: 金の朝日と光の筋
       const a = SW.rebirth + SW.end * 0.7;
       const x = W / 2, y = 330;
-      ctx.globalCompositeOperation = 'lighter';
-      for (let i = 0; i < 14; i++) {
-        const ang = -Math.PI / 2 + (i - 6.5) * 0.17 + Math.sin(T * 0.3 + i) * 0.02;
-        const gr = ctx.createLinearGradient(x, y, x + Math.cos(ang) * 600, y + Math.sin(ang) * 600);
-        gr.addColorStop(0, `rgba(255,220,150,${(0.22 * a).toFixed(3)})`); gr.addColorStop(1, 'rgba(255,220,150,0)');
-        ctx.fillStyle = gr;
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(ang - 0.04) * 600, y + Math.sin(ang - 0.04) * 600); ctx.lineTo(x + Math.cos(ang + 0.04) * 600, y + Math.sin(ang + 0.04) * 600); ctx.closePath(); ctx.fill();
+      if (!st.rays) {                                                       // 光の筋は一度だけ描いておく
+        st.rays = document.createElement('canvas'); st.rays.width = 1200; st.rays.height = 620;
+        const z = st.rays.getContext('2d'), ox = 600, oy = 600;
+        for (let i = 0; i < 14; i++) {
+          const ang = -Math.PI / 2 + (i - 6.5) * 0.17;
+          const gr = z.createLinearGradient(ox, oy, ox + Math.cos(ang) * 600, oy + Math.sin(ang) * 600);
+          gr.addColorStop(0, 'rgba(255,220,150,0.22)'); gr.addColorStop(1, 'rgba(255,220,150,0)');
+          z.fillStyle = gr;
+          z.beginPath(); z.moveTo(ox, oy); z.lineTo(ox + Math.cos(ang - 0.04) * 600, oy + Math.sin(ang - 0.04) * 600); z.lineTo(ox + Math.cos(ang + 0.04) * 600, oy + Math.sin(ang + 0.04) * 600); z.closePath(); z.fill();
+        }
       }
-      ctx.globalCompositeOperation = 'source-over';
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, a);
+      ctx.translate(x, y); ctx.rotate(Math.sin(T * 0.3) * 0.03); ctx.drawImage(st.rays, -600, -600);
+      ctx.restore();
       const gr = ctx.createRadialGradient(x, y, 0, x, y, 120);
       gr.addColorStop(0, `rgba(255,250,230,${a.toFixed(3)})`); gr.addColorStop(0.5, `rgba(255,214,140,${(0.8 * a).toFixed(3)})`); gr.addColorStop(1, 'rgba(255,190,120,0)');
       ctx.fillStyle = gr; ctx.fillRect(x - 120, y - 120, 240, 240);
@@ -278,6 +357,32 @@
       gr.addColorStop(0, rgba(mc, 0)); gr.addColorStop(0.5, rgba(mc, 0.35)); gr.addColorStop(1, rgba(mc, 0));
       ctx.fillStyle = gr; ctx.fillRect(0, my - 50, W, 100);
     });
+    // 流れ星（冬）
+    for (const q of st.shooters) {
+      const p = q.t / 1.2, x = q.x + Math.cos(q.a) * 420 * p, y = q.y + Math.sin(q.a) * 420 * p;
+      const g2 = ctx.createLinearGradient(x, y, x - Math.cos(q.a) * 120, y - Math.sin(q.a) * 120);
+      g2.addColorStop(0, `rgba(255,255,255,${(0.9 * (1 - p)).toFixed(3)})`); g2.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.strokeStyle = g2; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(q.a) * 120, y - Math.sin(q.a) * 120); ctx.stroke();
+    }
+    // 雁の列（秋の月の前を横切る）
+    for (const q of st.geese) {
+      const x0 = q.dir > 0 ? -120 + q.t * 70 : W + 120 - q.t * 70;
+      ctx.strokeStyle = `rgba(40,20,20,${(0.75 * SW.autumn).toFixed(3)})`; ctx.lineWidth = 1.6;
+      for (let i = 0; i < 9; i++) {
+        const row = Math.ceil(i / 2), side = i % 2 ? 1 : -1;
+        const x = x0 - q.dir * row * 22, y = q.y + (i ? side * row * 13 : 0) + Math.sin(q.t * 3 + i) * 2, f = Math.sin(q.t * 7 + i) * 4;
+        ctx.beginPath(); ctx.moveTo(x - 7, y - 3 + f); ctx.quadraticCurveTo(x - 2, y - 1, x, y + 1); ctx.quadraticCurveTo(x + 2, y - 1, x + 7, y - 3 + f); ctx.stroke();
+      }
+    }
+    // 水の中に立つ鳥居（遠く）
+    {
+      const tx = 470, ty = GROUND_Y - 200;
+      ctx.globalAlpha = nt > 0.5 ? 0.75 : 0.9;
+      ctx.drawImage(st.torii, tx, ty, 170, 196);
+      if (SW.winter > 0.01) { ctx.fillStyle = `rgba(250,252,255,${(0.95 * SW.winter).toFixed(3)})`; ctx.beginPath(); ctx.ellipse(tx + 85, ty + 13, 86, 6, 0, Math.PI, TAU); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    }
     // 左の大きな木（風でゆれる）＋ 樹冠
     ctx.save();
     ctx.translate(-30, GROUND_Y - 610);
@@ -289,10 +394,11 @@
     ctx.globalAlpha = 1;
     ctx.restore();
     // ホタル（夏）
-    if (SW.summer > 0.02) {
+    const flyA = SW.summer + SW.rebirth * 0.6;
+    if (flyA > 0.02) {
       ctx.globalCompositeOperation = 'lighter';
       for (const f of st.flies) {
-        const x = f.x + Math.sin(T * 0.7 + f.p) * 40, y = f.y + Math.sin(T * 1.1 + f.p * 2) * 25, a = SW.summer * (0.5 + 0.5 * Math.sin(T * 3 + f.p * 5));
+        const x = f.x + Math.sin(T * 0.7 + f.p) * 40, y = f.y + Math.sin(T * 1.1 + f.p * 2) * 25, a = flyA * (0.5 + 0.5 * Math.sin(T * 3 + f.p * 5));
         ctx.globalAlpha = a; ctx.drawImage(glowSprite([200, 255, 120]), x - 9, y - 9, 18, 18);
       }
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
@@ -300,7 +406,7 @@
     // 粒（奥の層）
     drawParticles(false, T);
     // 和紙の質感
-    if (gfx > 0) { ctx.fillStyle = st.tex; ctx.globalAlpha = 1 - nt * 0.6; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+    if (gfx === 2) { ctx.fillStyle = st.tex; ctx.globalAlpha = 1 - nt * 0.6; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
   }
   function moon(x, y, r, a, glow) {
     const gr = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
@@ -319,15 +425,19 @@
   function drawBgFirework(f) {
     const p = f.t / f.life, a = clamp01(1 - p * p);
     ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = rgba(f.col, 0.75 * a); ctx.lineWidth = f.willow ? 1.4 : 2;
+    ctx.strokeStyle = rgba(f.col, (f.kind === 'ring' ? 0.3 : 0.75) * a); ctx.lineWidth = f.willow ? 1.4 : 2;
     const g = f.willow ? 70 : 40, drag = 1.4;
     const pos = tt => { const e = (1 - Math.exp(-drag * tt)) / drag; return [e, 0.5 * g * tt * tt]; };
     const [e1, g1] = pos(f.t), [e0, g0] = pos(Math.max(0, f.t - (f.willow ? 0.6 : 0.25)));
     ctx.beginPath();
     for (const q of f.parts) { ctx.moveTo(f.x + q.vx * e0, f.y + q.vy * e0 + g0); ctx.lineTo(f.x + q.vx * e1, f.y + q.vy * e1 + g1); }
     ctx.stroke();
-    ctx.fillStyle = rgba(mixC(f.col, WHITE, 0.5), a);                       // 光の粒の頭
-    for (const q of f.parts) ctx.fillRect(f.x + q.vx * e1 - 1.5, f.y + q.vy * e1 + g1 - 1.5, 3, 3);
+    for (let i = 0; i < f.parts.length; i++) {                              // 光の粒の頭（二重の花火は内と外で色がちがう。色がかわっていく）
+      const q = f.parts[i], c2 = f.kind === 'double' && i % 2 ? f.col2 : mixC(f.col, f.col2, clamp01(p * 1.5 - 0.3));
+      ctx.fillStyle = rgba(mixC(c2, WHITE, 0.4), a);
+      const sz = f.kind === 'ring' ? 3.5 : 3;
+      ctx.fillRect(f.x + q.vx * e1 - sz / 2, f.y + q.vy * e1 + g1 - sz / 2, sz, sz);
+    }
     if (f.t < 0.15) { ctx.globalAlpha = 1 - f.t / 0.15; ctx.drawImage(glowSprite(f.col), f.x - 60, f.y - 60, 120, 120); ctx.globalAlpha = 1; }
     if (gfx > 0) {                                                          // きらきら
       ctx.fillStyle = rgba(WHITE, 0.8 * a);
@@ -383,6 +493,18 @@
     const mx = SW.summer * 600 + SW.autumn * 560 + SW.winter * 620 + (SW.rebirth + SW.end) * W / 2 + (SW.spring + SW.paper) * 610;
     ctx.fillStyle = `rgba(255,240,200,${(0.5 * (SW.summer + SW.autumn + 0.5 * (SW.rebirth + SW.end)) + 0.2 * SW.spring).toFixed(3)})`;
     for (let i = 0; i < 8; i++) { const w = 40 - i * 4 + Math.sin(T * 3 + i) * 6; ctx.fillRect(mx - w / 2, y + 4 + i * 6, w, 2); }
+    // 花火が水面に映る
+    if (st.fws.length) {
+      ctx.globalCompositeOperation = 'lighter';
+      for (const f of st.fws) { const a = clamp01(1 - f.t / f.life) * 0.5; ctx.globalAlpha = a; ctx.drawImage(glowSprite(f.col), f.x - 90, y - 10, 180, 60); }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
+    // 鯉が落ちた所の波紋
+    for (const q of st.ripples) {
+      const p = q.t / 1.4;
+      ctx.strokeStyle = `rgba(255,255,255,${(0.6 * (1 - p)).toFixed(3)})`; ctx.lineWidth = 1.5;
+      for (const m of [1, 0.6]) { ctx.beginPath(); ctx.ellipse(q.x, y + 6, 70 * p * m + 6, 8 * p * m + 2, 0, 0, TAU); ctx.stroke(); }
+    }
     // 冬: 氷
     if (SW.winter > 0.01) {
       ctx.fillStyle = `rgba(220,240,255,${(0.35 * SW.winter).toFixed(3)})`; ctx.fillRect(-400, y, W + 800, H - y + 400);
@@ -405,6 +527,14 @@
     }
     ctx.strokeStyle = rgba(nt > 0.5 ? [200, 210, 240] : [40, 30, 40], 0.5); ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(-400, y); ctx.lineTo(W + 400, y); ctx.stroke();
+    if (st.snowDepth > 0.01) {                                              // 積もった雪（見た目だけ。足もとは同じ高さ）
+      ctx.fillStyle = 'rgba(248,251,255,0.95)';
+      ctx.beginPath(); ctx.moveTo(-400, y + 2);
+      for (let x = -400; x <= W + 400; x += 20) ctx.lineTo(x, y + 2 - st.snowDepth * (5 + 3 * Math.sin(x * 0.05)));
+      ctx.lineTo(W + 400, y + 4); ctx.lineTo(-400, y + 4); ctx.closePath(); ctx.fill();
+    }
+    // 墨の跡（紙に残った一筆）
+    if (st.stainN > 0) ctx.drawImage(st.stains, 0, 0, W, H);
     // 秋: すすき（手前の水辺）
     if (SW.autumn > 0.01) {
       ctx.strokeStyle = `rgba(90,50,30,${(0.85 * SW.autumn).toFixed(3)})`; ctx.lineWidth = 1.2;
@@ -453,7 +583,7 @@
     L.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
     for (let i = R.length - 1; i >= 0; i--) ctx.lineTo(R[i][0], R[i][1]);
     ctx.closePath(); ctx.fill();
-    if (gfx > 0) {                                                          // かすれ（筆の毛の白い筋）
+    if (gfx === 2) {                                                        // かすれ（筆の毛の白い筋）
       const bg = night() > 0.5 ? [20, 24, 50] : PAPER;
       ctx.strokeStyle = rgba(bg, 0.35 * alpha); ctx.lineWidth = 1.1;
       for (const f of [-0.55, -0.2, 0.3, 0.62]) {
@@ -560,6 +690,78 @@
     if (b.delay > 0) { ctx.strokeStyle = rgba(c, 0.4 * warn); ctx.setLineDash([4, 6]); ctx.lineWidth = 1; ctx.strokeRect(x - b.w * 0.4, 0, b.w * 0.8, GROUND_Y); ctx.setLineDash([]); }
     ctx.globalCompositeOperation = 'source-over';
   }
+  // 鯉: 予告は跳ぶ道すじ（点線の弧）と、水面のさざなみ。跳んだら、ひれをゆらして弧をえがく
+  function koiK(b, T, k) {
+    const c = bulletColor(b);
+    if (b.delay > 0) {
+      const p = 1 - b.delay / b.delayMax;
+      ctx.strokeStyle = rgba(c, 0.25 + 0.45 * p); ctx.lineWidth = 2; ctx.setLineDash([4, 8]); ctx.lineDashOffset = -T * 40;
+      ctx.beginPath();
+      for (let i = 0; i <= 30; i++) { const q = b.at(b.dur * i / 30); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = `rgba(255,255,255,${(0.3 + 0.5 * p).toFixed(3)})`; ctx.lineWidth = 1.5;
+      for (const m of [0.5, 1]) { ctx.beginPath(); ctx.ellipse(b.x0, GROUND_Y + 6, 30 * m * (0.6 + 0.4 * Math.sin(T * 10)), 4 * m, 0, 0, TAU); ctx.stroke(); }
+      const e = b.at(b.dur);                                                // 落ちる所に×
+      ctx.strokeStyle = rgba(c, 0.6 * p); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(e.x - 8, GROUND_Y - 8); ctx.lineTo(e.x + 8, GROUND_Y + 8); ctx.moveTo(e.x + 8, GROUND_Y - 8); ctx.lineTo(e.x - 8, GROUND_Y + 8); ctx.stroke();
+      return;
+    }
+    ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.ang || 0);
+    const L = b.r * 3.2, wag = Math.sin(T * 18) * 0.25;
+    ctx.fillStyle = rgba(mixC(c, WHITE, 0.2), 1);
+    ctx.beginPath(); ctx.moveTo(L * 0.5, 0); ctx.quadraticCurveTo(L * 0.2, -b.r, -L * 0.4, -b.r * 0.35); ctx.lineTo(-L * 0.4, b.r * 0.35); ctx.quadraticCurveTo(L * 0.2, b.r, L * 0.5, 0); ctx.fill();
+    ctx.save(); ctx.translate(-L * 0.4, 0); ctx.rotate(wag);                 // 尾びれ
+    ctx.fillStyle = rgba(c, 0.85);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-L * 0.25, -b.r * 1.1, -L * 0.45, -b.r * 0.9); ctx.quadraticCurveTo(-L * 0.3, 0, -L * 0.45, b.r * 0.9); ctx.quadraticCurveTo(-L * 0.25, b.r * 1.1, 0, 0); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = rgba(c, 0.95);                                           // 模様
+    ctx.beginPath(); ctx.ellipse(L * 0.05, -b.r * 0.15, L * 0.18, b.r * 0.45, 0.3, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(L * 0.1, -b.r * 0.6, L * 0.25, 2, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(L * 0.36, -b.r * 0.25, 2, 0, TAU); ctx.fill();
+    ctx.restore();
+    if (Math.random() < 0.5) sparks(b.tail.x, b.tail.y, { n: 1, color: '#cfe8ff', speed: 40, life: 0.4, size: 2, gravity: 400 });
+  }
+  // 大波（北斎の波のように）: 予告は画面のはしの矢印とうねり。走ってくる波頭は、白い爪のようなしぶき
+  function waveK(b, T, k) {
+    if (b.delay > 0) {
+      const p = 1 - b.delay / b.delayMax, x = b.dir > 0 ? 30 : W - 30;
+      ctx.fillStyle = `rgba(230,240,255,${(0.3 + 0.6 * p * (Math.floor(T * 8) % 2 ? 1 : 0.5)).toFixed(3)})`;
+      ctx.font = '700 30px "Hiragino Mincho ProN", "Yu Mincho", serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(b.dir > 0 ? '波▶' : '◀波', x + b.dir * 20, GROUND_Y - 90);
+      ctx.strokeStyle = `rgba(200,225,255,${(0.3 + 0.4 * p).toFixed(3)})`; ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i <= 40; i++) { const xx = b.dir > 0 ? i * 8 : W - i * 8; ctx.lineTo(xx, GROUND_Y - 4 - 6 * p * Math.sin(i * 0.6 - T * 8)); }
+      ctx.stroke();
+      return;
+    }
+    const pts = [];
+    for (let x = b.x - 140 * b.dir; b.dir > 0 ? x <= b.x + 60 : x >= b.x - 60; x += 4 * b.dir) pts.push([x, GROUND_Y - b.height(b, x)]);
+    const g = ctx.createLinearGradient(0, GROUND_Y - b.h, 0, GROUND_Y);
+    g.addColorStop(0, '#2f6fa8'); g.addColorStop(1, '#183a66');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(pts[0][0], GROUND_Y);
+    for (const [x, y] of pts) ctx.lineTo(x, y);
+    ctx.lineTo(pts[pts.length - 1][0], GROUND_Y); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;               // 波の線（北斎のすじ）
+    for (let j = 1; j <= 3; j++) {
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => { const yy = y + j * 9; if (yy < GROUND_Y) (i ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy)); });
+      ctx.stroke();
+    }
+    const cx = b.x, cy = GROUND_Y - b.h;                                      // 波頭がまるまって、白い爪
+    ctx.fillStyle = '#f4f8ff';
+    ctx.beginPath(); ctx.arc(cx + b.dir * 10, cy + 12, 16, Math.PI, TAU); ctx.fill();
+    for (let i = 0; i < 6; i++) {
+      const a = -Math.PI / 2 + b.dir * (0.2 + i * 0.22), r = 22 + (i % 2) * 6;
+      const fx2 = cx + b.dir * 10 + Math.cos(a) * r, fy = cy + 12 + Math.sin(a) * r;
+      ctx.beginPath(); ctx.arc(fx2, fy, 4 - i * 0.4, 0, TAU); ctx.fill();
+    }
+    if (Math.random() < 0.7) sparks(cx + b.dir * 20, cy + 10, { n: 2, color: '#e8f4ff', speed: 140, life: 0.5, size: 2.5, gravity: 500, dir: -Math.PI / 2 + b.dir * 0.6, spread: 1.2 });
+  }
+  window.fxSplash = function (x, y, b) {
+    sparks(x, y - 2, { n: 18, color: '#d8ecff', speed: 260, life: 0.6, size: 2.6, gravity: 700, dir: -Math.PI / 2, spread: 1.6 });
+    st.ripples.push({ x, t: 0 });
+  };
   // 花火の光の筋・霜の線（レーザー）
   function laser(b, c, T, k) {
     const line = () => { ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); };
@@ -614,6 +816,8 @@
     if (b.kind === 'ink') { shake(1.5); return true; }
     if (b.kind === 'aurora') return true;
     if (b.kind === 'shell') return true;
+    if (b.kind === 'koi') { fxSplash(b.x, GROUND_Y, b); return true; }
+    if (b.kind === 'wave') { shake(4); return true; }
     return false;
   }
   // もみじ（弾）
@@ -628,7 +832,23 @@
   }
 
   // ---- カメラの中、いちばん上: 手前の粒・季節のかわり目の墨 --------------------------------------------
-  function world(T, look, k) { drawParticles(true, T); }
+  function world(T, look, k) {
+    drawParticles(true, T);
+    if (st.streaks.length) {                                                // 風の筋（筆で払ったような白い線）
+      ctx.lineCap = 'round';
+      for (const q of st.streaks) {
+        const a = Math.sin(Math.PI * clamp01(q.t / 2.5)) * 0.45, dir = Math.sign(q.v);
+        ctx.strokeStyle = night() > 0.5 ? `rgba(220,230,255,${a.toFixed(3)})` : `rgba(255,255,255,${a.toFixed(3)})`; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(q.x, q.y);
+        ctx.bezierCurveTo(q.x - dir * q.len * 0.3, q.y - 10 * Math.sin(q.a), q.x - dir * q.len * 0.7, q.y + 12 * Math.cos(q.a), q.x - dir * q.len, q.y + 4);
+        ctx.stroke();
+      }
+    }
+    for (const q of st.gold) {                                              // 金の粉（金箔）
+      ctx.fillStyle = `rgba(255,214,120,${(0.6 + 0.4 * Math.sin(q.a * 2)).toFixed(3)})`;
+      ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.a); ctx.scale(1, Math.abs(Math.sin(q.a)) + 0.2); ctx.fillRect(-q.s / 2, -q.s / 2, q.s, q.s); ctx.restore();
+    }
+  }
 
   // つららが割れた
   window.fxShatter = function (x, y, b) {
@@ -674,6 +894,23 @@
 
   // 場面の名前: 墨が広がって、大きな筆文字 ＋ 落款。最後は「四季」の落款
   function banner() {
+    const bp0 = inSong() ? beatPos(songTime) : 99;
+    if (gfx === 2 && night() < 0.5) { ctx.globalAlpha = 1 - night() * 2; ctx.drawImage(st.frame, 0, 0); ctx.globalAlpha = 1; }
+    for (const sp of st.splats) {                                           // 当たった: 墨がとびちる
+      const a = sp.t < 0.1 ? 1 : clamp01(1 - (sp.t - 0.1) / 1.5), e = easeOut(Math.min(1, sp.t / 0.12));
+      inkBlot(sp.x, sp.y, 34 * e, 0.75 * a, sp.seed);
+      ctx.fillStyle = `rgba(18,14,22,${(0.7 * a).toFixed(3)})`;
+      for (const [dx, dy, r] of sp.drops) { ctx.beginPath(); ctx.arc(sp.x + dx * e, sp.y + dy * e + sp.t * 20, r * (0.6 + 0.4 * e), 0, TAU); ctx.fill(); }
+    }
+    if (inSong() && bp0 < 8) {                                              // はじまり: 絵巻物がひらく
+      const rx = W * easeOut(clamp01((bp0 + 1) / 7));
+      ctx.fillStyle = '#2a1c1a'; ctx.fillRect(rx, 0, W - rx + 2, H);
+      ctx.fillStyle = 'rgba(184,140,60,0.5)'; for (let y = 12; y < H; y += 24) ctx.fillRect(rx + 30, y, W, 1);
+      const g = ctx.createLinearGradient(rx - 14, 0, rx + 14, 0);
+      g.addColorStop(0, '#5a3a20'); g.addColorStop(0.45, '#d8b070'); g.addColorStop(1, '#3a2414');
+      ctx.fillStyle = g; ctx.fillRect(rx - 14, -10, 28, H + 20);
+      ctx.fillStyle = '#c8a050'; ctx.fillRect(rx - 18, -10, 36, 14); ctx.fillRect(rx - 18, H - 4, 36, 14);
+    }
     for (const bl of st.blooms) {                                           // 季節のかわり目: 墨が一滴、ひろがって消える
       const p = bl.t / 2.4, r = 40 + 1100 * easeOut(Math.min(1, p * 1.6)), a = p < 0.35 ? 0.9 : clamp01(0.9 * (1 - (p - 0.35) / 0.65));
       inkBlot(bl.x, bl.y, r, a * 0.85, bl.seed);
@@ -719,7 +956,7 @@
   THEMES.shiki = {
     noTrails: true, glow: 1.6, noScanlines: true,
     clearColors: ['#ff8fb0', '#ffd27f', '#8fd8ff', '#d8452a', '#ffffff'],
-    kinds: { ink, shell, icicle: icicleK, aurora: auroraK },
+    kinds: { ink, shell, icicle: icicleK, aurora: auroraK, koi: koiK, wave: waveK },
     reset, update, background, floor, platform, bullet, laser, fire, world, flash, hint, banner, title,
   };
 })();
