@@ -1,0 +1,361 @@
+"use strict";
+
+/* =========================================================================
+   Re:Unknown X 【旧譜面（CLASSIC）】
+   リメイク前の譜面と見た目（正体不明の夜・三つの UFO）を、そのまま残したもの。
+   タイトル画面の「譜面」ボタンでリメイク版（songs/unknown.js）と切りかえられる。
+   名前がリメイク版とぶつからないよう、ファイル全体を (function () { ... })() で包んでいる。
+   ========================================================================= */
+(function () {
+
+  /* =========================================================================
+     曲②  Re:Unknown X  —  拍・場面・譜面（弾幕）
+     東方ダンマクカグラの曲。元になった「Unknown X」は「正体不明」「UFO」の曲なので、
+     テーマは「正体不明の夜」: 月夜の町の上に、赤・緑・青の三つの UFO が現れる。
+     見た目は visuals-night.js（theme: 'night'）。
+
+     曲の形（解析で分かったこと。4小節 ≈ 5秒をひとかたまりとして比べた）:
+         0.9〜 16.1  イントロ     しずか → 盛り上がって 11.0 秒でバンドが入る
+        16.1〜 36.3  Aメロ        同じフレーズ4回
+        36.3〜 56.5  サビ         （46.4〜51.4 だけ少し変化）
+        56.5〜 66.6  Aメロ 2（決まった場所で交差する X の光線）
+        66.6〜 76.7  サビ 2
+        76.7〜 86.8  転調したサビ ← 最初の山場
+        86.8〜 96.9  ブレイク     ほぼ無音。ピアノがぽつぽつ
+        96.9〜107.0  ため         だんだん戻ってくる（104.5 秒にドンと一撃）
+       107.0〜127.2  大サビ       ← いちばんの山場
+       127.2〜137.3  アウトロ     Aメロを上げたもの。まだ激しい
+       137.3〜145.0  エンディング 142.4 秒の最後の一撃で終わり
+
+     この曲は「盛り上がりの段階」tier（0〜5）で、弾の量と演出の強さを決めている:
+         0 しずか / 1 気配 / 2 Aメロ / 3 サビ / 4 山場 / 5 最高潮
+     ========================================================================= */
+
+  // ---- 拍のきざみ ------------------------------------------------------------
+  // 190 BPM: 1拍 = 60/190 ≈ 0.316秒。最初の拍 = 0.275秒。
+  // 小節（4拍）の頭は 2拍目から: bar(0) = 0.907秒。
+  const UNKNOWN_BEAT = 60 / 190;
+  function unknownBeatTime(n) { return 0.275 + n * UNKNOWN_BEAT; }    // n拍目の時刻
+  function unknownBeatPos(t)  { return (t - 0.275) / UNKNOWN_BEAT; }  // t秒は何拍目か（小数）
+
+  /* ---- 場面（セクション）------------------------------------------------------
+     曲①と同じ書き方（t / name / sub / sky / color / pulse / sway / zoom）に加えて
+       tier … 盛り上がりの段階 0〜5。UFO・探照灯・月・ホタル・空の点滅がこれで変わる
+     -------------------------------------------------------------------------- */
+  const UNKNOWN_SECTIONS = [
+    { t: 0,      tier: 0,   name: 'UNKNOWN',      sub: '正体不明の夜',         sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.002, sway: 0.2, stars: 6 },
+    { t: 5.96,   tier: 1,   name: 'SIGNAL',       sub: '近づく光',             sky: ['#0c0c30', '#1d1540'], color: '#8fd3ff', pulse: 0.005, sway: 0.3, stars: 10, zoom: [1, 1.02] },
+    { t: 11.01,  tier: 2.5, name: 'CONTACT',      sub: '未確認飛行物体',       sky: ['#130b33', '#271646'], color: '#ff4d6d', pulse: 0.010, sway: 0.4, stars: 18 },
+    { t: 16.06,  tier: 2,   name: 'DRIFT',        sub: 'Aメロ ─ ゆらめく光',   sky: ['#0a1030', '#14203f'], color: '#5cf2a4', pulse: 0.008, sway: 0.4, stars: 14 },
+    { t: 26.17,  tier: 2,   name: 'SPLIT',        sub: 'Aメロ ─ 分かれる光',   sky: ['#100c2e', '#211a42'], color: '#ffd166', pulse: 0.008, sway: 0.4, stars: 14 },
+    { t: 33.75,  tier: 2.5, name: '',             sub: '',                     sky: ['#140c33', '#291848'], color: '#ffd166', pulse: 0.012, sway: 0.5, stars: 22, zoom: [1, 1.03] },
+    { t: 36.28,  tier: 3.5, name: 'UFO',          sub: 'サビ ─ 三色の円盤',     sky: ['#1a0b38', '#33164e'], color: '#ff4d6d', pulse: 0.018, sway: 0.7, stars: 40 },
+    { t: 46.38,  tier: 3,   name: 'PHANTOM',      sub: 'サビ ─ 正体不明',       sky: ['#120a36', '#26154c'], color: '#c4b5fd', pulse: 0.016, sway: 0.7, stars: 34 },
+    { t: 56.49,  tier: 2,   name: 'DRIFT II',     sub: 'Aメロ ─ 交差する光', sky: ['#0a1030', '#14203f'], color: '#5cf2a4', pulse: 0.008, sway: 0.4, stars: 14 },
+    { t: 66.59,  tier: 3.5, name: 'UFO II',       sub: 'サビ ─ 光線の雨',       sky: ['#081236', '#11254d'], color: '#4cc9f0', pulse: 0.018, sway: 0.7, stars: 40 },
+    { t: 76.70,  tier: 4.5, name: 'ASCENSION',    sub: '転調 ─ 最初の山場',     sky: ['#220a33', '#40164a'], color: '#ffb347', pulse: 0.024, sway: 1.0, stars: 70, zoom: [1, 1.04] },
+    { t: 86.80,  tier: 0,   name: '……',         sub: '静寂',                 sky: ['#05051a', '#0c0a24'], color: '#9aa4c8', pulse: 0,     sway: 0.15, stars: 4 },
+    { t: 96.91,  tier: 1.5, name: 'APPROACH',     sub: 'ふたたび近づく',       sky: ['#0c0c30', '#1d1540'], color: '#8fd3ff', pulse: 0.008, sway: 0.3, stars: 14, zoom: [1, 1.05] },
+    { t: 104.48, tier: 5,   name: 'Re:Unknown X', sub: '大サビ',               sky: ['#22082f', '#45124a'], color: '#ff4d6d', pulse: 0.030, sway: 1.3, stars: 110 },
+    { t: 117.12, tier: 5,   name: 'UNIDENTIFIED', sub: '大サビ ─ すべての光',   sky: ['#0a0e36', '#182a55'], color: '#4cc9f0', pulse: 0.030, sway: 1.3, stars: 110 },
+    { t: 127.22, tier: 4,   name: 'KAGURA',       sub: '神楽 ─ 拍に合わせて跳べ', sky: ['#1c0e2c', '#3a1a40'], color: '#ffd166', pulse: 0.022, sway: 0.9, stars: 60 },
+    { t: 137.33, tier: 1,   name: 'FAREWELL',     sub: '去っていく円盤',       sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.006, sway: 0.3, stars: 10 },
+  ];
+
+  // 弾の速さの倍率: 弾の数はあまり変えずに、盛り上がりは「速さ」で出す。
+  // tier 0（静寂）= 0.85倍 … tier 2（Aメロ）≈ 1.07倍 … tier 5（大サビ）= 1.4倍
+  function unknownSpeedAt(t) {
+    let i = 0;
+    while (i + 1 < UNKNOWN_SECTIONS.length && UNKNOWN_SECTIONS[i + 1].t <= t) i++;
+    return 0.85 + 0.11 * UNKNOWN_SECTIONS[i].tier;
+  }
+
+  /* ---- 譜面 -------------------------------------------------------------------
+     盛り上がりは主に「弾の速さ」で表す（上の unknownSpeedAt）。弾の量は大きくは変えず、「主役」を変えている:
+       tier 0〜1  … 1つずつゆっくり。よけ方を覚える時間
+       tier 2     … Aメロ。テンポよく、でも詰めすぎない
+       tier 3〜   … サビ。三つの UFO が現れて、拍ごとに順番に撃つ
+       tier 5     … 大サビ。回る光のスプリンクラー ＋ UFO ＋ 強い音のたびに X の光線
+
+     ● 強い音（解析で目立った瞬間）には「交差する探照灯」（crash）
+         11.0 / 33.0 / 38.8 / 41.3 / 43.9 / 51.1 / 73.5 / 86.3 / 104.5 / 109.5 / 114.6 / 122.2 / 132.9 / 142.4 秒
+         （交差する位置はプレイヤーの横の位置と高さの両方を追う。足場の上にいても逃げられない）
+     -------------------------------------------------------------------------- */
+  function unknownChart() {
+    const cues = [];
+    const cx = W / 2, cy = H / 3;
+    const burst = (t, fn) => cues.push({ t, fn });
+    const beat = unknownBeatTime;                       // n拍目
+    const bar  = k => beat(2 + k * 4);                  // k小節目の頭（小数もOK: 0.5 = 3拍目）
+    const fire = (t, warn, fn) => burst(t - warn, () => fn(warn));
+    const B = UNKNOWN_BEAT, B2 = B * 2;                 // 1拍 / 2拍（予告の基本の長さ）
+
+    // ---- この曲の部品 ----
+    const RED = '#ff4d6d', GREEN = '#5cf2a4', BLUE = '#4cc9f0', MOON = '#fff3c4', VIOLET = '#c4b5fd', GOLD = '#ffd166';
+    const TRI = [RED, GREEN, BLUE];
+    const LOW = GROUND_Y - 30, MID = GROUND_Y - 75, PLAT = GROUND_Y - 120;
+    const anyH = () => [LOW, MID, PLAT][(Math.random() * 3) | 0];
+    // 正体不明の光: 拍ごとに瞬間移動しながら落ちてくる（次の場所が点線で見える）
+    const drip = (delay, o = {}) => blink({ x: o.x ?? rand(40, W - 40), y: 30, vy: o.vy || 190, vx: o.vx || 0, r: o.r || 9, step: 1, delay, color: o.color || VIOLET });
+    // 横から瞬間移動してくる光。高さは毎回少しずつランダム（LOW = 跳ぶ高さ / MID = 頭の上 / PLAT = 足場の高さ）
+    // → 同じ高さにいれば当たらない、ということがない
+    const side = (fromLeft, y, delay, color) => blink({ x: fromLeft ? 14 : W - 14, y: y + rand(-24, 24), vx: fromLeft ? 260 : -260, vy: 0, r: 10, step: 1, delay, color });
+    // ゆっくり落ちる大玉
+    const orb = (delay, o = {}) => spawn({ x: o.x ?? rand(60, W - 60), y: -16, vy: o.vy || 90, r: o.r || 14, delay, color: o.color || MOON, lane: [0, 1] });
+    // 画面が光る（場面の色。山場では三色）
+    const hit = (t, amount = 0.5) => burst(t, () => { flash(amount); punch(0.02 * amount); });
+    // ★強い音★ 交差する2本の探照灯（X の字）＋ 交点から三色の星が飛ぶ。予告は4拍（約1.3秒）
+    //   at: 'player' = プレイヤーの位置（横も高さも）/ 'center' = 画面の真ん中 / { x, y } = その場所
+    //   light: true = 光とゆれを控えめに（連打するときに使う）
+    const XWARN = B * 4;
+    const crash = (t, { at = 'player', stars = 6, light = false } = {}) => {
+      let p = null;                                     // X の交点（予告を出した瞬間に決まる）
+      fire(t, XWARN, delay => {
+        p = at === 'player' ? playerXY() : at === 'center' ? { x: cx, y: H * 0.42 } : at;
+        xStrike({ x: p.x, y: p.y, delay, color: MOON });
+      });
+      burst(t, () => {
+        if (light) { flash(0.25); shake(6); } else { flash(0.8); shake(14); punch(0.05); }
+        for (let i = 0; p && i < stars; i++) {
+          const a = Math.PI / 4 + (i % 4) * (Math.PI / 2) + (i >= 4 ? Math.PI / 4 : 0), v = i < 4 ? 240 : 170;
+          spawn({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 8, style: 'star', color: TRI[i % 3] });
+        }
+      });
+    };
+
+    // ★三つの UFO★ 三角形の編隊で回りながら、拍ごとに 赤→緑→青 の順で1機ずつ撃つ
+    //   t0 = 撃ちはじめ / beats = 何拍いるか / shots = 色ごとの撃ち方 [赤, 緑, 青]
+    const trio = (t0, beats, shots, { y = 150, R = 230, every = 1 } = {}) => {
+      const life = 1.2 + beats * B + 1.0;               // 入ってくる1.2秒 ＋ 撃つ時間 ＋ 帰る1秒
+      [0, 1, 2].forEach(i => burst(t0 - 1.2, () => ufo({
+        x: cx, y: -60, color: TRI[i], life, every, size: 1,
+        path: age => {
+          const a = beatPos(songTime) * 0.06 + i * TAU / 3;
+          const sx = cx + Math.cos(a) * R, sy = y + Math.sin(a) * R * 0.28;
+          const inK = easeOut(age / 1.2), outK = easeOut((age - (life - 1.0)) / 1.0);
+          return { x: sx, y: lerp(-60, sy, inK) - 260 * outK };
+        },
+        shot: (u, n) => { if (u.age > 1.15 && u.age < life - 1.0 && (n + i) % 3 === 0) shots[i](u, n); },
+      })));
+    };
+    // UFO が横切りながら、拍ごとに下へ光の玉を落とす
+    const dash = (t0, fromLeft, { y = 210, bars = 2, color = BLUE, drop = 150 } = {}) => {
+      const dur = bars * 4 * B;
+      burst(t0, () => ufo({
+        x: fromLeft ? -60 : W + 60, y, color, life: dur, every: 1,
+        path: age => ({ x: fromLeft ? lerp(-60, W + 60, age / dur) : lerp(W + 60, -60, age / dur), y: y + Math.sin(age * 5) * 8 }),
+        shot: u => { if (u.x > 20 && u.x < W - 20) spawn({ x: u.x, y: u.y + 10, vy: drop, r: 10, color }); },
+      }));
+    };
+    // 撃ち方の部品（UFO の u.x, u.y から）
+    const aimFan = (n, spread, speed, style = 'rice') => (u) => {
+      const p = playerXY(), base = Math.atan2(p.y - u.y, p.x - u.x);
+      for (let j = 0; j < n; j++) {
+        const a = base + (j - (n - 1) / 2) * spread;
+        spawn({ x: u.x, y: u.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: 7, style, color: u.color });
+      }
+    };
+    const burstRing = (n, speed, style = 'orb') => (u, k) => ring({ x: u.x, y: u.y, count: n, speed, r: 7, start: k * 0.3, color: u.color, style });
+    const starDrop = (n) => (u) => { for (let j = 0; j < n; j++) spawn({ x: u.x + (j - (n - 1) / 2) * 30, y: u.y, vx: (j - (n - 1) / 2) * 40, vy: 170, r: 8, style: 'star', color: u.color }); };
+
+    // ===== UNKNOWN 0.9〜6.0 ｜ tier 0: 月夜。大玉がひとつずつ、ゆっくり ===========
+    hit(bar(0), 0.15);
+    for (const k of [0.5, 2, 3]) fire(bar(k), B2 * 1.5, delay => orb(delay));
+    fire(bar(3.5), B2, delay => drip(delay, { vy: 140 }));
+
+    // ===== SIGNAL 6.0〜11.0 ｜ tier 1: UFO の探照灯が地面をなめる（跳び越える）====
+    const lowScan  = (fromLeft, delay) => scanner({ fromLeft, y1: GROUND_Y - 46, y2: GROUND_Y + 10, speed: 400, delay, color: BLUE });
+    const highScan = (fromLeft, delay) => scanner({ fromLeft, y1: -30, y2: GROUND_Y - 58, speed: 400, delay, color: GOLD });
+    fire(bar(4), B2, delay => lowScan(true, delay));
+    fire(bar(5), B2, delay => lowScan(true, delay));
+    fire(bar(6), B2, delay => highScan(true, delay));
+    fire(bar(7), B2, delay => lowScan(true, delay));
+    for (const k of [4.5, 5.5, 6.5]) fire(bar(k), B2, delay => drip(delay, { vy: 160 }));
+    for (let n = 0; n < 4; n++) fire(bar(7.5) + n * B / 2, B2, delay => drip(delay, { vy: 220, color: RED }));   // 10.4s〜 ため
+    hit(beat(30), 0.2); hit(beat(32), 0.35);
+
+    // ===== CONTACT 11.0〜16.1 ｜ tier 2.5: バンドが入る。最初の UFO が現れる =======
+    crash(bar(8), { stars: 8 });                                       // 11.0s
+    dash(bar(8.5), true,  { color: RED,  y: 200 });                    // 赤い UFO が左から
+    dash(bar(10),  false, { color: BLUE, y: 250 });                    // 青い UFO が右から
+    for (const k of [9, 10, 11]) fire(bar(k + 0.5), B2, delay => drip(delay, { color: GREEN }));
+    hit(beat(47), 0.5);                                                // 15.1s
+
+    // ===== DRIFT 16.1〜26.2 ｜ tier 2: Aメロ。横から・上から、正体不明の光 =========
+    for (let k = 12; k < 16; k++) {
+      const L = k % 2 === 0;
+      fire(bar(k),        B2, delay => side(L,  LOW, delay, GREEN));    // 低め → 跳ぶ
+      fire(bar(k + 0.5),  B2, delay => side(!L, k % 2 ? PLAT : MID, delay, BLUE));   // 頭の上 / 足場の高さ
+      fire(bar(k + 0.25), B2, delay => stream({ x: rand(60, W - 60), count: 4, vy: 300, delay, color: GREEN }));
+    }
+    for (let k = 16; k < 20; k++) {
+      for (const i of [0, 2]) {                                         // ななめに瞬間移動しながら降る光3つ
+        const fromLeft = (k + i / 2) % 2 === 0;
+        fire(bar(k + i / 4), B2, delay => {
+          for (let j = 0; j < 3; j++) blink({ x: fromLeft ? rand(20, W * 0.45) : rand(W * 0.55, W - 20), y: 30, vx: fromLeft ? 110 : -110, vy: 200, r: 9, delay, color: GREEN });
+        });
+      }
+      fire(bar(k + 0.75), B2, delay => stream({ x: playerXY().x, count: 5, vy: 320, delay, color: BLUE }));
+    }
+    hit(beat(55.5), 0.4); hit(beat(64), 0.5);                          // 17.8s / 20.5s
+
+    // ===== SPLIT 26.2〜36.3 ｜ tier 2→2.5: 2拍ごとに X の形に分かれる光 ===========
+    for (let k = 20; k < 26; k++) {
+      const x = k % 2 === 0 ? W * 0.3 : W * 0.7;
+      fire(bar(k), B2, delay => splitter({ x, y: 40, vy: 150, r: 18, gen: 2, every: 2, speed: 140, delay, color: GOLD, bits: 'star' }));
+      if (k % 2 === 1) fire(bar(k + 0.5), B2, delay => drip(delay, { color: GOLD }));
+    }
+    crash(beat(103.5));                                                // 33.0s 強い音
+    // 33.7〜36.3s サビ前のため: 8分音符で光が降り、最後に大玉の輪
+    for (let n = 0; n < 12; n++) fire(bar(26.5) + n * B / 2, B2, delay => drip(delay, { vy: 230, color: TRI[n % 3] }));
+    fire(bar(27.5), B2, delay => ring({ x: cx, y: cy, count: 12, speed: 150, r: 9, delay, color: MOON }));
+
+    // ===== UFO 36.3〜46.4 ｜ tier 3.5: サビ。三つの UFO が順番に撃つ ================
+    trio(bar(28), 32, [aimFan(3, 0.28, 220), burstRing(8, 150), starDrop(2)]);
+    crash(bar(30)); crash(bar(32)); crash(bar(34));                   // 38.8 / 41.3 / 43.9s
+
+    // ===== PHANTOM 46.4〜56.5 ｜ tier 3: サビ後半。UFO が横切って光を落とす ========
+    dash(bar(36), true,  { color: RED,   y: 190 });
+    dash(bar(38), false, { color: GREEN, y: 230 });
+    for (let k = 36; k < 40; k++) fire(bar(k + 0.5), B2, delay => drip(delay, { color: VIOLET }));
+    crash(beat(161));                                                  // 51.1s
+    for (let k = 40; k < 44; k++) {                                    // 拍ごとに 45° カクッと回る X
+      const left = k % 2 === 0;
+      fire(bar(k), B2, delay => spinX({ x: left ? 40 : W - 40, y: -30, vx: left ? 150 : -150, vy: 150, per: 3, gap: 24, inner: 16, snap: Math.PI / 4, r: 8, delay, color: TRI[k % 3] }));
+    }
+
+    // ===== DRIFT II 56.5〜66.6 ｜ tier 2: Aメロ 2。決まった場所で交差する X の光線 =========
+    // プレイヤーは狙わない。地面すれすれで交差する X（交点の近くが危ない）と、
+    // 高い所で交差する X（ななめの線が地面に届く2か所が危ない）が、場所を変えながら続く。
+    // 前半は1小節に1つ、後半は2拍ごとに2つ同時。すき間に光の滝
+    const G0 = GROUND_Y - 30, GH = GROUND_Y - 250;
+    const firstHalf = [{ x: 200, y: G0 }, { x: 600, y: G0 }, { x: 400, y: GH }, { x: 400, y: G0 }];
+    firstHalf.forEach((at, i) => crash(bar(44 + i), { at, stars: 4, light: true }));
+    const sweep = [120, 280, 440, 600, 680, 520, 360, 200];
+    sweep.forEach((x, i) => {
+      crash(bar(48 + i * 0.5), { at: { x, y: G0 }, stars: 0, light: true });
+      crash(bar(48 + i * 0.5), { at: { x: W - x, y: GH }, stars: 0, light: true });
+    });
+    for (let k = 45; k < 52; k += 2) fire(bar(k + 0.25), B2, delay => stream({ x: rand(60, W - 60), count: 3, vy: 300, delay, color: GREEN }));
+    hit(beat(189), 0.4); hit(beat(193), 0.5);                          // 60.0s / 61.2s
+
+    // ===== UFO II 66.6〜76.7 ｜ tier 3.5: サビ 2。UFO の光線が降る ==================
+    // 2拍ごとに、2本の光線（左右どちらかに寄る）。左右交互なので、反対側へ逃げる。
+    // 光線を落とした UFO は、そのまま米つぶ弾をばらまく（逃げた先にも弾が来る）
+    for (let i = 0; i < 15; i++) {
+      const c = i % 2 === 0 ? [1, 2] : [5, 6];
+      fire(bar(52 + i * 0.5), B2, delay => columns({ cols: c, delay, hold: 0.22, color: TRI[i % 3] }));
+      burst(bar(52 + i * 0.5), () => {
+        const p = playerXY();
+        for (const col of c) {
+          const x = (col + 0.5) * W / 8, base = Math.atan2(p.y - 40, p.x - x);
+          for (let j = -2; j <= 2; j++) {
+            const a = base + j * 0.22, v = 190;
+            spawn({ x, y: 40, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 7, style: 'rice', color: TRI[(i + 1) % 3] });
+          }
+        }
+      });
+    }
+    for (let k = 52; k < 60; k += 2) fire(bar(k + 1), B2, delay => ring({ x: cx, y: cy, count: 10, speed: 160, r: 8, start: k * 0.2, delay, color: BLUE }));
+    crash(beat(232), { at: 'center' });                                // 73.5s
+
+    // ===== ASCENSION 76.7〜86.8 ｜ tier 4.5: 転調したサビ。最初の山場 ==============
+    // 穴の空いた光の壁が下りてくる ＋ UFO の編隊が2拍ごとに撃つ
+    for (let k = 60; k < 68; k += 2) fire(bar(k), B2, delay => firewall({ gapX: rand(140, W - 140), gapW: 140, steps: 6, step: 1, delay, color: GOLD }));
+    trio(bar(60), 30, [aimFan(2, 0.2, 200), burstRing(6, 140, 'rice'), aimFan(2, 0.2, 200)], { y: 130, every: 2 });
+    hit(beat(266), 0.5);                                               // 84.3s
+    crash(beat(272.5), { at: 'center', stars: 8 });                    // 86.3s ブレイク前の一撃
+
+    // ===== …… 86.8〜96.9 ｜ tier 0: 音が消える。ゆっくりの玉が夜空にどんどん現れる ======
+    // 拍ごとに、空のあちこち（プレイヤーから離れた所）に玉がふわっと現れて、ゆっくり漂いながら落ちる。
+    // 数が多く、そこそこの速さで漂う。すき間を見てよける。ピアノの音では大きな「?」
+    for (let n = 0; n < 31; n++) {
+      fire(beat(276 + n), 0.6, delay => {
+        for (let j = 0; j < (n % 2 ? 3 : 2); j++) {
+          let x, y, tries = 0;
+          do { x = rand(30, W - 30); y = rand(40, GROUND_Y - 260); } while (Math.hypot(x - playerXY().x, y - playerXY().y) < 220 && ++tries < 8);
+          const a = Math.PI / 2 + rand(-0.9, 0.9), v = rand(110, 170);
+          spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: rand(7, 12), delay, color: ['#b8c2e8', '#c4b5fd', '#8fd3ff'][n % 3] });
+        }
+      });
+    }
+    [87.72, 91.83, 94.98].forEach((t, i) =>
+      fire(t, 0.5, delay => glyph({ ch: '?', x: i % 2 ? rand(W * 0.55, W - 80) : rand(80, W * 0.45), y: -50, cell: 20, vy: 60, r: 6, delay, color: MOON })));
+
+    // ===== APPROACH 96.9〜104.5 ｜ tier 1.5: ため。光の雨がだんだん激しく =========
+    hit(98.12, 0.25); hit(bar(78), 0.4); hit(bar(79), 0.5);
+    for (let n = 0; n < 16; n++) fire(beat(2 + 76 * 4 + n * 2), B2, delay => stream({ x: rand(40, W - 40), count: 3, vy: 280, delay, color: VIOLET }));
+    for (let n = 0; n < 16; n++) fire(beat(2 + 80 * 4 + n * 0.5), B2, delay => stream({ x: rand(40, W - 40), count: 2, vy: 340, delay, color: TRI[n % 3] }));
+    fire(bar(80), B2 * 1.5, delay => floorStrike({ delay, color: GOLD }));   // 102.0s 床の光（跳ぶ練習）
+    fire(bar(81), B2 * 1.5, delay => floorStrike({ delay, color: GOLD }));
+
+    // ===== Re:Unknown X 104.5〜117.1 ｜ tier 5: 大サビ ================================
+    crash(bar(82), { stars: 8 });                                      // 104.5s ドロップ
+    crash(bar(82), { at: 'center', stars: 0 });
+    for (let n = 0; n < 40; n++) {                                     // 回る光のスプリンクラー（4方向、拍ごとに 22.5° 回る）
+      fire(beat(2 + 82 * 4 + n), 0.3, delay => ring({ x: cx, y: cy, count: 4, speed: 210, r: 7, start: n * Math.PI / 8, delay, color: TRI[n % 3], style: 'rice' }));
+    }
+    trio(bar(84), 28, [starDrop(1), aimFan(1, 0, 230), starDrop(1)], { y: 120, R: 260, every: 2 });
+    for (let k = 84; k < 88; k++) fire(bar(k + 0.5), B2, delay => side(k % 2 === 0, anyH(), delay, MOON));
+    hit(beat(336.5), 0.6);                                             // 106.5s
+    crash(bar(86)); crash(bar(90));                                    // 109.5 / 114.6s
+
+    // ===== UNIDENTIFIED 117.1〜127.2 ｜ tier 5: 大サビ後半。すべての形態 ===============
+    for (let k = 92; k < 100; k++) {
+      const m = k % 4;
+      if (m === 0) fire(bar(k), B2, delay => splitter({ x: rand(150, W - 150), y: 40, vy: 150, r: 18, gen: 2, every: 2, speed: 140, delay, color: GREEN, bits: 'star' }));
+      if (m === 1) fire(bar(k), B2, delay => columns({ cols: [0, 3, 6], delay, color: BLUE }));
+      if (m === 2) dash(bar(k), k % 8 < 4, { color: RED, y: 200, bars: 2 });
+      if (m === 3) fire(bar(k), B2, delay => columns({ cols: [1, 4, 7], delay, color: BLUE }));
+      fire(bar(k + 0.5), B2, delay => drip(delay, { color: TRI[k % 3] }));
+    }
+    crash(bar(96)); hit(beat(398), 0.5);                               // 122.2s / 126.0s
+
+    // ===== KAGURA 127.2〜137.3 ｜ tier 4: 神楽。拍に合わせて跳べ =========================
+    // 小節の頭で床に光（空中か足場の上ならセーフ）。3拍目は足場の列に光線（足場にずっといられない）
+    for (let k = 100; k < 108; k++) {
+      if (k !== 104) fire(bar(k), B2 * 1.5, delay => floorStrike({ delay, color: GOLD }));
+      fire(bar(k + 0.5), B2, delay => columns({ cols: k % 2 ? [1, 2] : [5, 6], delay, color: TRI[k % 3] }));
+      if (k % 2 === 0) fire(bar(k + 0.75), B2, delay => drip(delay, { color: GOLD }));
+    }
+    crash(beat(420));                                                  // 132.9s
+    hit(beat(406), 0.5);
+
+    // ===== FAREWELL 137.3〜145 ｜ tier 1: UFO が去っていく → 最後の一撃 ================
+    dash(bar(108), true, { color: RED, y: 160, bars: 3, drop: 110 });
+    for (let n = 0; n < 4; n++) fire(bar(108.5 + n), B2 * 1.5, delay => orb(delay, { vy: 100 }));
+    // 142.4s 最後の一撃: 真ん中に大きな「?」→ 星になって四方へはじける（正体不明のまま）
+    crash(bar(112), { at: 'center', stars: 8 });
+    fire(bar(112), 0.8, delay => glyph({ ch: '?', x: cx, y: cy, cell: 30, vx: 0, vy: 0, r: 9, delay, color: MOON, style: 'star' }));
+    burst(bar(112) + 0.5, () => {
+      for (const b of bullets) if (b.style === 'star' && !b.kind && b.vx === 0 && b.vy === 0) {
+        const a = Math.atan2(b.y - cy, b.x - cx); b.vx = Math.cos(a) * 240; b.vy = Math.sin(a) * 240; b.color = TRI[(Math.random() * 3) | 0];
+      }
+      flash(0.6); shake(10);
+    });
+
+    return cues.sort((a, b) => a.t - b.t);
+  }
+
+  addSong({
+    id: 'unknown-classic',
+    variantOf: 'unknown',            // リメイク版（id: 'unknown'）の別の譜面
+    variant: '旧譜面',
+    title: 'Re:Unknown X',
+    meta: '190 BPM · 2:25 · 正体不明の夜',
+    file: 'Re-Unknown_X.mp3',
+    bpm: 190, beat: UNKNOWN_BEAT, end: 145.0,
+    beatTime: unknownBeatTime,
+    beatPos: unknownBeatPos,
+    speedAt: unknownSpeedAt,         // 盛り上がりに合わせた弾の速さ
+    env: ENV_UNKNOWN,                // 曲の音量データ（songs/unknown-env.js）
+    sections: UNKNOWN_SECTIONS,
+    build: unknownChart,
+    theme: 'night',                  // visuals-night.js の見た目のセット
+    titleLook: { sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', tier: 2.5, pulse: 0.006, stars: 10 },
+    titleBpm: 95,                    // タイトル画面は半分の速さでゆったり刻む
+    preview: 107.0,                  // 試聴は大サビから
+    clearText: '正体不明のまま、夜が明けた！',
+    bestKey: 'dodge_best_unknown',   // ベストタイムの保存先（リメイク前からの記録はこちら）
+  });
+})();

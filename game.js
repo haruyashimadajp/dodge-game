@@ -853,6 +853,13 @@ const songPrev = document.getElementById('songPrev');
 const songNext = document.getElementById('songNext');
 const songName = document.getElementById('songName');
 const songMeta = document.getElementById('songMeta');
+const chartBtn = document.getElementById('chartBtn');
+
+// 同じ曲の別の譜面（リメイク版と旧譜面など）。別の譜面は variantOf にもとの曲の id を書く。
+// ◀ ▶ では「曲」だけを切りかえ、譜面はタイトル画面の「譜面」ボタン（または C キー）で切りかえる。
+const songBase = s => s.variantOf || s.id;
+const mainSongs = () => SONGS.filter(s => !s.variantOf);
+const chartsOf = s => SONGS.filter(x => songBase(x) === songBase(s));
 
 function showBest() {
   bestEl.textContent = best.toFixed(1) + 's';
@@ -875,15 +882,32 @@ function selectSong(i) {
   songName.textContent = song.title;
   songMeta.textContent = song.meta;
   document.body.dataset.theme = song.theme;    // CSS colors of the menus follow the song
-  songPrev.classList.toggle('hidden', n < 2);
-  songNext.classList.toggle('hidden', n < 2);
+  const many = mainSongs().length > 1;
+  songPrev.classList.toggle('hidden', !many);
+  songNext.classList.toggle('hidden', !many);
+  const charts = chartsOf(song);
+  chartBtn.classList.toggle('hidden', charts.length < 2);
+  chartBtn.textContent = `譜面: ${song.variant || '通常'} ⇄`;
+  if (charts.length > 1) store.set('dodge_chart_' + songBase(song), song.id);   // 曲ごとに、最後に選んだ譜面を覚えておく
 }
-function changeSong(d) {
-  if (running || SONGS.length < 2) return;
-  selectSong(SONGS.indexOf(song) + d);
+function afterSongChange() {
   if (typeof fxReset === 'function') fxReset();
   if (typeof fxSongChange === 'function') fxSongChange();
   playPreview();                               // a click = user gesture, so audio may play
+}
+function changeSong(d) {
+  const list = mainSongs();
+  if (running || list.length < 2) return;
+  const i = list.findIndex(s => s.id === songBase(song)), next = list[((i + d) % list.length + list.length) % list.length];
+  const keep = SONGS.find(s => s.id === store.get('dodge_chart_' + next.id) && songBase(s) === next.id);
+  selectSong(SONGS.indexOf(keep || next));
+  afterSongChange();
+}
+function changeChart() {
+  const charts = chartsOf(song);
+  if (running || charts.length < 2) return;
+  selectSong(SONGS.indexOf(charts[(charts.indexOf(song) + 1) % charts.length]));
+  afterSongChange();
 }
 
 // A short loop from the song's catchiest part, while choosing on the title
@@ -913,10 +937,12 @@ function stopPreview() {
 }
 songPrev.addEventListener('click', () => changeSong(-1));
 songNext.addEventListener('click', () => changeSong(1));
+chartBtn.addEventListener('click', changeChart);
 window.addEventListener('keydown', e => {
   if (scene !== 'title' || running || settingsOpen() || e.target instanceof HTMLInputElement) return;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') changeSong(-1);
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') changeSong(1);
+  if (e.key === 'c' || e.key === 'C') changeChart();
 });
 
 // Boot up on the title screen once every script (songs/*.js, visuals.js) has

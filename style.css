@@ -476,6 +476,15 @@ button { font-family: inherit; }
 .song-select { display: flex; align-items: center; gap: 10px; max-width: 100%; }
 .song-info { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
 .song-meta { font-size: 12px; letter-spacing: 0.12em; color: var(--text-dim); white-space: nowrap; }
+/* 譜面の切りかえ（リメイク版 ⇄ 旧譜面）。別の譜面がある曲だけ出る */
+.chart-btn {
+  font: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; cursor: pointer;
+  padding: 4px 14px; border-radius: 999px; color: #fff;
+  background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.35);
+  transition: background 0.15s, transform 0.1s;
+}
+.chart-btn:hover { background: rgba(255, 255, 255, 0.2); }
+.chart-btn:active { transform: scale(0.96); }
 .song-arrow {
   width: 40px; height: 40px; flex: none;
   border-radius: 50%;
@@ -589,7 +598,8 @@ body[data-theme="dusk"] .seg-btn.active { background: linear-gradient(90deg, #c9
 .overlay.result .title-only,
 .overlay.result .kicker,
 .overlay.result .song-arrow,
-.overlay.result .song-meta { display: none; }
+.overlay.result .song-meta,
+.overlay.result .chart-btn { display: none; }
 
 .result-box { gap: 10px; margin: 4px 0; animation: ov-in 0.5s ease-out; }
 .res {
@@ -633,6 +643,7 @@ body[data-theme="dusk"] .seg-btn.active { background: linear-gradient(90deg, #c9
   .kicker, .press-hint { display: none; }
   .song-tag { font-size: 12px; padding: 3px 12px; }
   .song-meta { display: none; }
+  .chart-btn { font-size: 11px; padding: 2px 10px; }
   .song-arrow { width: 32px; height: 32px; font-size: 13px; }
   .start-btn { font-size: 16px; padding: 10px 32px 10px 38px; margin-top: 2px; }
   .link-btn { padding: 6px 14px; font-size: 13px; }

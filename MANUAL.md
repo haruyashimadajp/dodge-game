@@ -832,6 +832,8 @@ for (let t = 4; t < 14; t += 0.5) {
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
      `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
+   同じ曲に別の譜面を足すときは、`addSong` に `variantOf: 'もとの曲のid'` と `variant: '譜面の名前'` を書く
+   （◀ ▶ では出てこず、タイトル画面の「譜面」ボタン / C キーで切りかわる。例: `songs/emperror-classic.js`）
 4. `index.html` の下の方、`songs/unknown.js` の次の行に `<script src="songs/mysong.js"></script>` を足す
 
 タイトル画面の ◀ ▶（キーボードなら ← →）で、追加した曲が選べるようになります。

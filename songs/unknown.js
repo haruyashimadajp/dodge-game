@@ -381,5 +381,6 @@ addSong({
   clearText: '巨大な影の正体は、ただの宣伝用の人形「非想天則」だった。',
   clearTitle: 'ALL CLEAR!!',
   overTitle: '満身創痍',
-  bestKey: 'dodge_best_unknown',
+  variant: 'リメイク',
+  bestKey: 'dodge_best_unknown_remake',   // ベストタイムの保存先（旧譜面とは別）
 });

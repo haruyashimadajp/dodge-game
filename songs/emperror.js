@@ -219,5 +219,6 @@ addSong({
   overTitle: 'FATAL ERROR',
   clearText: 'Thank you for playing!',
   preview: 40.9,                   // タイトルで流す試聴の開始秒（サビ）
-  bestKey: 'dodge_best',           // ベストタイムの保存先
+  variant: 'リメイク',
+  bestKey: 'dodge_best_emperror_remake',   // ベストタイムの保存先（旧譜面とは別）
 });
