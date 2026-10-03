@@ -170,7 +170,7 @@ let elapsed = 0;
 let best = 0;              // best time of the selected song (loaded by selectSong)
 
 // Settings-driven values (defaults; overwritten when settings load below)
-let startLives = 3;        // 残機 (debug setting)
+let startLives = 7;        // 残機（難易度で決まる。reset で livesForRun() から入れる）
 let livesLeft = startLives;
 let invuln = 0;            // invincibility timer after taking a hit (s)
 let flashT = 0;            // screen flash on strong beats (1 = full, fades out)
@@ -187,6 +187,7 @@ function reset() {
   player.coyoteT = 0; player.bufferT = 0; player.squash = 0;
   bullets = [];
   elapsed = 0;
+  startLives = livesForRun();
   livesLeft = startLives;
   invuln = 0;
   flashT = 0;
@@ -539,6 +540,7 @@ function showTitle() {
   overlay.classList.remove('result', 'over', 'clear');
   setOverlayTitle('DODGE');
   ovSub.textContent = '';
+  updateDiffUI();
   startBtn.textContent = 'START';
   overlay.classList.remove('hidden');
   updateTouchControls();
@@ -564,7 +566,7 @@ function endRun(kind) {
     overlay.classList.remove('over', 'clear');
     overlay.classList.add('result', kind);
     setOverlayTitle(kind === 'clear' ? (song.clearTitle || 'CLEAR') : (song.overTitle || 'GAME OVER'));   // 曲ごとに変えられる（Ward 13 は YOU DIED）
-    ovSub.textContent = kind === 'clear' ? (song.clearText || '最後まで生き残った！') : (newBest ? 'NEW BEST!' : '');
+    ovSub.textContent = kind === 'clear' ? `${DIFFS[difficulty].label} CLEAR ─ ` + (song.clearText || '最後まで生き残った！') : (newBest ? 'NEW BEST!' : '');
     resTime.textContent = elapsed.toFixed(1) + 's';
     resBest.textContent = best.toFixed(1) + 's';
     resHits.textContent = hitsTaken;
@@ -574,7 +576,7 @@ function endRun(kind) {
 }
 
 function gameOver() { fxDeath(); endRun('over'); }
-function winGame()  { fxClear(); endRun('clear'); }   // reached the end of the song
+function winGame()  { recordClear(); fxClear(); endRun('clear'); }   // reached the end of the song
 
 function setOverlayTitle(text) {
   ovTitle.textContent = text;
@@ -588,7 +590,7 @@ function hitPlayer() {
   sfxHit();
   if (livesLeft <= 0) { gameOver(); return; }
   fxHit();
-  invuln = 1.6;          // brief mercy invincibility, then play continues as-is
+  invuln = DIFFS[difficulty].invuln;   // 当たったあとの無敵時間（難易度で決まる）
                          // (bullets are NOT cleared — the run keeps going)
 }
 
@@ -613,7 +615,6 @@ function closeSettings() { settingsModal.classList.add('hidden'); }
 const sliderDefs = [
   { id: 'volume',      val: 'volVal',    store: 'dodge_volume',      def: 70,             apply: v => { masterVol = v / 100; bgm.volume = masterVol; }, fmt: v => v },
   { id: 'fxAmount',    val: 'fxVal',     store: 'dodge_fx',          def: 100,            apply: v => fxScale = v / 100,        fmt: v => v + '%' },
-  { id: 'lives',       val: 'livesVal',  store: 'dodge_lives',       def: 3,              apply: v => startLives = v,           fmt: v => v },
 ];
 for (const d of sliderDefs) {
   const slider = settingsPanel.querySelector('#' + d.id);
@@ -901,6 +902,7 @@ function selectSong(i) {
   chartBtn.classList.toggle('hidden', charts.length < 2);
   chartBtn.textContent = `譜面: ${song.variant || '通常'} ⇄`;
   if (charts.length > 1) store.set('dodge_chart_' + songBase(song), song.id);   // 曲ごとに、最後に選んだ譜面を覚えておく
+  if (typeof updateDiffUI === 'function' && diffNote) updateDiffUI();
 }
 function afterSongChange() {
   if (typeof fxReset === 'function') fxReset();
@@ -947,6 +949,44 @@ function stopPreview() {
   bgm.pause();
   bgm.volume = masterVol;
 }
+// ---- 難易度（曲選択の画面で選ぶ。すべての曲に共通）--------------------------------------
+//   invuln = 当たったあとの無敵時間（秒）、lives = 残機。impossible は 1 回当たったら終わり
+const DIFFS = {
+  easy:       { label: 'EASY',       invuln: 2.0, lives: 11 },
+  normal:     { label: 'NORMAL',     invuln: 1.0, lives: 7 },
+  hard:       { label: 'HARD',       invuln: 0.5, lives: 3 },
+  impossible: { label: 'IMPOSSIBLE', invuln: 0.5, lives: 1 },
+};
+const DIFF_ORDER = ['easy', 'normal', 'hard', 'impossible'];
+let difficulty = DIFFS[store.get('dodge_diff')] ? store.get('dodge_diff') : 'normal';
+function livesForRun() { return DIFFS[difficulty].lives; }
+// クリアした難易度を曲（譜面）ごとに覚える: dodge_clear_<曲の id> = "easy,normal" のように
+const clearsOf = s => (store.get('dodge_clear_' + s.id) || '').split(',').filter(d => DIFFS[d]);
+function recordClear() {
+  const c = clearsOf(song);
+  if (!c.includes(difficulty)) { c.push(difficulty); store.set('dodge_clear_' + song.id, c.join(',')); }
+  updateDiffUI();
+}
+const diffBtns = document.querySelectorAll('.diff-btn');
+const diffNote = document.getElementById('diffNote');
+function updateDiffUI() {
+  const c = clearsOf(song), d = DIFFS[difficulty];
+  diffBtns.forEach(b => {
+    b.classList.toggle('active', b.dataset.diff === difficulty);
+    b.classList.toggle('cleared', c.includes(b.dataset.diff));
+    b.title = c.includes(b.dataset.diff) ? 'この難易度でクリアした' : '';
+  });
+  diffNote.textContent = (difficulty === 'impossible' ? '残機 1（1 回当たったら終わり）' : `残機 ${d.lives} · 無敵時間 ${d.invuln} 秒`) +
+    (c.length ? `　★ クリア: ${DIFF_ORDER.filter(x => c.includes(x)).map(x => DIFFS[x].label).join(' / ')}` : '');
+}
+function setDifficulty(d) {
+  if (running || !DIFFS[d]) return;
+  difficulty = d;
+  store.set('dodge_diff', d);
+  updateDiffUI();
+}
+diffBtns.forEach(b => b.addEventListener('click', () => setDifficulty(b.dataset.diff)));
+
 songPrev.addEventListener('click', () => changeSong(-1));
 songNext.addEventListener('click', () => changeSong(1));
 chartBtn.addEventListener('click', changeChart);
@@ -955,6 +995,7 @@ window.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') changeSong(-1);
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') changeSong(1);
   if (e.key === 'c' || e.key === 'C') changeChart();
+  if (e.key >= '1' && e.key <= '4') setDifficulty(DIFF_ORDER[+e.key - 1]);
 });
 
 // Boot up on the title screen once every script (songs/*.js, visuals.js) has

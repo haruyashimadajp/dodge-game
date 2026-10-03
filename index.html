@@ -39,6 +39,14 @@
             </div>
             <button class="song-arrow" id="songNext" aria-label="次の曲">▶</button>
           </div>
+          <!-- 難易度（曲ごとに、クリアした難易度には ★ がつく）。1〜4 キーでも選べる -->
+          <div class="diff-select title-only" id="diffSelect">
+            <button class="diff-btn" data-diff="easy">EASY</button>
+            <button class="diff-btn" data-diff="normal">NORMAL</button>
+            <button class="diff-btn" data-diff="hard">HARD</button>
+            <button class="diff-btn" data-diff="impossible">IMPOSSIBLE</button>
+          </div>
+          <div class="diff-note title-only" id="diffNote"></div>
           <p class="ov-sub" id="ovSub"></p>
 
           <div class="result-box" id="resultBox">
@@ -53,7 +61,7 @@
             <button id="toTitleBtn2" class="link-btn result-only">タイトルへ</button>
             <span class="best-tag title-only">BEST <b id="titleBest">0.0s</b></span>
           </div>
-          <p class="press-hint title-only">Enter / Space でスタート · ← → で曲を選ぶ · C で譜面を切りかえ</p>
+          <p class="press-hint title-only">Enter / Space でスタート · ← → で曲を選ぶ · C で譜面を切りかえ · 1〜4 で難易度</p>
         </div>
       </div>
 
@@ -139,14 +147,6 @@
           </div>
         </div>
       </div>
-
-      <details class="settings-group debug">
-        <summary class="group-title">デバッグ設定（ゲームに影響）</summary>
-        <label class="setting">
-          <span class="setting-label">残機 <b id="livesVal"></b></span>
-          <input type="range" id="lives" min="1" max="9" step="1">
-        </label>
-      </details>
 
     </div>
   </template>
