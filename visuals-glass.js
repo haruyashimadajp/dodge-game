@@ -79,11 +79,7 @@
   function background(T, look, k, bk, bp) {
     if (!st.crystals.length) makeCrystals();
     const tier = look.tier;
-    const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
-    g.addColorStop(0, rgba(look.skyTop, 1));
-    g.addColorStop(1, rgba(mixC(look.skyBot, WHITE, 0.05 * k * clamp01(tier - 2)), 1));
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
+    vGradient([[0, rgba(look.skyTop, 1)], [1, rgba(mixC(look.skyBot, WHITE, 0.05 * k * clamp01(tier - 2)), 1)]], GROUND_Y);
 
     ctx.globalCompositeOperation = 'lighter';
     drawStars(T, [16, 30, 50][gfx]);

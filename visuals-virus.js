@@ -235,11 +235,7 @@
   }
 
   function background(T, look, k, bk, bp) {
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, rgba(look.skyTop, 1));
-    g.addColorStop(1, rgba(look.skyBot, 1));
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
+    vGradient(rgba(look.skyTop, 1), rgba(look.skyBot, 1));
     if (gfx > 0) {
       if (!st.code) st.code = makeCode();
       ctx.globalAlpha = 0.7 + 0.3 * k;

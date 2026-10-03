@@ -172,6 +172,7 @@
     if (!st.made) make();
     Object.assign(st, { petals: [], leaves: [], snow: [], fws: [], blooms: [], lastBeat: -99, gone: [], splats: [], shooters: [], geese: [], streaks: [], gold: [], ripples: [], snowDepth: 0, lastHits: 0 });
     st.stains.getContext('2d').clearRect(0, 0, st.stains.width, st.stains.height); st.stainN = 0;
+    for (const n of ['skyC', 'mtnC', 'frontC']) if (st[n]) st[n].dirty = true;
   }
 
   // ---- 粒（花びら・もみじ・雪）・背景の花火・季節のかわり目 ------------------------------------------
@@ -277,8 +278,26 @@
   }
 
   // ---- 背景 ---------------------------------------------------------------------------------
-  function background(T, look, k, bk, bp) {
-    if (!st.made) make();
+  /* ---- 背景は「ゆっくりしか変わらない層」を3枚の絵（キャッシュ）にしておき、毎コマはそれを貼るだけにする ----
+     空（日・月・星・オーロラ）／ 山なみと霧 ／ 鳥居・木・墨の跡・和紙 の3枚。4コマに1回ずつ、順番に描き直す
+     （山の動きは1秒に数px なので、描き直しが少なくても見た目は同じ）。花火・流れ星・雁・ホタル・花びらは毎コマ描く */
+  function layerCanvas(name) {
+    let c = st[name];
+    if (!c || c.width !== cv.width || c.height !== cv.height) { c = st[name] = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.dirty = true; }
+    return c;
+  }
+  function refresh(name, phase, fn, T, look) {
+    const c = layerCanvas(name);
+    if (c.dirty || st.fc % 4 === phase) {
+      const g = c.getContext('2d');
+      g.setTransform(renderScale, 0, 0, renderScale, 0, 0);
+      g.clearRect(0, 0, W, H);
+      fn(g, T, look);
+      c.dirty = false;
+    }
+    ctx.drawImage(c, 0, 0, W, H);
+  }
+  function skyLayer(ctx, T, look) {
     const nt = night();
     const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
     g.addColorStop(0, rgba(look.skyTop, 1)); g.addColorStop(1, rgba(look.skyBot, 1));
@@ -296,14 +315,14 @@
       gr.addColorStop(0, `rgba(232,90,90,${(0.75 * a).toFixed(3)})`); gr.addColorStop(0.42, `rgba(232,90,90,${(0.6 * a).toFixed(3)})`); gr.addColorStop(0.5, `rgba(240,150,140,${(0.12 * a).toFixed(3)})`); gr.addColorStop(1, 'rgba(240,150,140,0)');
       ctx.fillStyle = gr; ctx.fillRect(460, 20, 300, 300);
     }
-    if (SW.summer > 0.01) moon(600, 140, 52, SW.summer, 1);
+    if (SW.summer > 0.01) moon(600, 140, 52, SW.summer, 1, ctx);
     if (SW.autumn > 0.01) {                                                 // 秋: 山の向こうの大きな月
       const a = SW.autumn;
       const gr = ctx.createRadialGradient(560, 300, 0, 560, 300, 260);
       gr.addColorStop(0, `rgba(255,236,190,${(0.95 * a).toFixed(3)})`); gr.addColorStop(0.45, `rgba(255,220,160,${(0.9 * a).toFixed(3)})`); gr.addColorStop(0.5, `rgba(255,200,130,${(0.25 * a).toFixed(3)})`); gr.addColorStop(1, 'rgba(255,180,110,0)');
       ctx.fillStyle = gr; ctx.fillRect(300, 40, 520, 520);
     }
-    if (SW.winter > 0.01) moon(620, 120, 40, SW.winter, 0.35);
+    if (SW.winter > 0.01) moon(620, 120, 40, SW.winter, 0.35, ctx);
     if (SW.rebirth + SW.end > 0.01) {                                       // 輪廻: 金の朝日と光の筋
       const a = SW.rebirth + SW.end * 0.7;
       const x = W / 2, y = 330;
@@ -341,8 +360,9 @@
       }
       ctx.globalCompositeOperation = 'source-over';
     }
-    // 背景の花火
-    for (const f of st.fws) drawBgFirework(f);
+  }
+  function mountainLayer(ctx, T, look) {
+    const nt = night();
     // 山なみ（遠い → 近い）
     st.mtn.forEach((m, i) => {
       const off = -((T * m.speed) % (m.w - W)), y = 160 + i * 40;
@@ -357,24 +377,9 @@
       gr.addColorStop(0, rgba(mc, 0)); gr.addColorStop(0.5, rgba(mc, 0.35)); gr.addColorStop(1, rgba(mc, 0));
       ctx.fillStyle = gr; ctx.fillRect(0, my - 50, W, 100);
     });
-    // 流れ星（冬）
-    for (const q of st.shooters) {
-      const p = q.t / 1.2, x = q.x + Math.cos(q.a) * 420 * p, y = q.y + Math.sin(q.a) * 420 * p;
-      const g2 = ctx.createLinearGradient(x, y, x - Math.cos(q.a) * 120, y - Math.sin(q.a) * 120);
-      g2.addColorStop(0, `rgba(255,255,255,${(0.9 * (1 - p)).toFixed(3)})`); g2.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.strokeStyle = g2; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(q.a) * 120, y - Math.sin(q.a) * 120); ctx.stroke();
-    }
-    // 雁の列（秋の月の前を横切る）
-    for (const q of st.geese) {
-      const x0 = q.dir > 0 ? -120 + q.t * 70 : W + 120 - q.t * 70;
-      ctx.strokeStyle = `rgba(40,20,20,${(0.75 * SW.autumn).toFixed(3)})`; ctx.lineWidth = 1.6;
-      for (let i = 0; i < 9; i++) {
-        const row = Math.ceil(i / 2), side = i % 2 ? 1 : -1;
-        const x = x0 - q.dir * row * 22, y = q.y + (i ? side * row * 13 : 0) + Math.sin(q.t * 3 + i) * 2, f = Math.sin(q.t * 7 + i) * 4;
-        ctx.beginPath(); ctx.moveTo(x - 7, y - 3 + f); ctx.quadraticCurveTo(x - 2, y - 1, x, y + 1); ctx.quadraticCurveTo(x + 2, y - 1, x + 7, y - 3 + f); ctx.stroke();
-      }
-    }
+  }
+  function frontLayer(ctx, T, look) {
+    const nt = night();
     // 水の中に立つ鳥居（遠く）
     {
       const tx = 470, ty = GROUND_Y - 200;
@@ -393,6 +398,38 @@
     for (const key in cw) if (cw[key] > 0.01) { ctx.globalAlpha = Math.min(1, cw[key]); ctx.drawImage(st.canopy[key], 0, 0); }
     ctx.globalAlpha = 1;
     ctx.restore();
+    // 墨の跡（紙に残った一筆）
+    if (st.stainN > 0) ctx.drawImage(st.stains, 0, 0, W, H);
+    // 和紙の質感
+    if (gfx === 2) { ctx.fillStyle = st.tex; ctx.globalAlpha = 1 - nt * 0.6; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+  }
+  function background(T, look, k, bk, bp) {
+    if (!st.made) make();
+    const nt = night();
+    st.fc = (st.fc || 0) + 1;
+    refresh('skyC', 0, skyLayer, T, look);
+    // 背景の花火
+    for (const f of st.fws) drawBgFirework(f);
+    // 流れ星（冬）
+    for (const q of st.shooters) {
+      const p = q.t / 1.2, x = q.x + Math.cos(q.a) * 420 * p, y = q.y + Math.sin(q.a) * 420 * p;
+      const g2 = ctx.createLinearGradient(x, y, x - Math.cos(q.a) * 120, y - Math.sin(q.a) * 120);
+      g2.addColorStop(0, `rgba(255,255,255,${(0.9 * (1 - p)).toFixed(3)})`); g2.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.strokeStyle = g2; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(q.a) * 120, y - Math.sin(q.a) * 120); ctx.stroke();
+    }
+    // 雁の列（秋の月の前を横切る）
+    for (const q of st.geese) {
+      const x0 = q.dir > 0 ? -120 + q.t * 70 : W + 120 - q.t * 70;
+      ctx.strokeStyle = `rgba(40,20,20,${(0.75 * SW.autumn).toFixed(3)})`; ctx.lineWidth = 1.6;
+      for (let i = 0; i < 9; i++) {
+        const row = Math.ceil(i / 2), side = i % 2 ? 1 : -1;
+        const x = x0 - q.dir * row * 22, y = q.y + (i ? side * row * 13 : 0) + Math.sin(q.t * 3 + i) * 2, f = Math.sin(q.t * 7 + i) * 4;
+        ctx.beginPath(); ctx.moveTo(x - 7, y - 3 + f); ctx.quadraticCurveTo(x - 2, y - 1, x, y + 1); ctx.quadraticCurveTo(x + 2, y - 1, x + 7, y - 3 + f); ctx.stroke();
+      }
+    }
+    refresh('mtnC', 1, mountainLayer, T, look);
+    refresh('frontC', 2, frontLayer, T, look);
     // ホタル（夏）
     const flyA = SW.summer + SW.rebirth * 0.6;
     if (flyA > 0.02) {
@@ -405,10 +442,8 @@
     }
     // 粒（奥の層）
     drawParticles(false, T);
-    // 和紙の質感
-    if (gfx === 2) { ctx.fillStyle = st.tex; ctx.globalAlpha = 1 - nt * 0.6; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
   }
-  function moon(x, y, r, a, glow) {
+  function moon(x, y, r, a, glow, ctx) {
     const gr = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
     gr.addColorStop(0, `rgba(255,250,225,${(0.35 * a * glow).toFixed(3)})`); gr.addColorStop(1, 'rgba(255,250,225,0)');
     ctx.fillStyle = gr; ctx.fillRect(x - r * 3, y - r * 3, r * 6, r * 6);
@@ -533,8 +568,6 @@
       for (let x = -400; x <= W + 400; x += 20) ctx.lineTo(x, y + 2 - st.snowDepth * (5 + 3 * Math.sin(x * 0.05)));
       ctx.lineTo(W + 400, y + 4); ctx.lineTo(-400, y + 4); ctx.closePath(); ctx.fill();
     }
-    // 墨の跡（紙に残った一筆）
-    if (st.stainN > 0) ctx.drawImage(st.stains, 0, 0, W, H);
     // 秋: すすき（手前の水辺）
     if (SW.autumn > 0.01) {
       ctx.strokeStyle = `rgba(90,50,30,${(0.85 * SW.autumn).toFixed(3)})`; ctx.lineWidth = 1.2;

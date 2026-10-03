@@ -34,11 +34,7 @@
 
   function background(T, look, k, bk, bp) {
     if (!st.clouds) makeScene();
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, rgba(look.skyTop, 1));
-    g.addColorStop(1, rgba(look.skyBot, 1));
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
+    vGradient(rgba(look.skyTop, 1), rgba(look.skyBot, 1));
     // 太陽: 拍で少しふくらみ、光の線がゆっくり回る
     const R = 46 + 6 * k;
     ctx.save(); ctx.translate(SUN.x, SUN.y); ctx.rotate(bp * 0.12);

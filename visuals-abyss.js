@@ -73,20 +73,25 @@
 
   function background(T, look, k, bk, bp) {
     if (!st.kelp) make();
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, rgba(look.skyBot, 1)); g.addColorStop(1, rgba(look.skyTop, 1));
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    // 光の筋（浅いほど明るい）
+    vGradient(rgba(look.skyBot, 1), rgba(look.skyTop, 1));
+    // 光の筋（浅いほど明るい）。ゆっくり動くので、いちばん明るいとき（キックの瞬間 ×1.5）の絵を2コマに1回だけ描き直し、
+    // 毎コマはその絵を明るさだけ変えて貼る（足し算の光なので、明るさを変えても同じ見た目になる）
     const depth = inSong() ? clamp01(T / SONG_END) : 0.2;
     const ray = 0.10 * (1 - depth) + 0.02;
+    const rays = cachedLayer('abyssRays', 2, 0, g => {
+      g.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 5; i++) {
+        const x = 120 + i * 150 + Math.sin(T * 0.3 + i) * 40, w = 40 + 20 * Math.sin(T * 0.5 + i * 2);
+        const gr = g.createLinearGradient(0, 0, 0, H * 0.9);
+        gr.addColorStop(0, `rgba(160,230,255,${(ray * 1.5).toFixed(3)})`); gr.addColorStop(1, 'rgba(160,230,255,0)');
+        g.fillStyle = gr;
+        g.beginPath(); g.moveTo(x - w / 2, 0); g.lineTo(x + w / 2, 0); g.lineTo(x + w * 2 - 120, H); g.lineTo(x - w - 120, H); g.closePath(); g.fill();
+      }
+    });
     ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 5; i++) {
-      const x = 120 + i * 150 + Math.sin(T * 0.3 + i) * 40, w = 40 + 20 * Math.sin(T * 0.5 + i * 2);
-      const gr = ctx.createLinearGradient(0, 0, 0, H * 0.9);
-      gr.addColorStop(0, `rgba(160,230,255,${(ray * (1 + 0.5 * k)).toFixed(3)})`); gr.addColorStop(1, 'rgba(160,230,255,0)');
-      ctx.fillStyle = gr;
-      ctx.beginPath(); ctx.moveTo(x - w / 2, 0); ctx.lineTo(x + w / 2, 0); ctx.lineTo(x + w * 2 - 120, H); ctx.lineTo(x - w - 120, H); ctx.closePath(); ctx.fill();
-    }
+    ctx.globalAlpha = (1 + 0.5 * k) / 1.5;
+    ctx.drawImage(rays, 0, 0, W, H);
+    ctx.globalAlpha = 1;
     const bq = inSong() ? beatPos(T) : 50;
     // はじまり: 光る水面が上へ遠ざかっていく（飛びこんだところ）
     if (inSong() && bq < 20) {

@@ -140,18 +140,25 @@
   // ---- 背景: 暗い展示室 ＋ 水彩のにじみ ＋ 布目 -------------------------------------
   function background(T, look, k, bk, bp) {
     if (!st.pc) make();
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, rgba(look.skyTop, 1)); g.addColorStop(1, rgba(look.skyBot, 1));
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    if (gfx > 0) {
+    // 空のグラデーション ＋ 水彩のにじみ ＋ 布目は、ゆっくりしか変わらないので3コマに1回だけ描き直した絵を貼る（軽くするため）
+    ctx.drawImage(cachedLayer('prismSky', 3, 0, g => {
+      const gr0 = g.createLinearGradient(0, 0, 0, H);
+      gr0.addColorStop(0, rgba(look.skyTop, 1)); gr0.addColorStop(1, rgba(look.skyBot, 1));
+      g.fillStyle = gr0; g.fillRect(0, 0, W, H);
+      if (gfx === 0) return;
       const lowE = inSong() ? songEnv(1, T) : 0.3;
-      ctx.globalCompositeOperation = 'lighter';
+      g.globalCompositeOperation = 'lighter';
       for (const b of st.blooms) {                                       // 水彩のにじみ（ゆっくり漂う）
         const x = b.x + Math.sin(T * b.sp + b.ph) * 120, y = b.y + Math.cos(T * b.sp * 1.3 + b.ph) * 60;
-        const gr = ctx.createRadialGradient(x, y, 0, x, y, b.r);
+        const gr = g.createRadialGradient(x, y, 0, x, y, b.r);
         gr.addColorStop(0, rgba(b.c, 0.05 + 0.05 * lowE)); gr.addColorStop(1, rgba(b.c, 0));
-        ctx.fillStyle = gr; ctx.fillRect(x - b.r, y - b.r, b.r * 2, b.r * 2);
+        g.fillStyle = gr; g.fillRect(x - b.r, y - b.r, b.r * 2, b.r * 2);
       }
+      g.globalCompositeOperation = 'source-over';
+      g.fillStyle = st.tex; g.fillRect(0, 0, W, H);
+    }), 0, 0, W, H);
+    if (gfx > 0) {
+      ctx.globalCompositeOperation = 'lighter';
       // 盛り上がる所: 上から七色の光の筋がゆっくり首をふる（舞台の照明）
       const hot = clamp01((look.tier - 2.5) / 1.5);
       if (hot > 0) {
@@ -168,7 +175,6 @@
         }
       }
       ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = st.tex; ctx.fillRect(0, 0, W, H);
     }
   }
 
@@ -191,7 +197,10 @@
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.5;
-      ctx.drawImage(st.pc, -M, -M, W + 2 * M, H + 2 * M);
+      if (Math.abs(stage.spin) + Math.abs(stage.tilt) < 0.005 && stage.zoom >= 1) {
+        // 世界が回っていない間は、画面の大きさに引きのばした絵（3コマに1回だけ作り直す）を貼る（毎コマ引きのばすより軽い）
+        ctx.drawImage(cachedLayer('prismPaint', 3, 1, g => g.drawImage(st.pc, M * PS, M * PS, W * PS, H * PS, 0, 0, W, H)), 0, 0, W, H);
+      } else ctx.drawImage(st.pc, -M, -M, W + 2 * M, H + 2 * M);                 // 回っている間は、画面の外まで広い絵をそのまま
       ctx.restore();
     }
     ctx.strokeStyle = rgba(mixC(look.color, WHITE, 0.5), 0.35 + 0.3 * k); ctx.lineWidth = 1.5;

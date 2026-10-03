@@ -209,9 +209,16 @@
     const on = other ? 0.25 : (Math.sin(T * 13) > -0.9 && Math.random() > 0.03 ? 1 : 0.1);
     ctx.fillStyle = other ? `rgba(255,60,40,${0.5 * on})` : `rgba(220,255,230,${0.7 * on})`;
     ctx.fillRect(VP.x - 90, 40, 180, 8);
-    const g = ctx.createRadialGradient(VP.x, 50, 10, VP.x, 50, 380);
-    g.addColorStop(0, other ? `rgba(255,40,20,${0.18 * on})` : `rgba(200,255,220,${0.12 * on})`); g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // 蛍光灯の光のにじみ: 前もって描いた絵を、明るさ（on）だけ変えて貼る（毎コマ大きなグラデーションで塗るより軽い。見た目は同じ）
+    const key = other ? 'lampO' : 'lamp';
+    if (!st[key]) {
+      const c = document.createElement('canvas'); c.width = 760; c.height = 430;
+      const z = c.getContext('2d'), gr = z.createRadialGradient(380, 50, 10, 380, 50, 380);
+      gr.addColorStop(0, other ? 'rgba(255,40,20,0.18)' : 'rgba(200,255,220,0.12)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      z.fillStyle = gr; z.fillRect(0, 0, 760, 430);
+      st[key] = c;
+    }
+    ctx.globalAlpha = on; ctx.drawImage(st[key], VP.x - 380, 0); ctx.globalAlpha = 1;
   }
 
   function background(T, look, k, bk, bp) {
@@ -457,10 +464,16 @@
   }
 
   // 砂嵐を画面に重ねる（小さな絵をタイルのようにしきつめるだけ。位置を毎回ずらす）
+  // 砂嵐・フィルムの粒: 200×200 の粒の絵を、前もって画面より大きく引きのばした絵にしておき、ずらして貼るだけにする
+  // （毎コマ引きのばすのは重い。粒の見た目は同じ）
   function grainFill(a) {
-    if (!st.grain) st.grain = makeGrain();
+    if (!st.grain) {
+      const small = makeGrain(), c = document.createElement('canvas'); c.width = W + 400; c.height = H + 400;
+      c.getContext('2d').drawImage(small, 0, 0, W + 400, H + 400);
+      st.grain = c;
+    }
     ctx.globalAlpha = a;
-    ctx.drawImage(st.grain, -Math.random() * 200, -Math.random() * 200, W + 400, H + 400);
+    ctx.drawImage(st.grain, -Math.round(Math.random() * 200), -Math.round(Math.random() * 200));
     ctx.globalAlpha = 1;
   }
   function makeGrain() {

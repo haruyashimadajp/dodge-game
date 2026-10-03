@@ -156,11 +156,7 @@
     // 空: 盛り上がるほど明るく。最高潮では拍ごとに三色に染まる
     let top = mixC(look.skyTop, look.color, 0.04 * tier * (0.6 + 0.4 * k));
     if (tier > 4) top = mixC(top, UFO_COLS[Math.floor(bp) % 3], 0.18 * (tier - 4) * k);
-    const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
-    g.addColorStop(0, rgba(top, 1));
-    g.addColorStop(1, rgba(look.skyBot, 1));
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
+    vGradient([[0, rgba(top, 1)], [1, rgba(look.skyBot, 1)]], GROUND_Y);
 
     ctx.globalCompositeOperation = 'lighter';
     drawStars(T, [40, 90, 140][gfx]);

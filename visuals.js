@@ -105,6 +105,7 @@ function fxReset() {
   fx.banner = null; fx.secIdx = -1; fx.lastBar = -99;
   fx.deathT = -1; fx.clearT = -1;
   fx.freeze = 0; fx.rewindT = 0;
+  dirtyLayers();
   if (theme().reset) theme().reset();
 }
 
@@ -344,9 +345,53 @@ function makeStatic() {
   g.fillRect(0, 0, 4, 1);
   scanlines = ctx.createPattern(s, 'repeat');
 }
+// ★軽くするための道具★ ゆっくりしか変わらない層を1枚の絵にしておき、every コマに1回だけ描き直して、毎コマはそれを貼るだけにする。
+// 　（グラデーションや模様で画面いっぱいを塗るのは重いが、同じ大きさの絵を貼るのはとても軽い）
+// 　draw(g) の中では、g に 800×750 のつもりで描く。phase をずらすと、重い描き直しが同じコマに重ならない
+const layerCaches = {};
+let layerFrame = 0;
+function cachedLayer(name, every, phase, draw) {
+  let c = layerCaches[name];
+  if (!c || c.width !== cv.width || c.height !== cv.height) { c = layerCaches[name] = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.dirty = true; }
+  if (c.dirty || layerFrame % every === phase) {
+    const g = c.getContext('2d');
+    g.setTransform(renderScale, 0, 0, renderScale, 0, 0);
+    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, W, H);
+    draw(g);
+    c.dirty = false;
+  }
+  return c;
+}
+function dirtyLayers() { for (const k in layerCaches) layerCaches[k].dirty = true; }
+// たての2色グラデーション: 1px 幅の細い絵に描いてから横にのばす（画面いっぱいをグラデーションで塗るより、ずっと軽い。見た目は同じ）
+const vgStrip = document.createElement('canvas'); vgStrip.width = 1; vgStrip.height = H;
+//   vGradient(上の色, 下の色) か、vGradient([[0, 色], [0.65, 色], [1, 色]], グラデーションが終わる高さ)
+function vGradient(top, bot) {
+  const stops = Array.isArray(top) ? top : [[0, top], [1, bot]], gh = Array.isArray(top) ? (bot || H) : H;
+  const g = vgStrip.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, gh);
+  for (const [p, c] of stops) gr.addColorStop(p, c);
+  g.fillStyle = gr; g.fillRect(0, 0, 1, H);
+  ctx.drawImage(vgStrip, 0, 0, W, H);
+}
+
+// 周辺減光と走査線は毎コマ同じなので、1枚の絵にしておいて貼るだけにする（グラデーションや模様で塗るより、ずっと軽い）
+const overlayCache = {};
+function screenOverlay(withScan) {
+  const key = withScan ? 'scan' : 'plain';
+  if (overlayCache[key]) return overlayCache[key];
+  if (!vignette) makeStatic();
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = vignette; g.fillRect(0, 0, W, H);
+  if (withScan) { g.fillStyle = scanlines; g.fillRect(0, 0, W, H); }
+  return (overlayCache[key] = c);
+}
 
 function drawScene() {
   if (!vignette) makeStatic();
+  layerFrame++;
   const th = theme();
   const T = scene === 'title' ? titleClock() : songTime;
   const look = curLook = lookAt(T);
@@ -395,11 +440,7 @@ function drawScene() {
 function drawBackground(T, look, k, bk, bp) {
   const lowE = scene === 'title' ? 0.3 * k : songEnv(0, T);
   const boost = (lowE * 0.10 + k * 0.04) * (scene === 'play' ? 1 : 0.6);
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, rgba(mixC(look.skyTop, look.color, boost * 1.4), 1));
-  g.addColorStop(1, rgba(mixC(look.skyBot, look.color, boost * 0.6), 1));
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
+  vGradient(rgba(mixC(look.skyTop, look.color, boost * 1.4), 1), rgba(mixC(look.skyBot, look.color, boost * 0.6), 1));
 
   ctx.globalCompositeOperation = 'lighter';
   drawStars(T, gfx === 0 ? 50 : 140);
@@ -1259,8 +1300,7 @@ function drawScreenFx(T, look, k) {
     ctx.fillRect(0, 0, W, H);
   }
 
-  if (gfx > 0) { ctx.fillStyle = vignette; ctx.fillRect(0, 0, W, H); }
-  if (gfx === 2 && !th.noScanlines) { ctx.fillStyle = scanlines; ctx.fillRect(0, 0, W, H); }
+  if (gfx > 0) ctx.drawImage(screenOverlay(gfx === 2 && !th.noScanlines), 0, 0, W, H);   // 周辺減光 ＋ 走査線（前もって1枚の絵にしてある）
 
   if (scene !== 'title') { drawProgress(T, look, k); (th.banner || drawBanner)(); }
 }
