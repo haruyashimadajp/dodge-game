@@ -2266,6 +2266,80 @@ function greatWave({ fromLeft = true, h = 60, v = 320, delay = 1.0, color = '#2a
   });
 }
 
+/* ---- ここから下は「Candy Pop Parade」で生まれた形（かわいい）-------------------------------
+     gumdrop    … グミ。床と壁ではねながら進む（いつも同じ高さまではねる）
+     candyCane  … キャンディケイン（杖）。くるくる回りながら落ちてくる
+     heartRing  … ハートの形にならんだ弾が、ハートの形のまま広がっていく
+     jellyBear  … クマのグミ。床をぴょこぴょこ歩いてくる（跳び越える）
+     donut      … かじったドーナツの輪が広がる。かじった所（すき間）は安全
+     bubble     … しゃぼん玉（当たらない）。ゆらゆら上って、popAt（曲の時刻）にはじけて星になる
+   -------------------------------------------------------------------------- */
+function gumdrop({ x, vx = 160, r = 13, apex = 220, delay = 0.7, color, bounces = 6 }) {
+  const vy0 = -Math.sqrt(2 * 1400 * apex);
+  return spawn({
+    x, y: GROUND_Y - r, vx, vy: vy0, r, delay, color, style: 'gumdrop', spd: 1, bounces, squash: 0, noTrail: true,
+    move(b, dt) {
+      b.vy += 1400 * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.y > GROUND_Y - b.r) { b.y = GROUND_Y - b.r; b.vy = vy0; b.squash = 1; if (--b.bounces < 0) b.dead = true; }
+      if (b.x < b.r || b.x > W - b.r) { b.vx = -b.vx; b.x = Math.max(b.r, Math.min(W - b.r, b.x)); }
+      b.squash = Math.max(0, b.squash - dt * 6);
+    },
+  });
+}
+function candyCane({ x, vy = 260, len = 60, spin = 5, delay = 0.6, color = '#ff4d7a' }) {
+  return spawn({
+    kind: 'cane', x, y: -40, vy, len, r: 7, ang: Math.random() * TAU, spin, delay, color, spd: 1, lane: [0, 1],
+    move(b, dt) { b.y += b.vy * dt; b.ang += b.spin * dt; if (b.y > GROUND_Y + 40) b.dead = true; },
+    hits: b => { const dx = Math.cos(b.ang) * b.len / 2, dy = Math.sin(b.ang) * b.len / 2; return segmentHitsPlayer(b.x - dx, b.y - dy, b.x + dx, b.y + dy, 6); },
+  });
+}
+// ハートの曲線（t = 0〜2π）。大きさ 1 で、だいたい幅 2・高さ 2
+function heartPt(t) { return { x: Math.pow(Math.sin(t), 3), y: -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 16 }; }
+function heartRing({ x, y, n = 24, speed = 110, r = 7, delay = 0.7, color = '#ff6fae', style = 'heart' }) {
+  for (let i = 0; i < n; i++) {
+    const p = heartPt(i / n * TAU);
+    spawn({ x: x + p.x * 6, y: y + p.y * 6, vx: p.x * speed, vy: p.y * speed, r, delay, color, style });
+  }
+}
+function jellyBear({ fromLeft = true, v = 150, delay = 0.9, color = '#ff9f43', h = 46 }) {
+  const w = 38;
+  return spawn({
+    kind: 'bear', x: fromLeft ? -30 : W + 30, y: GROUND_Y - h / 2, w, h, r: h / 2, v: fromLeft ? v : -v, delay, color, spd: 1, lane: [fromLeft ? 1 : -1, 0], hop: 0,
+    move(b, dt) {
+      b.x += b.v * dt;
+      b.hop = Math.abs(Math.sin(b.age * Math.PI * 2.5)) * 10;                      // ぴょこぴょこ
+      if (b.x < -60 || b.x > W + 60) b.dead = true;
+    },
+    hits: b => player.x < b.x + b.w / 2 - 4 && player.x + player.w > b.x - b.w / 2 + 4 && player.y + player.h > GROUND_Y - b.h - b.hop + 6 && player.y < GROUND_Y - b.hop,
+  });
+}
+function donut({ x, y, r0 = 30, r1 = 760, dur = 4, gapA = Math.PI / 2, gap = 1.25, thick = 22, delay = 0.9, color = '#ffb3d1' }) {
+  return spawn({
+    kind: 'donut', x, y, r: r0, r0, r1, dur, gapA, gap, thick, delay, color, spd: 1, ringR: r0,
+    move(b) { b.ringR = b.r0 + (b.r1 - b.r0) * Math.min(1, b.age / b.dur); if (b.age > b.dur) b.dead = true; },
+    hits(b) {
+      const p = playerXY(), d = Math.hypot(p.x - b.x, p.y - b.y);
+      if (Math.abs(d - b.ringR) > b.thick / 2 + 9) return false;
+      let a = Math.atan2(p.y - b.y, p.x - b.x) - b.gapA;
+      a = Math.atan2(Math.sin(a), Math.cos(a));
+      return Math.abs(a) > b.gap / 2;                                            // かじった所は安全
+    },
+  });
+}
+function bubble({ x, popAt, vy = -70, r = 16, delay = 0.4, color = '#bfe8ff', stars = 6, starColor = '#ffe066' }) {
+  return spawn({
+    x, y: GROUND_Y - r, vy, r, delay, color, style: 'bubble', spd: 1, popAt, stars, starColor, ph: Math.random() * TAU, noTrail: true, safe: true,   // しゃぼん玉は当たらない（はじけた星が当たる）
+    move(b, dt) {
+      b.y += b.vy * dt; b.x += Math.sin(b.age * 3 + b.ph) * 30 * dt;
+      if (songTime >= b.popAt || b.y < b.r) {
+        b.dead = true;
+        for (let i = 0; i < b.stars; i++) { const a = i / b.stars * TAU + b.ph; spawn({ x: b.x, y: b.y, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120, r: 6, color: b.starColor, style: 'star', spd: 1 }); }
+        if (typeof fxPop === 'function') fxPop(b.x, b.y, b);
+      }
+    },
+  });
+}
+
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
 let chart = [];
 let chartIndex = 0;

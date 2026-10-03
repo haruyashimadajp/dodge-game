@@ -933,3 +933,39 @@ body[data-theme="shiki"] .overlay.result.clear .logo { color: #b8231c; font-size
 body[data-theme="shiki"] .overlay.result.clear p { color: #2a1c22; text-shadow: 0 0 8px rgba(255, 250, 240, 0.9); font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; }
 body[data-theme="shiki"] .overlay.result.over { background: rgba(18, 14, 18, 0.7); }
 body[data-theme="shiki"] .overlay.over .logo { color: #e8d8c8; font-size: clamp(70px, 16vw, 150px); text-shadow: 0 0 20px rgba(184, 35, 28, 0.6); }
+
+/* Candy Pop Parade: pastel sweets */
+body[data-theme="candy"] {
+  --accent: #ff6fae;
+  --accent-2: #6fc8ff;
+  --text-dim: #b88aa6;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 158, 199, 0.35), transparent 40%), radial-gradient(circle at 80% 70%, rgba(169, 226, 255, 0.35), transparent 45%), #2a1730;
+}
+body[data-theme="candy"] .stat { background: rgba(255, 240, 248, 0.92); color: #a0407a; border-color: rgba(255, 143, 189, 0.6); }
+body[data-theme="candy"] .stat * { color: #a0407a; }
+body[data-theme="candy"] canvas { box-shadow: 0 0 0 4px #fff, 0 0 0 8px #ffb3d1, 0 20px 60px rgba(0, 0, 0, 0.5); border-radius: 18px; }
+body[data-theme="candy"] .logo {
+  font-family: "Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", "Varela Round", system-ui, sans-serif; font-weight: 900; letter-spacing: 0.08em;
+  color: #ff6fae; -webkit-text-stroke: 0; text-shadow: 3px 3px 0 #fff, -3px 3px 0 #fff, 3px -3px 0 #fff, -3px -3px 0 #fff, 0 6px 0 #ffb3d1, 0 10px 20px rgba(160, 60, 120, 0.35);
+}
+body[data-theme="candy"] .logo::before,
+body[data-theme="candy"] .logo::after { display: none; }
+body[data-theme="candy"] .kicker { color: #ff6fae; font-weight: 800; letter-spacing: 0.2em; text-shadow: 0 0 6px #fff, 0 0 2px #fff; }
+body[data-theme="candy"] .song-tag { color: #a0407a; background: #fff; border: 3px solid #ffb3d1; border-radius: 999px; font-weight: 800; }
+body[data-theme="candy"] .song-meta { color: #a0407a; text-shadow: 0 0 6px #fff, 0 0 3px #fff; font-weight: 700; }
+body[data-theme="candy"] .song-arrow,
+body[data-theme="candy"] .link-btn { background: #fff; border: 3px solid #ffb3d1; color: #c0407a; font-weight: 800; }
+body[data-theme="candy"] .start-btn {
+  background: linear-gradient(90deg, #ff9ec7, #ffd3a1, #fff3a1, #b9f5c8, #a9e2ff, #d6b8ff, #ff9ec7);
+  background-size: 300% 100%;
+  color: #a0407a;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  border: 4px solid #fff;
+  box-shadow: 0 6px 0 #ffb3d1, 0 0 calc(6px + var(--kick, 0) * 14px) rgba(255, 143, 189, 0.7);
+}
+body[data-theme="candy"] .seg-btn.active { background: linear-gradient(90deg, #ff9ec7, #a9e2ff); color: #fff; }
+body[data-theme="candy"] .overlay.result.clear { background: rgba(255, 230, 245, 0.35); backdrop-filter: none; }
+body[data-theme="candy"] .overlay.result.clear p, body[data-theme="candy"] .overlay.result.over p { color: #a0407a; font-weight: 800; text-shadow: 0 0 6px #fff, 0 0 3px #fff; }
+body[data-theme="candy"] .overlay.result.over { background: rgba(255, 220, 235, 0.55); }
+body[data-theme="candy"] .overlay.over .logo { color: #b88ad6; font-size: clamp(36px, 8vw, 72px); }

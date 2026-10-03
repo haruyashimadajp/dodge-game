@@ -47,7 +47,9 @@ dodge-game/
 │   ├── prism.js         ← 曲⑪「Prism」（オリジナル曲・ビームの芸術）の拍・場面・譜面
 │   ├── prism-score.js / prism-env.js / prism-compose.py ← 曲⑪の楽譜データ / 音量データ / 作曲プログラム
 │   ├── shiki.js         ← 曲⑫「Shiki（四季）」（オリジナル曲・水墨画。丸い弾をあまり使わない）の拍・場面・譜面
-│   └── shiki-score.js / shiki-env.js / shiki-compose.py ← 曲⑫の楽譜データ / 音量データ / 作曲プログラム
+│   ├── shiki-score.js / shiki-env.js / shiki-compose.py ← 曲⑫の楽譜データ / 音量データ / 作曲プログラム
+│   ├── candy.js         ← 曲⑬「Candy Pop Parade」（オリジナル曲・かわいい）の拍・場面・譜面
+│   └── candy-score.js / candy-env.js / candy-compose.py ← 曲⑬の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔・歯車・振り子）
@@ -57,6 +59,7 @@ dodge-game/
 ├── visuals-horror.js ← 曲⑩の見た目（廃病院・懐中電灯・裏の世界・監視カメラ・ジャンプスケア）
 ├── visuals-prism.js ← 曲⑪の見た目（暗い美術館・光の絵・プリズム・光の筆・金の額縁）
 ├── visuals-shiki.js ← 曲⑫の見た目（動く水墨画・春夏秋冬・墨のにじみ・筆文字と落款）
+├── visuals-candy.js ← 曲⑬の見た目（パステルのお菓子の国・虹・ケーキのお城・顔のある雲・うさぎ）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
@@ -679,6 +682,25 @@ icicle({ x, len })                              // つらら: 天井から落ち
 aurora({ x0, amp, w, period, life })            // オーロラのカーテン: x0 を中心に左右にゆれる光の帯
 stageTo({ wind: 130 }, 0.6)                     // 風: プレイヤーが流される（－ で左へ）
 ```
+
+### 5-15. 曲⑬「Candy Pop Parade」で生まれた形（かわいい）
+
+```js
+gumdrop({ x, vx, apex, bounces })           // グミ: 床と壁ではねながら進む（いつも高さ apex まではねる）
+candyCane({ x, vy, spin })                  // キャンディケイン: くるくる回りながら落ちてくる
+heartRing({ x, y, n, speed })               // ハートの形にならんだ弾が、ハートの形のまま広がる
+jellyBear({ fromLeft, v })                  // クマのグミ: 床をぴょこぴょこ歩いてくる（跳び越える）
+donut({ x, y, gapA, gap, dur })             // かじったドーナツの輪が広がる（かじった所 = 角度 gapA の向きのすき間は安全）
+bubble({ x, popAt })                        // しゃぼん玉（当たらない）: 上っていき、曲の時刻 popAt にはじけて星になる
+```
+
+### 5-16. 軽くするための道具（visuals.js）
+
+```js
+cachedLayer('名前', 3, 0, g => { /* g に背景を描く */ })   // ゆっくりしか変わらない層を絵にしておき、3コマに1回だけ描き直す
+vGradient(上の色, 下の色)                                   // 画面いっぱいのたてのグラデーション（1px の絵をのばすので軽い）
+```
+画面いっぱいをグラデーションや模様で毎コマ塗るのは重く、同じ大きさの絵を貼るのはとても軽い、という性質を使っています。
 
 ---
 
