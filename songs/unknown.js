@@ -54,7 +54,7 @@ const UNKNOWN_SECTIONS = [
   { t: 104.48, tier: 5,   name: '',             sub: '',               sky: ['#22082f', '#45124a'], color: '#ff4d6d', pulse: 0.030, sway: 1.3, stars: 110 },
   { t: 117.12, tier: 5,   name: '',             sub: '',   sky: ['#0a0e36', '#182a55'], color: '#4cc9f0', pulse: 0.030, sway: 1.3, stars: 110 },
   { t: 127.22, tier: 4,   name: '神楽',         sub: 'ダンマクカグラ ─ 拍に合わせて跳べ', sky: ['#1c0e2c', '#3a1a40'], color: '#ffd166', pulse: 0.022, sway: 0.9, stars: 60 },
-  { t: 137.33, tier: 3,   name: '',             sub: '',       sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.006, sway: 0.3, stars: 10 },
+  { t: 137.33, tier: 2,   name: '',             sub: '',       sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.006, sway: 0.3, stars: 10 },
 ];
 
 // 弾の速さの倍率: 弾の数はあまり変えずに、盛り上がりは「速さ」で出す。
@@ -109,6 +109,10 @@ function unknownChart() {
   // ゆっくり落ちる大玉
   const orb = (delay, o = {}) => spawn({ x: o.x ?? rand(60, W - 60), y: -16, vy: o.vy || 90, r: o.r || 14, delay, color: o.color || MOON, lane: [0, 1] });
   // 画面が光る（場面の色。山場では三色）
+  // 条件に合う弾を、その場で光のかけらにして消す
+  const vanish = (t, test) => burst(t, () => {
+    for (const b of bullets) if (!b.dead && test(b)) { b.dead = true; if (typeof sparks === 'function') sparks(b.x, b.y, { n: 6, color: b.color || '#fff', speed: 120, life: 0.4, size: 2, gravity: 0 }); }
+  });
   const hit = (t, amount = 0.5) => burst(t, () => { flash(amount); punch(0.02 * amount); });
   // ★強い音★ 交差する2本の探照灯（X の字）＋ 交点から三色の星が飛ぶ。予告は4拍（約1.3秒）
   //   at: 'player' = プレイヤーの位置（横も高さも）/ 'center' = 画面の真ん中 / { x, y } = その場所
@@ -285,6 +289,7 @@ function unknownChart() {
   crash(beat(272.5), { at: 'center', stars: 8 });                    // 86.3s ブレイク前の一撃
 
   // ===== …… 86.8〜96.9 ｜ tier 0: 音が消える。ボスが消えて、ゆっくりの玉が現れる ======
+  vanish(beat(274), b => b.style === 'frog');                       // 静寂に入ったら、カエルはすぐに消える
   bossOn(beat(276), 0);
   // 拍ごとに、空のあちこち（プレイヤーから離れた所）に玉がふわっと現れて、ゆっくり漂いながら落ちる。
   // 数が多く、そこそこの速さで漂う。すき間を見てよける。ピアノの音では大きな「?」
@@ -294,10 +299,12 @@ function unknownChart() {
         let x, y, tries = 0;
         do { x = rand(30, W - 30); y = rand(40, GROUND_Y - 260); } while (Math.hypot(x - playerXY().x, y - playerXY().y) < 220 && ++tries < 8);
         const a = Math.PI / 2 + rand(-0.9, 0.9), v = rand(110, 170);
-        spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: rand(7, 12), delay, color: ['#b8c2e8', '#c4b5fd', '#8fd3ff'][n % 3] });
+        spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: rand(7, 12), delay, color: ['#b8c2e8', '#c4b5fd', '#8fd3ff'][n % 3], hush: true });
       }
     });
   }
+
+  vanish(beat(306), b => b.hush);                                   // 静寂が終わったら、遅い玉はすぐに消える
 
   // ===== APPROACH 96.9〜104.5 ｜ tier 1.5: ため。光の雨がだんだん激しく =========
   hit(98.12, 0.25); hit(bar(78), 0.4); hit(bar(79), 0.5);
@@ -343,17 +350,17 @@ function unknownChart() {
   hit(beat(406), 0.5);
 
   // ===== FAREWELL 137.3〜142.4 ｜ ため: ボスがまん中に陣取り、規則正しい弾幕を撃ちつづける ==========
-  //   108〜110小節: 1拍ごとにお札の輪（1つおきに半分ずらす → 花の形）
-  //   110〜112小節: 半拍ごとに米つぶ弾の輪が少しずつ回る（うずを巻く腕）＋ 1拍ごとに左右の UFO から交互に扇
+  //   108〜110小節: 2拍ごとにお札の輪（1つおきに半分ずらす → 花の形）
+  //   110〜112小節: 1拍ごとに米つぶ弾の輪が少しずつ回る（うずを巻く腕）＋ 2拍ごとに左右から交互に星の扇
   //   最後の1拍は弾が止み、まん中に「X」の予告がならぶ
   boss(bar(107.5), cx, 140);
-  for (let n = 0; n < 8; n++) bossRing(bar(108) + n * B, 16, 140, TRI[n % 3], n % 2 ? Math.PI / 16 : 0);
-  for (let n = 0; n < 14; n++) {
-    const t = bar(110) + n * B / 2;
-    fire(t, B2, delay => ring({ x: THB.x, y: THB.y, count: 14, speed: 150, r: 7, start: n * 0.16, delay, color: TRI[n % 3], style: 'rice' }));
+  for (let n = 0; n < 8; n += 2) bossRing(bar(108) + n * B, 12, 130, TRI[n % 3], n % 4 ? Math.PI / 12 : 0);
+  for (let n = 0; n < 7; n++) {
+    const t = bar(110) + n * B;
+    fire(t, B2, delay => ring({ x: THB.x, y: THB.y, count: 10, speed: 140, r: 7, start: n * 0.2, delay, color: TRI[n % 3], style: 'rice' }));
     if (n % 2 === 0) fire(t, B2, delay => {
       const left = n % 4 === 0, x = left ? 60 : W - 60, p = playerXY(), a0 = Math.atan2(p.y - 60, p.x - x);
-      for (let j = 0; j < 5; j++) { const a = a0 + (j - 2) * 0.2; spawn({ x, y: 60, vx: Math.cos(a) * 200, vy: Math.sin(a) * 200, r: 7, delay, color: MOON, style: 'star' }); }
+      for (let j = 0; j < 3; j++) { const a = a0 + (j - 1) * 0.22; spawn({ x, y: 60, vx: Math.cos(a) * 200, vy: Math.sin(a) * 200, r: 7, delay, color: MOON, style: 'star' }); }
     });
   }
   for (let n = 0; n < 4; n++) hit(bar(110) + n * B * 2, 0.15 + n * 0.08);   // だんだん強く光る
