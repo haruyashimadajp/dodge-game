@@ -174,8 +174,8 @@ let startLives = 3;        // 残機 (debug setting)
 let livesLeft = startLives;
 let invuln = 0;            // invincibility timer after taking a hit (s)
 let flashT = 0;            // screen flash on strong beats (1 = full, fades out)
-let bulletSpeedMul = 1;    // 弾の速さ multiplier (debug setting)
-let slideMove = true;      // 移動の仕方: true = slidy, false = constant speed
+let bulletSpeedMul = 1;    // 弾の速さ multiplier（いまは設定から変えられない。常に 1）
+let slideMove = true;      // 移動の仕方: true = 滑る（いまは設定から変えられない）, false = 滑らない
 
 function reset() {
   player.x = W / 2 - player.w / 2;
@@ -613,10 +613,7 @@ function closeSettings() { settingsModal.classList.add('hidden'); }
 const sliderDefs = [
   { id: 'volume',      val: 'volVal',    store: 'dodge_volume',      def: 70,             apply: v => { masterVol = v / 100; bgm.volume = masterVol; }, fmt: v => v },
   { id: 'fxAmount',    val: 'fxVal',     store: 'dodge_fx',          def: 100,            apply: v => fxScale = v / 100,        fmt: v => v + '%' },
-  { id: 'moveSpeed',   val: 'moveVal',   store: 'dodge_moveSpeed',   def: PHYS.moveSpeed, apply: v => PHYS.moveSpeed = v,        fmt: v => v },
-  { id: 'jumpVel',     val: 'jumpVal',   store: 'dodge_jumpVel',     def: PHYS.jumpVel,   apply: v => PHYS.jumpVel = v,          fmt: v => v },
   { id: 'lives',       val: 'livesVal',  store: 'dodge_lives',       def: 3,              apply: v => startLives = v,           fmt: v => v },
-  { id: 'bulletSpeed', val: 'bulletVal', store: 'dodge_bulletSpeed', def: 100,            apply: v => bulletSpeedMul = v / 100, fmt: v => v + '%' },
 ];
 for (const d of sliderDefs) {
   const slider = settingsPanel.querySelector('#' + d.id);
@@ -701,16 +698,6 @@ function setDpadSide(side) {
 }
 dpadBtns.forEach(b => b.addEventListener('click', () => setDpadSide(b.dataset.dpad)));
 setDpadSide(dpadSide);
-
-// Movement style (slidy / constant speed) — debug setting
-const moveStyleBtns = settingsPanel.querySelectorAll('.seg-btn[data-move]');
-function setMoveStyle(s) {
-  slideMove = (s === 'slide');
-  store.set('dodge_slideMove', s);
-  moveStyleBtns.forEach(b => b.classList.toggle('active', b.dataset.move === s));
-}
-moveStyleBtns.forEach(b => b.addEventListener('click', () => setMoveStyle(b.dataset.move)));
-setMoveStyle(store.get('dodge_slideMove') || 'slide');
 
 // Show on-screen controls only in mobile mode, while actually playing
 function updateTouchControls() {
