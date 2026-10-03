@@ -45,7 +45,9 @@ dodge-game/
 │   ├── ward13.js        ← 曲⑩「Ward 13」（オリジナル曲・ホラー）の拍・場面・譜面
 │   ├── ward13-score.js / ward13-env.js / ward13-compose.py ← 曲⑩の楽譜データ / 音量データ / 作曲プログラム
 │   ├── prism.js         ← 曲⑪「Prism」（オリジナル曲・ビームの芸術）の拍・場面・譜面
-│   └── prism-score.js / prism-env.js / prism-compose.py ← 曲⑪の楽譜データ / 音量データ / 作曲プログラム
+│   ├── prism-score.js / prism-env.js / prism-compose.py ← 曲⑪の楽譜データ / 音量データ / 作曲プログラム
+│   ├── shiki.js         ← 曲⑫「Shiki（四季）」（オリジナル曲・水墨画。丸い弾をあまり使わない）の拍・場面・譜面
+│   └── shiki-score.js / shiki-env.js / shiki-compose.py ← 曲⑫の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔・歯車・振り子）
@@ -54,6 +56,7 @@ dodge-game/
 ├── visuals-ex.js    ← 曲⑥の見た目（黒と赤の警告色・EXの紋章・WARNINGの帯）
 ├── visuals-horror.js ← 曲⑩の見た目（廃病院・懐中電灯・裏の世界・監視カメラ・ジャンプスケア）
 ├── visuals-prism.js ← 曲⑪の見た目（暗い美術館・光の絵・プリズム・光の筆・金の額縁）
+├── visuals-shiki.js ← 曲⑫の見た目（動く水墨画・春夏秋冬・墨のにじみ・筆文字と落款）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
@@ -660,6 +663,20 @@ spectrum(i, n)                                        // n 色に分けた虹の
 
 見た目のセットの `laser(b, c, T, k)` が `true` を返すと、ビームの見た目をぜんぶそのセットが描きます。
 `fire(b)` が `true` を返すと、発射の瞬間の演出（火花・ゆれ）もそのセットにまかせます（Prism はここで「光の絵」に描き残す）。
+
+### 5-14. 曲⑫「Shiki（四季）」で生まれた形（丸い弾をあまり使わない）
+
+```js
+inkStroke({ pts, width, speed, delay, hold })   // 墨の一筆: 点の列 pts に沿って筆が走り、墨のついた所に当たる
+bezierPts(p0, c1, c2, p3, n) / arcPts(cx, cy, r, a0, a1, n)   // 一筆の形（曲線・円弧）の点の列を作る
+branch({ x, y, ang, len, depth, seed })         // 桜の枝: 一筆が枝分かれしてのびる（枝の先に花が咲く）
+fireworkRays({ x, y, n, r1, delay })            // 花火: 玉が上がり、n 本の光の筋がひらく
+enso({ cx, cy, r })                             // 円相: ひと筆の円（中は安全）
+mapleLeaf({ x, y, vx, vy })                     // もみじ: 風に流されて飛ぶ
+icicle({ x, len })                              // つらら: 天井から落ちる
+aurora({ x0, amp, w, period, life })            // オーロラのカーテン: x0 を中心に左右にゆれる光の帯
+stageTo({ wind: 130 }, 0.6)                     // 風: プレイヤーが流される（－ で左へ）
+```
 
 ---
 

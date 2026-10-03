@@ -901,3 +901,35 @@ body[data-theme="prism"] .overlay.result.clear p { color: #f2dfb0; text-shadow: 
 body[data-theme="prism"] .overlay.over .logo { background: none; color: #b8b0c8; letter-spacing: 0.3em; filter: none; text-shadow: 0 0 16px rgba(0, 0, 0, 0.8); }
 body[data-theme="prism"] .overlay h1.logo { font-size: clamp(40px, 9vw, 86px); letter-spacing: 0.12em; }
 body[data-theme="prism"] .overlay.result.clear { background: radial-gradient(ellipse at 50% 50%, rgba(4, 3, 8, 0.55), rgba(4, 3, 8, 0.1) 70%); }
+
+/* Shiki: a moving ink painting on washi paper */
+body[data-theme="shiki"] {
+  --accent: #b8231c;
+  --accent-2: #e8789a;
+  --text-dim: #a89a8a;
+  background: radial-gradient(ellipse at 50% 30%, rgba(232, 120, 154, 0.12), transparent 60%), #120e10;
+}
+body[data-theme="shiki"] .stat { background: rgba(26, 18, 20, 0.88); font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; }
+body[data-theme="shiki"] canvas { box-shadow: 0 0 0 1px rgba(184, 35, 28, 0.35), 0 20px 70px rgba(0, 0, 0, 0.8); }
+body[data-theme="shiki"] .logo { font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; font-weight: 700; letter-spacing: 0.25em; color: #1a1216; text-shadow: 0 0 18px rgba(255, 250, 240, 0.9), 0 0 4px rgba(255, 250, 240, 0.9); }
+body[data-theme="shiki"] .logo::before,
+body[data-theme="shiki"] .logo::after { display: none; }
+body[data-theme="shiki"] .kicker { color: #b8231c; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; letter-spacing: 0.35em; text-shadow: 0 0 8px rgba(255, 250, 240, 0.9); }
+body[data-theme="shiki"] .song-tag { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; letter-spacing: 0.25em; color: #f4ecdc; background: rgba(26, 18, 20, 0.85); border-color: rgba(184, 35, 28, 0.6); }
+body[data-theme="shiki"] .song-meta { color: #3a2a30; text-shadow: 0 0 6px rgba(255, 250, 240, 0.9); }
+body[data-theme="shiki"] .song-arrow,
+body[data-theme="shiki"] .link-btn { background: rgba(26, 18, 20, 0.85); border-color: rgba(184, 35, 28, 0.4); color: #f4ecdc; }
+body[data-theme="shiki"] .start-btn {
+  background: linear-gradient(90deg, #8a1a14, #c8322a, #8a1a14);
+  background-size: 300% 100%;
+  color: #f4ecdc;
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+  letter-spacing: 0.35em;
+  box-shadow: 0 0 calc(6px + var(--kick, 0) * 12px) rgba(184, 35, 28, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+body[data-theme="shiki"] .seg-btn.active { background: linear-gradient(90deg, #8a1a14, #e8789a); }
+body[data-theme="shiki"] .overlay.result.clear { background: rgba(244, 236, 220, 0.35); backdrop-filter: none; }
+body[data-theme="shiki"] .overlay.result.clear .logo { color: #b8231c; font-size: clamp(60px, 14vw, 130px); letter-spacing: 0.3em; }
+body[data-theme="shiki"] .overlay.result.clear p { color: #2a1c22; text-shadow: 0 0 8px rgba(255, 250, 240, 0.9); font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; }
+body[data-theme="shiki"] .overlay.result.over { background: rgba(18, 14, 18, 0.7); }
+body[data-theme="shiki"] .overlay.over .logo { color: #e8d8c8; font-size: clamp(70px, 16vw, 150px); text-shadow: 0 0 20px rgba(184, 35, 28, 0.6); }

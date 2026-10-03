@@ -18,6 +18,7 @@ Ten songs, each with its own chart and look (pick one on the title screen with �
 - **Abyss** — an original 90 BPM deep-sea ambient track (`songs/abyss-compose.py`) with sonar pings, whale song and a kalimba: the slowest bullets of any song, but hard — dense slow fields to thread through, jellyfish that lunge at you on every beat (their tentacles hit too), marine snow drifting down everywhere, a dark-water section where you only see around yourself and sonar pings reveal the bullets, and a giant leviathan that winds across the screen
 - **Ward 13** — an original 100 BPM industrial horror track (`songs/ward13-compose.py`) set in an abandoned hospital; normal difficulty, with the focus on horror-game atmosphere: you see only what your flashlight points at, a tall stalker walks after you and blinks closer whenever the lights cut out (radio static on screen and in the speakers grows as it nears), an air-raid siren turns the hospital into a rusty, bloody other world, a CCTV section cuts between security cameras, crawlers rush along the floor, doors slam shut, bloody handprints hit the screen, jump scares land on the music's stingers, and losing shows YOU DIED
 - **Prism** — an original 128 BPM melodic trance track (`songs/prism-compose.py`) where beams are the main attack and are drawn like art: every beam is sketched first like a pencil line, then fires as light split into red, green and blue, and stays behind on the canvas as a light painting — at the end the whole song's beams become one framed picture. Its patterns: rainbow fans from a glass prism, string art (a cardioid drawn thread by thread), kaleidoscope stars, light that bounces off the walls, a light brush that paints Lissajous curves and fires at you, and keyboard-like curtains of light; with Vertigo-style screen movement (a full turn of the world, tilts, a mirror flip and a close-up camera)
+- **Shiki** (四季, the four seasons) — an original 100 BPM, 3-minute piece for koto, shakuhachi, taiko, temple bell and music box (`songs/shiki-compose.py`); the screen is a moving sumi-e ink painting that passes through spring, summer, autumn and winter and back to spring, with an ink drop and a big brush character with a red seal at each change. Few round bullets — the attacks are shapes: ink brush strokes, growing cherry branches that blossom, fireworks that open into rays of light, an ensō circle drawn around you, wind that pushes you with maple leaves, crescent-moon slashes, falling icicles and swaying aurora curtains
 
 ## Play
 
@@ -46,6 +47,7 @@ Open `index.html` in a web browser.
 | `visuals-abyss.js` | The deep-sea theme used by Abyss |
 | `visuals-horror.js` | The abandoned-hospital horror theme used by Ward 13 |
 | `visuals-prism.js` | The dark-gallery / light-painting theme used by Prism |
+| `visuals-shiki.js` | The moving ink-painting (four seasons) theme used by Shiki |
 | `songs/moratorium-compose.py` | Composes and renders モラトリウム (Python + numpy/scipy) and writes its note timings |
 | `songs/segment-compose.py` | Composes and renders segment (piano, glockenspiel, breaking glass) and writes its note timings |
 | `style.css` | Colors and layout |

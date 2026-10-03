@@ -236,7 +236,8 @@ function update(dt) {
   player.vy = Math.max(-PHYS.maxFall, Math.min(PHYS.maxFall, player.vy + g * PHYS.gravity * dt));
 
   // 傾いた世界: 重力の横向きの成分で、低いほうへすべっていく（曲④ Vertigo）
-  stage.slideV += (STAGE_SLIDE * Math.sin(stage.tilt) - stage.slideV) * Math.min(1, dt * 4);
+  // 風（曲⑫ Shiki）も同じように、プレイヤーを流す
+  stage.slideV += (STAGE_SLIDE * Math.sin(stage.tilt) + stage.wind - stage.slideV) * Math.min(1, dt * 4);
 
   // Timers
   player.coyoteT -= dt;
@@ -1642,7 +1643,7 @@ function prism({ x, y, a, v = 200, turn = 0.6, alt = true, every = 1, r = 7, del
      wl, wr   左右の壁の位置（せまくなってくる）/ shock = 1 で壁に電気（さわると当たる）
    -------------------------------------------------------------------------- */
 const STAGE_SLIDE = 620;       // 傾きですべる速さ（px/秒）= STAGE_SLIDE × sin(傾き)。走る速さは 260
-const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0, grav: 1, gravVis: 1, ceil: 0, dark: 0, cctv: 0, brush: 0 };
+const STAGE_DEFAULT = { tilt: 0, spin: 0, mirror: 1, zoom: 1, follow: 0, conveyor: 0, wl: 0, wr: W, shock: 0, grav: 1, gravVis: 1, ceil: 0, dark: 0, cctv: 0, brush: 0, wind: 0 };
 const stage = { ...STAGE_DEFAULT, slideV: 0, scroll: 0, holes: [], drops: [], hint: null, pings: [] };
 let stageTweens = [];
 function stageReset() {
@@ -2117,6 +2118,123 @@ function bounceBeam({ x, y, ang, bounces = 5, width = 10, delay = 0.8, hold = 0.
 function brushPos(t) {
   const u = t * 0.62;
   return { x: W / 2 + 300 * Math.sin(u * 1.3 + 0.6), y: 200 + 105 * Math.sin(u * 2.1) };
+}
+
+/* ---- ここから下は「Shiki（四季）」で生まれた形（丸い弾をあまり使わない）-------------------------
+     inkStroke   … 墨の一筆。予告のあと、筆が線の上を走り、墨のついた所に当たる。描き終えて少しすると乾いて消える
+     branch      … 桜の枝がのびる（墨の一筆が枝分かれする）。枝の先には花が咲く（見た目）
+     fireworkRays… 花火の玉が上がって、光の筋が放射状に開く（筋と筋のすき間に入る）
+     enso        … 円相（ひと筆の円）。プレイヤーを囲むように描かれる。円の中は安全
+     mapleLeaf   … もみじ。風に流されながら、ひらひら飛んでくる
+     icicle      … つらら。天井から落ちてくる
+     aurora      … オーロラのカーテン。上から地面までの光の帯が、左右にゆれる
+     stageTo({ wind: 140 }) … 風。プレイヤーが右へ（－なら左へ）流される
+   -------------------------------------------------------------------------- */
+function bezierPts(p0, p1, p2, p3, n = 24) {
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t;
+    out.push({ x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
+               y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y });
+  }
+  return out;
+}
+function arcPts(cx, cy, r, a0, a1, n = 32) {
+  return Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r }; });
+}
+// 筆の太さ: 入りと抜きは細く、まん中は太い（0〜1 の場所 u で）
+function inkTaper(u) { return 0.35 + 0.65 * Math.pow(Math.sin(Math.PI * Math.max(0, Math.min(1, u))), 0.6); }
+// ★墨の一筆★ pts（点の列）に沿って、筆が speed px/秒で走る。width = いちばん太い所の太さ
+function inkStroke({ pts, width = 18, speed = 900, delay = 0.8, hold = 0.35, color = '#16121c', taper = true }) {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+  const total = cum[cum.length - 1] || 1, mid = pts[pts.length >> 1];
+  return spawn({
+    kind: 'ink', x: mid.x, y: mid.y, r: width / 2, pts, cum, total, speed, hold, delay, color, taper, head: 0, spd: 1, noFreeze: false,
+    move(b) {
+      b.head = Math.min(b.total, b.age * b.speed);
+      const done = b.total / b.speed;
+      if (b.age > done + b.hold) b.safe = true;
+      if (b.age > done + b.hold + 0.6) b.dead = true;
+    },
+    hits(b) {
+      for (let i = 1; i < b.pts.length && b.cum[i - 1] < b.head; i++) {
+        const a = b.pts[i - 1], z = b.pts[i];
+        const f = Math.min(1, (b.head - b.cum[i - 1]) / ((b.cum[i] - b.cum[i - 1]) || 1));
+        const w = b.r * (b.taper ? inkTaper(b.cum[i] / b.total) : 1) * 0.85;
+        if (segmentHitsPlayer(a.x, a.y, a.x + (z.x - a.x) * f, a.y + (z.y - a.y) * f, w)) return true;
+      }
+      return false;
+    },
+  });
+}
+// ★桜の枝★ (x, y) から角度 ang へ、長さ len の枝がのびて、depth 回まで枝分かれする。seed で形が決まる
+function branch({ x, y, ang, len = 300, depth = 3, width = 20, speed = 650, delay = 0.9, seed = 1, color = '#2a1c1a' }) {
+  const rnd = k => { const v = Math.sin(seed * 91.7 + k * 37.3) * 43758.5453; return v - Math.floor(v); };
+  const bend = (rnd(1) - 0.5) * 0.8;
+  const end = { x: x + Math.cos(ang) * len, y: y + Math.sin(ang) * len };
+  const c1 = { x: x + Math.cos(ang + bend) * len * 0.35, y: y + Math.sin(ang + bend) * len * 0.35 };
+  const c2 = { x: x + Math.cos(ang - bend * 0.6) * len * 0.7, y: y + Math.sin(ang - bend * 0.6) * len * 0.7 };
+  const pts = bezierPts({ x, y }, c1, c2, end, 16);
+  const b = inkStroke({ pts, width, speed, delay, hold: 0.5 + depth * 0.25, color });
+  b.branch = { depth, seed };
+  if (depth > 1) {
+    for (const [f, side] of [[0.45, 1], [0.72, -1]]) {
+      const p = pts[Math.round(f * 16)];
+      branch({ x: p.x, y: p.y, ang: ang + side * (0.45 + rnd(2 + side) * 0.4), len: len * 0.55, depth: depth - 1, width: width * 0.62, speed, delay: delay + (len * f) / speed, seed: seed * 3.1 + side, color });
+    }
+  }
+  return b;
+}
+// ★花火★ 玉が (x, 地面) から (x, y) へ上がり（予告）、n 本の光の筋が r0〜r1 に開く
+function fireworkRays({ x, y, n = 12, r0 = 26, r1 = 420, rot = 0, width = 9, delay = 1.2, hold = 0.32, color = '#ffd27f' }) {
+  spawn({ kind: 'shell', x, y, r: 4, delay, color, safe: true, spd: 1, life: 0.05, move(b) { if (b.age > b.life) b.dead = true; } });
+  for (let i = 0; i < n; i++) {
+    const a = rot + i * TAU / n;
+    const b = laser({ x1: x + Math.cos(a) * r0, y1: y + Math.sin(a) * r0, x2: x + Math.cos(a) * r1, y2: y + Math.sin(a) * r1, width, delay, hold, color });
+    b.spd = 1; b.fw = { x, y };
+  }
+}
+// ★円相★ (cx, cy) を中心に、半径 r の円をひと筆で描く（a0 から少しだけすき間を残して1周）
+function enso({ cx, cy, r = 130, a0 = -Math.PI / 2, width = 20, speed = 1100, delay = 0.9, hold = 0.6, color = '#16121c' }) {
+  const b = inkStroke({ pts: arcPts(cx, cy, r, a0, a0 + TAU * 0.93, 40), width, speed, delay, hold, color });
+  b.enso = true;
+  return b;
+}
+// もみじ: 風（stage.wind）に流されながら、ひらひら
+function mapleLeaf({ x, y, vx = 0, vy = 70, r = 9, delay = 0.5, color = '#d8452a' }) {
+  return spawn({
+    x, y, vx, vy, r, delay, color, style: 'leaf', noTrail: true, ph: Math.random() * TAU, rot: Math.random() * TAU,
+    move(b, dt) {
+      b.vx += (stage.wind * 1.6 - b.vx) * Math.min(1, dt * 0.8);
+      b.x += (b.vx + Math.sin(b.age * 3 + b.ph) * 60) * dt;
+      b.y += (b.vy + Math.cos(b.age * 2.3 + b.ph) * 30) * dt;
+      b.rot += dt * 3;
+      if (b.y > GROUND_Y + 20) b.dead = true;
+    },
+  });
+}
+// つらら: 天井の x から落ちる（重力つき）。len = 長さ
+function icicle({ x, len = 56, g = 1500, delay = 0.8, color = '#cfeaff' }) {
+  return spawn({
+    kind: 'icicle', x, y: -len, r: 7, len, vy: 0, g, delay, color, spd: 1,
+    move(b, dt) {
+      b.vy += b.g * dt; b.y += b.vy * dt;
+      if (b.y >= GROUND_Y) { b.dead = true; if (typeof fxShatter === 'function') fxShatter(b.x, GROUND_Y, b); }
+    },
+    hits: b => segmentHitsPlayer(b.x, b.y - b.len, b.x, b.y, 6),
+  });
+}
+// オーロラのカーテン: x0 を中心に amp だけ左右にゆれる光の帯（幅 w）。life 秒で消える
+function aurora({ x0, amp = 140, w = 70, period = 4.8, life = 9.6, delay = 1.2, color = '#5cffb0', ph = 0 }) {
+  return spawn({
+    kind: 'aurora', x: x0, y: GROUND_Y / 2, r: w / 2, w, x0, amp, period, life, delay, color, ph, spd: 1,
+    move(b) {
+      b.x = b.x0 + b.amp * Math.sin(TAU * b.age / b.period + b.ph);
+      if (b.age > b.life) { b.safe = true; if (b.age > b.life + 0.8) b.dead = true; }
+    },
+    hits: b => player.x + player.w > b.x - b.w * 0.4 && player.x < b.x + b.w * 0.4,
+  });
 }
 
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
