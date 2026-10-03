@@ -2469,6 +2469,48 @@ function stomp({ x, w = 130, delay = 1.0, hold = 0.35, color = '#2a2238' }) {
   b.foot = true; b.spd = 1; return b;
 }
 
+/* ---- ここから下は「TECTONIC」で生まれた形（重低音・地震）------------------------------------------
+     quakeWave … 地面を走る岩の波（地割れ）。x から dir の向きへ走る。低いので跳び越える
+     speaker   … 巨大スピーカー（本体は当たらない）。beats に書いた時刻ごとにコーンがドンと押し出して、弾の輪を出す
+     eqBars    … イコライザーの棒が床から立ち上がる。低い棒は跳び越え、高い棒はよけて、すき間に立つ
+   -------------------------------------------------------------------------- */
+function quakeWave({ x, dir = 1, h = 44, v = 420, len = 1400, delay = 0.7, color = '#ff7a2a' }) {
+  const HALF = 34;                                               // 岩の波の、すそ野の半分の幅
+  const height = (b, px) => { const d = Math.abs(px - b.x); return d > HALF ? 0 : b.h * (1 - d / HALF); };
+  return spawn({
+    kind: 'quake', x, y: GROUND_Y - h / 2, r: h / 2, x0: x, h, v, dir, len, delay, color, height, lane: [dir, 0],
+    move(b, dt) { b.x += b.dir * b.v * dt; if (Math.abs(b.x - b.x0) > b.len || b.x < -60 || b.x > W + 60) b.dead = true; },
+    hits: b => {
+      const l = player.x + 3, r = player.x + player.w - 3, c = Math.max(l, Math.min(r, b.x));
+      return player.y + player.h > GROUND_Y - b.height(b, c) + 4;
+    },
+  });
+}
+function speaker({ x, y, size = 46, beats = [], n = 16, v = 170, r = 7, delay = 0.8, color = '#ff7a2a', style = 'sonic', twist = 0.5 }) {
+  return spawn({
+    kind: 'speaker', x, y, r: size, size, delay, color, spd: 1, safe: true, beats: beats.slice().sort((a, b) => a - b), pump: 0, k: 0, out: 0,
+    move(b, dt) {
+      b.pump = Math.max(0, b.pump - dt * 7);
+      while (b.beats.length && songTime >= b.beats[0]) {
+        b.beats.shift(); b.pump = 1;
+        ring({ x: b.x, y: b.y, count: n, speed: v, r, start: (b.k++ * twist) * TAU / n, color, style });
+      }
+      if (!b.beats.length && (b.out += dt) > 0.5) b.dead = true;
+    },
+  });
+}
+function eqBars({ hs, x0 = 0, x1 = W, delay = 0.8, hold = 0.3, color = '#ff7a2a' }) {
+  const cw = (x1 - x0) / hs.length;
+  return hs.map((h, i) => {
+    if (h <= 0) return null;
+    const x = x0 + (i + 0.5) * cw;
+    const b = laser({ x1: x, y1: GROUND_Y, x2: x, y2: GROUND_Y - h, width: cw - 8, delay, hold, color });
+    b.eq = h; b.bw = cw - 8;
+    b.hits = q => player.x + player.w > q.x1 - q.bw / 2 + 3 && player.x < q.x1 + q.bw / 2 - 3 && player.y + player.h > GROUND_Y - q.eq + 3;
+    return b;
+  }).filter(Boolean);
+}
+
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
 let chart = [];
 let chartIndex = 0;
