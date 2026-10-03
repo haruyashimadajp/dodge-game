@@ -6,7 +6,7 @@
    最終ステージの曲。物語では、幻想郷に「巨大な影」が現れ、早苗は「巨大ロボ」、チルノは「ダイダラボッチ」、
    美鈴は「太歳星君」だと思って追いかける。正体は、河童が作った宣伝用の巨大な人形「非想天則」だった。
    リメイクでは、東方の弾幕シューティングの画面を再現: ボス「Unknown X」と体力のバー、スペルカードの宣言と
-   「Get Spell Card Bonus!!」、グレイズ（かすり）の数。遠くの山の向こうを巨大な影が歩き、最後に正体がわかる。
+   「Get Spell Card Bonus!!」、グレイズ（かすり）の数。
    赤・緑・青の UFO は『東方星蓮船』の UFO。見た目は visuals-touhou.js（theme: 'touhou'）。
 
    曲の形（解析で分かったこと。4小節 ≈ 5秒をひとかたまりとして比べた）:
@@ -38,7 +38,7 @@ function unknownBeatPos(t)  { return (t - 0.275) / UNKNOWN_BEAT; }  // t秒は�
      tier … 盛り上がりの段階 0〜5。UFO・探照灯・月・ホタル・空の点滅がこれで変わる
    -------------------------------------------------------------------------- */
 const UNKNOWN_SECTIONS = [
-  { t: 0,      tier: 0,   name: 'FINAL STAGE',  sub: '幻想郷の空に、巨大な影',         sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.002, sway: 0.2, stars: 6 },
+  { t: 0,      tier: 0,   name: 'FINAL STAGE',  sub: '幻想郷の夜空',                sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', pulse: 0.002, sway: 0.2, stars: 6 },
   { t: 5.96,   tier: 1,   name: '',             sub: '',             sky: ['#0c0c30', '#1d1540'], color: '#8fd3ff', pulse: 0.005, sway: 0.3, stars: 10, zoom: [1, 1.02] },
   { t: 11.01,  tier: 2.5, name: 'Unknown X',    sub: '♪ アンノウンX ～ Unfound Adventure',       sky: ['#130b33', '#271646'], color: '#ff4d6d', pulse: 0.010, sway: 0.4, stars: 18 },
   { t: 16.06,  tier: 2,   name: '',             sub: '',   sky: ['#0a1030', '#14203f'], color: '#5cf2a4', pulse: 0.008, sway: 0.4, stars: 14 },
@@ -49,8 +49,8 @@ const UNKNOWN_SECTIONS = [
   { t: 56.49,  tier: 2,   name: '',             sub: '', sky: ['#0a1030', '#14203f'], color: '#5cf2a4', pulse: 0.008, sway: 0.4, stars: 14 },
   { t: 66.59,  tier: 3.5, name: '',             sub: '',       sky: ['#081236', '#11254d'], color: '#4cc9f0', pulse: 0.018, sway: 0.7, stars: 40 },
   { t: 76.70,  tier: 4.5, name: '',             sub: '',     sky: ['#220a33', '#40164a'], color: '#ffb347', pulse: 0.024, sway: 1.0, stars: 70, zoom: [1, 1.04] },
-  { t: 86.80,  tier: 0,   name: '……',         sub: 'ボスが消えた。影が近づいてくる',                 sky: ['#05051a', '#0c0a24'], color: '#9aa4c8', pulse: 0,     sway: 0.15, stars: 4 },
-  { t: 96.91,  tier: 1.5, name: '足音',         sub: 'ダイダラボッチ……？',       sky: ['#0c0c30', '#1d1540'], color: '#8fd3ff', pulse: 0.008, sway: 0.3, stars: 14, zoom: [1, 1.05] },
+  { t: 86.80,  tier: 0,   name: '……',         sub: 'ボスが消えた',                 sky: ['#05051a', '#0c0a24'], color: '#9aa4c8', pulse: 0,     sway: 0.15, stars: 4 },
+  { t: 96.91,  tier: 1.5, name: '足音',         sub: '巨大な足が踏みつける',       sky: ['#0c0c30', '#1d1540'], color: '#8fd3ff', pulse: 0.008, sway: 0.3, stars: 14, zoom: [1, 1.05] },
   { t: 104.48, tier: 5,   name: '',             sub: '',               sky: ['#22082f', '#45124a'], color: '#ff4d6d', pulse: 0.030, sway: 1.3, stars: 110 },
   { t: 117.12, tier: 5,   name: '',             sub: '',   sky: ['#0a0e36', '#182a55'], color: '#4cc9f0', pulse: 0.030, sway: 1.3, stars: 110 },
   { t: 127.22, tier: 4,   name: '神楽',         sub: 'ダンマクカグラ ─ 拍に合わせて跳べ', sky: ['#1c0e2c', '#3a1a40'], color: '#ffd166', pulse: 0.022, sway: 0.9, stars: 60 },
@@ -284,7 +284,7 @@ function unknownChart() {
   hit(beat(266), 0.5);                                               // 84.3s
   crash(beat(272.5), { at: 'center', stars: 8 });                    // 86.3s ブレイク前の一撃
 
-  // ===== …… 86.8〜96.9 ｜ tier 0: 音が消える。ボスが消えて、巨大な影が近づく。ゆっくりの玉が現れる ======
+  // ===== …… 86.8〜96.9 ｜ tier 0: 音が消える。ボスが消えて、ゆっくりの玉が現れる ======
   bossOn(beat(276), 0);
   // 拍ごとに、空のあちこち（プレイヤーから離れた所）に玉がふわっと現れて、ゆっくり漂いながら落ちる。
   // 数が多く、そこそこの速さで漂う。すき間を見てよける。ピアノの音では大きな「?」
@@ -298,8 +298,6 @@ function unknownChart() {
       }
     });
   }
-  [87.72, 91.83, 94.98].forEach((t, i) =>
-    fire(t, 0.5, delay => glyph({ ch: '?', x: i % 2 ? rand(W * 0.55, W - 80) : rand(80, W * 0.45), y: -50, cell: 20, vy: 60, r: 6, delay, color: MOON })));
 
   // ===== APPROACH 96.9〜104.5 ｜ tier 1.5: ため。光の雨がだんだん激しく =========
   hit(98.12, 0.25); hit(bar(78), 0.4); hit(bar(79), 0.5);
@@ -346,7 +344,6 @@ function unknownChart() {
 
   // ===== FAREWELL 137.3〜145 ｜ tier 1: UFO が去っていく → 最後の一撃 ================
   bossOn(bar(107.5), 0);
-  burst(bar(110), () => { if (typeof thReveal === 'function') thReveal(); });   // 正体がわかる
   dash(bar(108), true, { color: RED, y: 160, bars: 3, drop: 110 });
   for (let n = 0; n < 4; n++) fire(bar(108.5 + n), B2 * 1.5, delay => orb(delay, { vy: 100 }));
   // 142.4s 最後の一撃: 真ん中に大きな「?」→ 星になって四方へはじける（正体不明のまま）
@@ -378,7 +375,7 @@ addSong({
   titleLook: { sky: ['#0b0a2a', '#1a1238'], color: '#c4b5fd', tier: 2.5, pulse: 0.006, stars: 10 },
   titleBpm: 95,                    // タイトル画面は半分の速さでゆったり刻む
   preview: 107.0,                  // 試聴は大サビから
-  clearText: '巨大な影の正体は、ただの宣伝用の人形「非想天則」だった。',
+  clearText: '正体不明のまま、夜が明けた！',
   clearTitle: 'ALL CLEAR!!',
   overTitle: '満身創痍',
   variant: 'リメイク',
