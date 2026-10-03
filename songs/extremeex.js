@@ -54,11 +54,11 @@ const EXR_SECTIONS = [
   { t: exrBar(148), tier: 0.5, name: 'CLEAR?',         sub: '',                                sky: ['#05000a', '#1a0020'], color: '#ffd23f', pulse: 0.004, sway: 0.1, stars: 8 },
 ];
 
-// 弾の速さ: 1.15倍（イントロ）〜 1.55倍（最後）
+// 弾の速さ: 1.25倍（イントロ）〜 1.65倍（最後）
 function exrSpeedAt(t) {
   let i = 0;
   while (i + 1 < EXR_SECTIONS.length && EXR_SECTIONS[i + 1].t <= t) i++;
-  return 1.05 + 0.1 * EXR_SECTIONS[i].tier;
+  return 1.15 + 0.1 * EXR_SECTIONS[i].tier;
 }
 
 function extremeRemakeChart() {
@@ -102,7 +102,7 @@ function extremeRemakeChart() {
   });
   // 場面の変わり目: ステージを元にもどし、前の場面の長生きする敵（カエル・ストーカー・クラゲ …）を光のかけらにして消す
   const LONG_KINDS = ['stalker', 'jelly', 'leviathan', 'bear', 'donut', 'aurora', 'door', 'cane', 'koi', 'worm'];
-  const LONG_STYLES = ['frog', 'gumdrop', 'ironring', 'doll'];
+  const LONG_STYLES = ['frog', 'gumdrop', 'ironring', 'doll', 'leaf', 'snow', 'note'];
   const sweep = (t, stageToo = true) => burst(t, () => {
     for (const b of bullets) {
       if (b.dead || b.delay > 0 || b.age < 0.8) continue;
@@ -134,7 +134,7 @@ function extremeRemakeChart() {
   hit(bar(8), 1);
   SC.stab.forEach(([b], i) => rev(beat(b) + 0.45, i % 2 ? W - 30 : 30, 30, { v: 620, hang: 0.45, lead: i % 3 === 2, color: i % 5 === 0 ? GOLD : RED }));
   SC.kick.filter(b => b >= 32 && b < 64 && b % 2 === 1).forEach((b, i) => corner(beat(b), i % 2 === 0, 320, i % 4 === 3 ? GOLD : RED, 8));
-  for (const k of [10, 14]) fire(bar(k), 1.0, delay => firewall({ gapX: rand(140, W - 140), gapW: 130, steps: 6, step: 1, delay, color: VIOLET }));
+  for (const k of [10, 14]) fire(bar(k), 1.0, delay => firewall({ gapX: rand(140, W - 140), gapW: 150, steps: 6, step: 1, delay, color: VIOLET }));
   for (let k = 9; k < 16; k += 2) revRingAt(bar(k) + 2 * B, CX, 120, { count: 10, v: 420, start: k * 0.3, color: WHITE });
   echoOn(bar(12), 1.5);
   sweep(bar(16));
@@ -142,35 +142,35 @@ function extremeRemakeChart() {
   // ===== FIRST STEP 16〜24 ｜ アルペジオ = 音符の雨 ／ 小節の頭に床の光 ／ うず ／ 転がる車輪 ======
   hit(bar(16), 0.7);
   inBars(M.firststep, 16, 24).forEach(([b, m], i) => {
-    if (i % 2) return;                                                // 4分音符ごと（8分だと多すぎる）
     const d = noteDrop(beat(b), px(m, 60, 86) + (i % 4 ? 18 : -18), 460, { r: 9, color: ['#7fd8ff', '#ffd27a', '#ff8fb0'][i % 3], warn: 0.5 });
     burst(d.at, d.go);
   });
-  for (const k of [18, 20, 22]) fire(bar(k), 1.0, delay => floorStrike({ delay, hold: 0.2, color: '#7fd8ff' }));
+  for (const k of [17, 18, 19, 20, 21, 22, 23]) fire(bar(k), 1.0, delay => floorStrike({ delay, hold: 0.2, color: '#7fd8ff' }));
   for (const k of [17, 21]) fire(bar(k), 0.8, delay => spiral({ x: CX, y: 120, count: 24, speed: 150, r: 8, turns: k === 17 ? 1 : -1, gap: 0.04, delay, color: '#ffd27a' }));
-  for (const k of [19, 23]) fire(bar(k), 0.8, delay => roller({ x: k === 19 ? 30 : W - 30, vx: k === 19 ? 280 : -280, delay, life: 4, color: '#7fd8ff' }));
+  for (const k of [19, 23]) fire(bar(k), 0.8, delay => { const L = playerXY().x > CX; roller({ x: L ? 30 : W - 30, vx: L ? 280 : -280, delay, life: 4, color: '#7fd8ff' }); });   // 遠いほうのはしから
   sweep(bar(24));
 
   // ===== the EmpErroR 24〜32 ｜ maimai: TAP（1拍ごとに回る）／ スライド ／ TOUCH ／ ERROR の帯 ／ ナイフ ／ 王冠 ===
   hit(bar(24), 0.8);
-  for (let n = 0; n < 32; n++) fire(beat(96 + n), 0.45, delay => maiTap({ lane: 1 + (n * 3) % 8, speed: 320, delay, type: n % 8 === 7 ? 'break' : n % 4 === 2 ? 'each' : 'tap' }));
-  for (let n = 0; n < 32; n += 4) fire(beat(96 + n + 2), 0.45, delay => maiTap({ lane: 1 + (n * 3 + 4) % 8, speed: 320, delay, type: 'each' }));
+  for (let n = 0; n < 64; n++) if (!(Math.abs(n / 2 - 4) <= 1 || Math.abs(n / 2 - 20) <= 1)) fire(beat(96 + n / 2), 0.45, delay => maiTap(   // ERROR の帯（跳ぶ所）の前後1拍は休み
+   { lane: 1 + (n * 3) % 8, speed: 340, delay, type: n % 16 === 15 ? 'break' : n % 8 === 4 ? 'each' : 'tap' }));
+  for (let n = 0; n < 32; n += 4) if (n !== 4 && n !== 20) fire(beat(96 + n + 2), 0.45, delay => maiTap({ lane: 1 + (n * 3 + 4) % 8, speed: 320, delay, type: 'each' }));
   for (const [k, a, b2, d] of [[26, 1, 5, 1], [30, 3, 7, -1]]) fire(bar(k), 1.0, delay => maiSlide({ path: slideArc(a, b2, d), speed: 460, delay }));
-  for (const k of [27, 31]) fire(bar(k), 0.8, delay => { const p = playerXY(); maiTouch({ x: p.x, y: p.y - 10, delay, n: 8, speed: 180 }); });
+  for (const k of [25.5, 27, 29.5, 31]) fire(bar(k), 0.8, delay => { const p = playerXY(); maiTouch({ x: p.x, y: p.y - 10, delay, n: 8, speed: 180 }); });
   for (const k of [25, 29]) fire(bar(k), 0.8, delay => errorBand({ y: GROUND_Y - 20, h: 34, delay, hold: 0.3 }));   // 低い帯 → 跳ぶ
-  SC.tick.filter(b => b >= 96 && b < 128).forEach((b, i) => { if (i % 4 === 0) fire(beat(b), 0.45, delay => knives({ x: i % 8 ? 60 : W - 60, y: 60, count: 4, spread: 0.45, delay })); });
+  SC.tick.filter(b => b >= 96 && b < 128).forEach((b, i) => { if (i % 2 === 0) fire(beat(b), 0.45, delay => knives({ x: i % 8 ? 60 : W - 60, y: 60, count: 4, spread: 0.45, delay })); });
   fire(bar(28), 0.8, delay => crownBeams({ x: CX, y: 110, n: 5, spread: 1.0, aim: Math.PI / 2, delay }));
   sweep(bar(32));
 
   // ===== Re:Unknown X 32〜40 ｜ 鉄の輪 ／ カエル ／ UFO の柱 ／ X の光線 ／ 巨大な足 ／ 米つぶ弾 =========
   hit(bar(32), 0.8);
   for (const [k, L] of [[32, true], [36, false]]) fire(bar(k), 0.9, delay => ironRing({ x: L ? 80 : W - 80, y: 150, vx: L ? 190 : -190, vy: 150, r: 18, life: 7, delay }));
-  for (let k = 33; k < 40; k += 2) fire(bar(k), 0.6, delay => frogHop({ fromLeft: k % 4 === 1, apex: 120 + (k % 3) * 25, v: 200, delay }));
+  for (let k = 32.5; k < 40; k += 1.5) fire(bar(k), 0.6, delay => frogHop({ fromLeft: Math.floor(k) % 2 === 0, apex: 120 + (Math.floor(k) % 3) * 25, v: 210, delay }));
   for (const [k, c] of [[34.5, [0, 3, 6]], [36.5, [1, 4, 7]], [38.5, [2, 5]]]) fire(bar(k), 0.6, delay => columns({ cols: c, delay, hold: 0.22, color: ['#ff4d6d', '#5cf2a4', '#4cc9f0'][Math.floor(k) % 3] }));
-  for (const k of [35, 39]) fire(bar(k), 1.0, delay => { const p = playerXY(); xStrike({ x: p.x, y: p.y, delay, hold: 0.25, color: '#fff3c4' }); });
+  for (const k of [33, 35, 37, 39]) fire(bar(k), 1.0, delay => { const p = playerXY(); xStrike({ x: p.x, y: p.y, delay, hold: 0.25, color: '#fff3c4' }); });
   fire(bar(37.5), 1.0, delay => stomp({ x: clampX(playerXY().x, 80), delay }));
-  inBars(M.unknown, 32, 40).forEach(([b], i) => { if (i % 8 === 0) fire(beat(b), 0.5, delay => {
-    const p = playerXY(), x = i % 16 ? 120 : W - 120, a0 = Math.atan2(p.y - 90, p.x - x);
+  inBars(M.unknown, 32, 40).forEach(([b], i) => { if (i % 4 === 0) fire(beat(b), 0.5, delay => {
+    const p = playerXY(), x = i % 8 ? 120 : W - 120, a0 = Math.atan2(p.y - 90, p.x - x);
     for (let j = 0; j < 5; j++) { const a = a0 + (j - 2) * 0.2; spawn({ x, y: 90, vx: Math.cos(a) * 230, vy: Math.sin(a) * 230, r: 7, delay, color: '#ff4d6d', style: 'rice' }); }
   }); });
   sweep(bar(40));
@@ -179,6 +179,8 @@ function extremeRemakeChart() {
   hit(bar(40), 0.6);
   fire(bar(40), 1.0, delay => pendulum({ px: CX - 200, py: 90, amp: 0.65, beats: 8, life: 7 * 4 * B - 0.4, r: 20, delay, color: '#ffd27a' }));
   fire(bar(40) + 4 * B, 1.0, delay => pendulum({ px: CX + 200, py: 90, amp: -0.65, beats: 8, life: 6 * 4 * B - 0.4, r: 20, delay, color: '#ff8fb0' }));
+  fire(bar(41), 1.0, delay => pendulum({ px: CX, py: 90, amp: 0.8, beats: 6, life: 6 * 4 * B - 0.4, r: 16, delay, color: '#c9b6ff' }));
+  fire(bar(45), 1.0, delay => clockHand({ cx: CX, cy: 300, len: 300, a0: Math.PI / 2, step: -Math.PI / 14, life: 2.5 * 4 * B, width: 10, delay, color: '#ffd27a' }));
   fire(bar(43), 1.0, delay => clockHand({ cx: CX, cy: 300, len: 380, a0: -Math.PI / 2, step: Math.PI / 16, life: 4 * 4 * B - 0.2, width: 12, delay, color: '#ff8fb0' }));
   inBars(M.moratorium, 40, 48).forEach(([b, m], i) => {
     const d = noteDrop(beat(b), px(m, 70, 96), 420, { r: 10, color: ['#ffd27a', '#ff8fb0', '#c9b6ff'][i % 3], warn: 0.5 });
@@ -197,21 +199,21 @@ function extremeRemakeChart() {
   glassAt(beat(SC.glass[1]), 1.4, () => ({ x: playerXY().x < CX ? 230 : W - 230, y: 220, w: 320, h: 220, n: 24, speed: 270, size: 0.8, color: CYAN }));
   glassAt(beat(SC.glass[2]), 1.2, { x: CX, y: 240, w: 700, h: 260, n: 40, speed: 280, size: 1.3, color: WHITE });
   inBars(M.segment, 48, 56).forEach(([b, m], i) => { const d = keyDrop(beat(b), px(m, 60, 74) + (i % 3) * 30 - 30, 0.25, 560, { color: ['#c6b3ff', '#7fe3ff', '#ff9ad5'][i % 3], w: 36 }); burst(d.at, d.go); });
-  inBars(SC.ping, 48, 56).forEach((b, i) => fire(beat(b), 0.4, delay => prism({ x: i % 2 ? 40 : W - 40, y: -8, a: Math.PI / 2 + (i % 2 ? -0.35 : 0.35), v: 150, turn: 0.75, every: 1, r: 6.5, delay, color: i % 2 ? '#bfefff' : '#9cffd9' })));
-  for (const k of [50, 54]) fire(bar(k) + 2 * B, 0.8, delay => {
-    const left = k === 50, x = left ? 0 : W, y = rand(140, GROUND_Y - 180), p = playerXY();
+  inBars(SC.ping, 48, 56).forEach((b, i) => [0, 1].forEach(sd => fire(beat(b) + sd * B, 0.4, delay => prism({ x: (i + sd) % 2 ? 40 : W - 40, y: -8, a: Math.PI / 2 + (i % 2 ? -0.35 : 0.35), v: 150, turn: 0.75, every: 1, r: 6.5, delay, color: i % 2 ? '#bfefff' : '#9cffd9' }))));
+  for (const k of [49, 50, 52, 54, 55]) fire(bar(k) + 2 * B, 0.8, delay => {
+    const left = k % 2 === 0, x = left ? 0 : W, y = rand(140, GROUND_Y - 180), p = playerXY();
     crack({ x, y, arms: 2, a0: Math.atan2(p.y - y, p.x - x), spread: 0.5, len: 600, speed: 1100, delay, color: WHITE });
   });
   sweep(bar(56));
 
   // ===== Vertigo 56〜64 ｜ 傾く ／ 流れる床 ／ 足もとの穴 ／ せまる壁 ／ 急降下の音 = 転がる車輪 =================
-  [[56, 0.18], [58, -0.2], [60, 0.22], [62, -0.18]].forEach(([k, a]) => tilt(bar(k), a));
+  [[56, 0.22], [58, -0.25], [60, 0.26], [62, -0.24]].forEach(([k, a]) => tilt(bar(k), a));
   belt(bar(57), 150); belt(bar(59), -170); belt(bar(61), 0); belt(bar(63), 190);
-  for (const k of [58.5, 62.5]) holeAtPlayer(bar(k));
+  for (const k of [57.5, 59, 60.5, 62.5]) holeAtPlayer(bar(k));
   burst(bar(60) - 2 * B, () => stageHint('▶ ▶ 壁がせまる ◀ ◀', 3 * B));
-  burst(bar(60), () => stageTo({ wl: 140, wr: W - 140 }, 4 * B));
+  burst(bar(60), () => stageTo({ wl: 180, wr: W - 180 }, 4 * B));
   burst(bar(62), () => stageTo({ wl: 0, wr: W }, 2 * B));
-  inBars(M.vertigo, 56, 64).forEach(([b], i) => fire(beat(b), 0.6, delay => {
+  Array.from({ length: 16 }, (_, i) => [56 * 4 + 1 + i * 2]).forEach(([b], i) => fire(beat(b), 0.6, delay => {
     const d = Math.sign(stage.tilt) || (i % 2 ? 1 : -1);
     roller({ x: d > 0 ? stage.wl + 19 : stage.wr - 19, vx: d * 220, delay, life: 4, color: GOLD });
   }));
@@ -235,10 +237,13 @@ function extremeRemakeChart() {
       else { const y0 = 30, d = GROUND_Y - y0, g = 2 * d / (fall * fall); spore({ x, y: y0, vy: 0, g, delay: warn, color: GREEN, reach: 2, inc: 0.6, life: 1.8, spd: 1 }); }
     });
   };
-  for (let k = 72; k < 80; k++) virus(bar(k) + 2 * B, (k % 2 ? 1 : -1) * 90, { up: k >= 76 && k < 79 });
-  for (const [k, side] of [[73, -1], [77, 1]]) fire(bar(k), 0.7, delay => worm({ x: side < 0 ? 30 : W - 30, y: 170, n: 12, v: 200, turn: 2.0, life: 4, r: 10, delay, color: GREEN }));
-  fire(bar(75), 0.6, delay => { const p = playerXY(); popup({ x: clampX(p.x, 80), y: p.y - 10, w: 150, h: 90, delay, hold: 1.0, title: 'ERROR', text: 'EXTREME.EXE', color: RED }); });
-  fire(bar(79), 0.6, delay => cascade({ x: 81, y: 150, n: 6, dx: 74, dy: 70, every: B / 2, delay, hold: 1.0, w: 150, h: 86, title: 'ERROR', text: 'MEDLEY.DLL', color: RED }));
+  for (let k = 72; k < 80; k++) {
+    const up = k >= 76 && k < 79;                                         // 重力バグのあいだ（天井にいる）は1つだけ
+    for (const h of up ? [2] : [0, 2]) virus(bar(k) + h * B, (k % 2 ? 1 : -1) * (h ? 90 : -60), { up });
+  }
+  for (const [k, side] of [[73, -1], [74.5, 1]]) fire(bar(k), 0.7, delay => worm({ x: side < 0 ? 30 : W - 30, y: 170, n: 12, v: 200, turn: 2.0, life: 4, r: 10, delay, color: GREEN }));
+  for (const k of [73.25, 74.75]) fire(bar(k), 0.6, delay => { const p = playerXY(); popup({ x: clampX(p.x, 80), y: p.y - 10, w: 150, h: 90, delay, hold: 1.0, title: 'ERROR', text: 'EXTREME.EXE', color: RED }); });
+  fire(bar(79.5), 0.6, delay => cascade({ x: playerXY().x < CX ? W - 81 : 81, dx: playerXY().x < CX ? -74 : 74, y: 150, n: 5, dy: 70, every: B / 2, delay, hold: 1.0, w: 150, h: 86, title: 'ERROR', text: 'MEDLEY.DLL', color: RED }));
   burst(bar(76) - 3 * B, () => stageHint('↑ GRAVITY.DLL NOT FOUND ↑', 3 * B)); burst(bar(76), () => gravityFlip(true));
   burst(bar(79) - 2 * B, () => stageHint('↓ GRAVITY RESTORED ↓', 2 * B)); burst(bar(79), () => gravityFlip(false));
   burst(bar(74) + 2 * B, () => glitchLoop(4 * B, B / 2, 0.82));
@@ -248,17 +253,19 @@ function extremeRemakeChart() {
   burst(bar(80) - 2 * B, () => stageHint('ソナーで見る', 4 * B));
   burst(bar(80), () => stageTo({ dark: 1 }, 2 * B));
   inBars(SC.ping, 80, 88).forEach(b => burst(beat(b), () => { const p = playerXY(); sonar(p.x, p.y); }));
-  for (const [k, x] of [[80.5, 160], [82.5, W - 160], [84.5, CX]]) fire(bar(k), 0.8, delay => jelly({ x, y: 60, v: 280, every: 1, life: 6, delay, color: '#ff8fd0' }));
-  fire(bar(83), 1.6, delay => leviathan({ y: 360, dir: 1, v: 210, amp: 160, wave: 0.32, delay, color: '#4a7dff' }));
+  for (const [k, x] of [[80.5, 160], [81.5, W - 160], [82.5, CX], [84, 160], [85, W - 160], [86, CX]]) fire(bar(k), 0.8, delay => jelly({ x, y: 60, v: 280, every: 1, life: 6, delay, color: '#ff8fd0' }));
+  fire(bar(82), 1.6, delay => leviathan({ y: 360, dir: 1, v: 220, amp: 160, wave: 0.32, delay, color: '#4a7dff' }));
+  fire(bar(85), 1.6, delay => leviathan({ y: 420, dir: -1, v: 240, amp: 170, wave: 0.36, delay, color: '#6a8dff' }));
   for (let n = 0; n < 16; n++) fire(bar(80) + n * 2 * B, 0.5, delay => snow({ x: rand(40, W - 40), y: -8, vy: 120, amp: 50, freq: 0.5, r: 7, delay, color: '#bff8ff' }));
   sweep(bar(88));
 
   // ===== Ward 13 88〜96 ｜ 懐中電灯の暗闇 ／ ストーカー ／ はうもの（心臓の音）／ ドア ／ 血のしずく =============
   burst(bar(88), () => stageTo({ dark: 0.92 }, 0.3));
   burst(bar(88) - 2 * B, () => stageHint('灯りを消さないで', 4 * B));
+  fire(bar(91), 1.0, delay => stalker({ x: 40, v: 110, life: 5 * 4 * B - 1.2, delay, color: '#d8d0c0' }));
   fire(bar(88), 1.0, delay => stalker({ x: W - 40, v: 95, life: 8 * 4 * B - 1.2, delay, color: '#d8d0c0' }));
-  inBars(SC.heart, 88, 96).filter(b => b % 4 === 0).forEach((b, i) => fire(beat(b), 0.9, delay => crawler({ fromLeft: i % 2 === 0, v: 320, delay, color: '#d8d0c0' })));
-  for (const k of [90, 94]) fire(bar(k), 0.9, delay => doorSlam({ x: clampX(playerXY().x, 40), delay, color: '#8a3a2a' }));
+  inBars(SC.heart, 88, 96).filter(b => b % 2 === 0).forEach((b, i) => fire(beat(b), 0.9, delay => crawler({ fromLeft: i % 2 === 0, v: 320, delay, color: '#d8d0c0' })));
+  for (const k of [89, 90.5, 92, 93.5, 95]) fire(bar(k), 0.9, delay => doorSlam({ x: clampX(playerXY().x, 40), delay, color: '#8a3a2a' }));
   inBars(M.ward13, 88, 96).forEach(([b]) => fire(beat(b), 0.6, delay => { const p = playerXY(); for (let i = 0; i < 3; i++) bloodDrop({ x: clampX(p.x + (i - 1) * 120 + rand(-20, 20), 20), delay }); }));
   for (const k of [92]) burst(bar(k) + 2 * B, () => { stalkerBlink(160); if (typeof horrorBlink === 'function') horrorBlink(); });
   burst(bar(96), () => { stageTo({ dark: 0 }, 0.2); flash(0.8); shake(12); });
@@ -268,9 +275,9 @@ function extremeRemakeChart() {
   // ===== Prism 96〜104 ｜ 虹の扇 ／ 万華鏡 ／ はね返る光 ／ 光の線（ゲートの刻み）／ 床をなめる光 =====================
   hit(bar(96), 0.8);
   for (const [k, rev2] of [[96, false], [100, true]]) fire(bar(k), 0.9, delay => prismFan({ x: CX, y: 96, xs: Array.from({ length: 7 }, (_, i) => 80 + i * 107), delay, step: B / 2, reverse: rev2 }));
-  for (const k of [98, 102]) fire(bar(k), 0.8, delay => kaleido({ cx: CX, cy: 300, d: 120, rot: k * 0.3, n: 6, step: B / 2, delay, width: 10 }));
-  for (const [k, x, a] of [[97, 40, 0.7], [101, W - 40, Math.PI - 0.7]]) fire(bar(k), 0.85, delay => bounceBeam({ x, y: 60, ang: a, bounces: 5, delay, step: 0.07 }));
-  inBars(M.prism, 96, 104).forEach(([b], i) => { if (i % 6 === 0) fire(beat(b), 0.8, delay => { const x = 80 + ((i * 97) % (W - 160)); ray({ x1: x + 60, y1: -30, x2: x - 60, y2: GROUND_Y + 40, width: 14, delay, hold: 0.25, color: WHITE }); }); });
+  for (const k of [97.5, 99.5, 101.5, 103.5]) fire(bar(k), 0.8, delay => kaleido({ cx: CX, cy: 300, d: 120, rot: k * 0.3, n: 6, step: B / 2, delay, width: 10 }));
+  for (const [k, x, a] of [[98.5, 40, 0.7], [102.5, W - 40, Math.PI - 0.7]]) fire(bar(k), 0.85, delay => bounceBeam({ x, y: 60, ang: a, bounces: 5, delay, step: 0.07 }));
+  inBars(M.prism, 96, 104).forEach(([b], i) => { if (i % 3 === 0) fire(beat(b), 0.8, delay => { const x = 80 + ((i * 97) % (W - 160)); ray({ x1: x + 60, y1: -30, x2: x - 60, y2: GROUND_Y + 40, width: 14, delay, hold: 0.25, color: WHITE }); }); });
   for (const k of [99, 103]) fire(bar(k), 0.7, delay => scanner({ fromLeft: k === 99, y1: GROUND_Y - 46, y2: GROUND_Y + 10, speed: 450, width: 12, delay, color: '#ffffff' }));
   sweep(bar(104));
 
@@ -279,21 +286,23 @@ function extremeRemakeChart() {
   const INK = '#16121c';
   fire(bar(104), 0.8, delay => inkStroke({ pts: bezierPts({ x: -20, y: 160 }, { x: 260, y: 40 }, { x: 540, y: 420 }, { x: W + 20, y: 260 }, 24), width: 18, speed: 1000, delay, color: INK }));
   fire(bar(105), 0.8, delay => inkStroke({ pts: bezierPts({ x: W + 20, y: 120 }, { x: 520, y: 380 }, { x: 260, y: 60 }, { x: -20, y: 340 }, 24), width: 18, speed: 1000, delay, color: INK }));
-  for (const [k, x] of [[106, 240], [106.5, W - 240]]) fire(bar(k), 1.2, delay => fireworkRays({ x, y: 160, n: 12, r1: 420, rot: k, delay, color: k % 1 ? '#ff8fb0' : '#ffd27f' }));
-  for (let i = 0; i < 8; i++) burst(bar(104.5 + i), () => { for (let j = 0; j < 5; j++) mapleLeaf({ x: i % 2 ? W + 20 + j * 40 : -20 - j * 40, y: 80 + j * 70, vx: (i % 2 ? -1 : 1) * 220, vy: 40, delay: 0.5, color: j % 2 ? '#d8452a' : '#f0a030' }); });
+  for (const [k, x] of [[106, 240], [106.5, W - 240], [107, CX], [107.5, 200]]) fire(bar(k), 1.2, delay => fireworkRays({ x, y: 160, n: 12, r1: 420, rot: k, delay, color: k % 1 ? '#ff8fb0' : '#ffd27f' }));
+  for (let i = 0; i < 7; i++) burst(bar(104.5 + i), () => { for (let j = 0; j < 5; j++) mapleLeaf({ x: i % 2 ? W + 20 + j * 40 : -20 - j * 40, y: 80 + j * 70, vx: (i % 2 ? -1 : 1) * 220, vy: 40, delay: 0.5, color: j % 2 ? '#d8452a' : '#f0a030' }); });
   inBars(SC.taiko, 104, 112).forEach((b, i) => { if (b % 4 !== 0 || (b >= 432 && b < 440)) fire(beat(b), 0.7, delay => icicle({ x: clampX(playerXY().x + (i % 2 ? 60 : -60), 30), delay, len: 60, color: '#cfeaff' })); });
-  for (const [k, sd] of [[109, 1], [109.5, -1]]) fire(bar(k), 0.9, delay => { const x1 = clampX(playerXY().x, 60); koi({ x0: x1 - sd * 340, x1, h: 240, dur: 1.2, delay, color: sd > 0 ? '#ff6a3a' : '#f4f0e8' }); });
-  burst(bar(110) - 2 * B, () => stageHint('大波 ── 跳べ', 3 * B));
-  fire(bar(110) + 2 * B, 1.0, delay => greatWave({ fromLeft: true, delay }));
+  for (const [k, sd] of [[107, -1], [108, 1], [109, -1], [109.5, 1], [111, -1]]) fire(bar(k), 0.9, delay => { const x1 = clampX(playerXY().x, 60); koi({ x0: x1 - sd * 340, x1, h: 240, dur: 1.2, delay, color: sd > 0 ? '#ff6a3a' : '#f4f0e8' }); });
+  burst(bar(109) - 2 * B, () => stageHint('大波 ── 跳べ', 3 * B));
+  fire(bar(109), 1.0, delay => greatWave({ fromLeft: true, delay }));
+  fire(bar(111.5), 1.0, delay => greatWave({ fromLeft: false, delay }));   // 1つ目が通りすぎてから
   sweep(bar(112));
 
   // ===== Candy Pop Parade 112〜120 ｜ グミ ／ キャンディケイン ／ ハート ／ グミのクマ ／ ドーナツ ／ しゃぼん玉 ／ ぺろぺろキャンディ ==
   hit(bar(112), 0.7);
   const CANDY = ['#ff6fae', '#ffd166', '#7fd8ff', '#9cffb0', '#c9a0ff', '#ff9f43'];
   for (let k = 112; k < 120; k++) fire(bar(k), 0.7, delay => gumdrop({ x: k % 2 ? W - 30 : 30, vx: (k % 2 ? -1 : 1) * 180, apex: 180 + (k % 3) * 30, delay, color: CANDY[k % 6], bounces: 4 }));
-  inBars(M.candy, 112, 120).forEach(([b], i) => { if (i % 3 === 0) fire(beat(b), 0.6, delay => candyCane({ x: clampX(playerXY().x + (i % 2 ? 70 : -70)), vy: 300, delay, color: '#ff4d7a' })); });
-  for (const k of [113, 117]) fire(bar(k), 0.8, delay => heartRing({ x: k === 113 ? 200 : W - 200, y: 140, n: 22, speed: 130, delay, color: '#ff6fae' }));
-  for (const k of [114, 118]) fire(bar(k), 1.0, delay => jellyBear({ fromLeft: k === 114, v: 170, delay, color: k === 114 ? '#ff9f43' : '#9cffb0' }));
+  inBars(M.candy, 112, 120).forEach(([b], i) => { if (i % 2 === 0) fire(beat(b), 0.6, delay => candyCane({ x: clampX(playerXY().x + (i % 2 ? 70 : -70)), vy: 300, delay, color: '#ff4d7a' })); });
+  for (const k of [113, 115, 117, 119]) fire(bar(k), 0.8, delay => heartRing({ x: k % 4 === 1 ? 200 : W - 200, y: 140, n: 22, speed: 130, delay, color: '#ff6fae' }));
+  for (const k of [114, 118]) fire(bar(k), 1.0, delay => jellyBear({ fromLeft: playerXY().x > CX, v: 170, delay, color: k === 114 ? '#ff9f43' : '#9cffb0' }));   // 遠いほうのはしから
+  fire(bar(113), 1.0, delay => donut({ x: CX, y: 280, gapA: Math.atan2(playerXY().y - 280, playerXY().x - CX), gap: 1.2, dur: 3.5, delay, color: '#ffd166' }));
   fire(bar(116), 1.0, delay => donut({ x: CX, y: 280, gapA: Math.atan2(playerXY().y - 280, playerXY().x - CX), gap: 1.2, dur: 3.5, delay, color: '#ffb3d1' }));
   for (let i = 0; i < 4; i++) fire(bar(112.5 + i * 2), 0.4, delay => bubble({ x: 120 + i * 180, popAt: bar(113.5 + i * 2), delay, color: '#bfe8ff', starColor: CANDY[i] }));
   fire(bar(115), 1.0, delay => { const h = clockHand({ cx: CX, cy: 120, len: 330, a0: Math.PI / 2 - 0.9, step: Math.PI / 12, life: 3 * 4 * B, delay, color: '#ff6fae', hub: 30 }); h.lolli = true; });
@@ -336,7 +345,7 @@ function extremeRemakeChart() {
     k => fire(bar(k), 0.8, delay => heartRing({ x: CX, y: 140, n: 20, speed: 140, delay, color: '#ff6fae' })),                                                             // Candy
     k => fire(bar(k), 1.2, delay => fireworkRays({ x: k % 2 ? 220 : W - 220, y: 160, n: 12, r1: 420, rot: k, delay, color: '#ffd27f' })),                                  // 四季
   ];
-  for (let k = 128; k < 144; k++) CAMEO[k - 128](k);
+  for (let k = 128; k < 144; k++) { CAMEO[k - 128](k); CAMEO[(k - 128 + 8) % 16](k + 0.5); }
   for (let k = 129; k < 144; k += 4) lock(bar(k) + 3 * B, { track: 0.8, lock: 0.4 });
   [[132, 0.18], [136, -0.18], [140, 0]].forEach(([k, a]) => tilt(bar(k), a));
   echoOff(bar(144));
