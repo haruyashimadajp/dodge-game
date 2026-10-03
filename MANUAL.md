@@ -52,10 +52,10 @@ dodge-game/
 │   └── candy-score.js / candy-env.js / candy-compose.py ← 曲⑬の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
-├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔・歯車・振り子）
-├── visuals-glass.js ← 曲④の見た目（ガラスの部屋・結晶・鍵盤の床・画面のひび）
-├── visuals-gyro.js  ← 曲⑤の見た目（飛行機の姿勢計・流れる鉄板の床・水準器）
-├── visuals-ex.js    ← 曲⑥の見た目（黒と赤の警告色・EXの紋章・WARNINGの帯）
+├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔の中・ステンドグラスのバラ窓の時計・光の筋・真鍮の歯車）
+├── visuals-glass.js ← 曲④の見た目（ガラスの部屋・割れて集まるガラスの球・虹の光・鍵盤の床・画面のひび）
+├── visuals-gyro.js  ← 曲⑤の見た目（らせん階段を見下ろすめまいショット・ソール・バス風のうずまき・傾き計・水準器）
+├── visuals-ex.js    ← 曲⑥の見た目（暴走する炉心・六角形のトンネル・DANGERゲージ・WARNINGの帯）
 ├── visuals-horror.js ← 曲⑩の見た目（廃病院・懐中電灯・裏の世界・監視カメラ・ジャンプスケア）
 ├── visuals-prism.js ← 曲⑪の見た目（暗い美術館・光の絵・プリズム・光の筆・金の額縁）
 ├── visuals-shiki.js ← 曲⑫の見た目（動く水墨画・春夏秋冬・墨のにじみ・筆文字と落款）

@@ -2,10 +2,17 @@
 
 /* =========================================================================
    見た目のセット「glass」  —  曲④「segment」用
-   テーマは「ガラスの部屋」。夜の青い空間に、ゆっくり回るガラスの結晶が浮かぶ。
-   地面はピアノの鍵盤（鍵盤ブロックが着くとその鍵が光る）。
-   板が割れると、画面全体にひびが走ってしばらく残る。
-   盛り上がる場面（tier 3 以上）では、上からプリズムの虹の光が差しこむ（画質「高」だけ）。
+   テーマは「ガラスの部屋」。部屋のまん中に、三角のガラスでできた大きな球がゆっくり回っている。
+   球は曲といっしょに「ひび → 割れる → 破片（segment）になって広がる → 集まる → また透明な球」と変わる:
+     イントロ   … きれいな球
+     FRACTURE   … ガラスにひびが少しずつ増える
+     最初に割れる … 三角の破片がふわっと離れる（板が割れるたびに、破片がぐっと外へ飛ぶ）
+     サビ       … 破片がキックに合わせて脈打つ
+     間奏       … 破片が大きく離れて止まりかける → 逆再生のように中心へ集まる
+     最後のサビ … また開いて速く回る
+     CLEAR      … ひとつの透明な球にもどる
+   左上の高い窓から白い光が差しこみ、球を通ると虹に分かれる（盛り上がるほど虹が強い）。
+   地面はピアノの鍵盤（鍵盤ブロックが着くとその鍵が光る）。板が割れると、画面全体にひびが走ってしばらく残る。
    ========================================================================= */
 
 (function () {
@@ -15,31 +22,51 @@
   const RAINBOW = ['#ff8fa3', '#ffd27a', '#9cffb0', '#7fd8ff', '#b69cff'].map(rgb);
 
   // ---- 状態 -------------------------------------------------------------------
-  const st = { crystals: [], webs: [], lit: new Float32Array(32), motes: [] };
+  const st = { webs: [], lit: new Float32Array(32), motes: [], rot: 0, ex: 0, boom: 0 };
+  const SX = W / 2, SY = 300, SR = 150;                     // ガラスの球の中心と半径
+
+  // ---- ガラスの球: 正二十面体を1回こまかくした 80枚の三角 ------------------------------------
+  const FACES = (() => {
+    const t = (1 + Math.sqrt(5)) / 2;
+    let V = [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]];
+    const nrm = v => { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; };
+    V = V.map(nrm);
+    let F = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+      [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]].map(f => f.map(i => V[i]));
+    const mid = (a, b) => nrm([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
+    F = F.flatMap(([a, b, c]) => { const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a); return [[a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]]; });
+    return F.map((v, i) => {
+      const c = nrm([(v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3, (v[0][2] + v[1][2] + v[2][2]) / 3]);
+      const crack = (i * 37) % 80 / 80;                     // ひびが入る順番（0〜1）
+      const k = i % 3;                                     // ひびの線: 頂点 k から向かいの辺のまん中へ
+      return { v, c, crack, k, far: 0.7 + ((i * 53) % 17) / 17 * 0.6, tint: RAINBOW[i % 5] };
+    });
+  })();
+  const LIGHT = (() => { const l = [-0.55, -0.65, 0.55], n = Math.hypot(...l); return l.map(x => x / n); })();
+
+  // 曲の時刻 → 球の開き具合（場面ごと）と、ひびの量
+  function sphereTarget(T) {
+    if (scene === 'title') return { ex: 0.1 + 0.05 * Math.sin(T * 0.8), crack: 0.3 };
+    const crack = clamp01((T - 12.45) / 12);
+    if (T < 24.45) return { ex: 0, crack };
+    if (T < 60.45) return { ex: 0.22, crack: 1 };
+    if (T < 84.45) return { ex: 0.42, crack: 1 };
+    if (T < 93.45) return { ex: 0.7, crack: 1 };
+    if (T < 96.45) return { ex: 0.7 - 0.6 * clamp01((T - 93.45) / 3), crack: 1 };   // 逆再生のように集まる
+    if (T < 120.45) return { ex: 0.5, crack: 1 };
+    return { ex: 0, crack: 1 - clamp01((T - 120.45) / 3) };                            // 透明な球にもどる
+  }
   const KEYS = 22, KW = W / KEYS;                         // 地面の白鍵の数と幅
 
-  function makeCrystals() {
-    st.crystals = Array.from({ length: 16 }, (_, i) => {
-      const n = 5 + (i % 3), R = 26 + Math.random() * 70;
-      const pts = Array.from({ length: n }, (_, j) => {
-        const a = j / n * TAU + (Math.random() - 0.5) * 0.6, r = R * (0.55 + Math.random() * 0.6) * (j % 2 ? 1 : 1.5);
-        return [Math.cos(a) * r, Math.sin(a) * r * 1.4];
-      });
-      return { x: Math.random() * W, y: 40 + Math.random() * (GROUND_Y - 160), z: 0.3 + Math.random() * 0.7, rot: Math.random() * TAU,
-        spin: (Math.random() - 0.5) * 0.25, vy: -(3 + Math.random() * 6), pts, c: RAINBOW[i % 5] };
-    });
-  }
-
-  function reset() { st.webs.length = 0; st.lit.fill(0); st.motes.length = 0; }
+  function reset() { st.webs.length = 0; st.lit.fill(0); st.motes.length = 0; st.ex = 0; st.boom = 0; }
 
   function update(dt, T, look) {
-    if (!st.crystals.length) makeCrystals();
     const tier = look.tier;
-    for (const c of st.crystals) {
-      c.rot += c.spin * dt * (1 + tier * 0.3);
-      c.y += c.vy * dt * (1 + tier * 0.4) * c.z;
-      if (c.y < -120) { c.y = GROUND_Y + 60; c.x = Math.random() * W; }
-    }
+    const tg = sphereTarget(T);
+    st.crack = tg.crack;
+    st.ex += (tg.ex - st.ex) * Math.min(1, dt * (T > 93.45 && T < 96.45 ? 8 : 2.5));
+    st.boom *= Math.exp(-dt * 2.5);
+    st.rot += dt * (0.12 + 0.05 * tier) * (T > 84.45 && T < 93.45 && scene === 'play' ? 0.3 : 1);
     for (const w of st.webs) w.age += dt;
     st.webs = st.webs.filter(w => w.age < w.life);
     for (let i = 0; i < st.lit.length; i++) st.lit[i] = Math.max(0, st.lit[i] - dt * 2.5);
@@ -54,6 +81,7 @@
 
   // 板が割れた: 画面いっぱいにひびが走って、しばらく残る
   function shatter(b) {
+    st.boom = Math.min(0.9, st.boom + 0.35 * (b.size || 1));    // 球の破片も、ぐっと外へ飛ぶ
     const s = b.size || 1, arms = 8 + Math.round(s * 6), lines = [];
     for (let i = 0; i < arms; i++) {
       let a = (i + Math.random() * 0.6) / arms * TAU, x = b.hx, y = b.hy;
@@ -75,51 +103,139 @@
     st.lit[i] = 1;
   }
 
+  let beams = null;
+  function makeBeams() {
+    const white = document.createElement('canvas'); white.width = W; white.height = H;
+    let g = white.getContext('2d');
+    const gr = g.createLinearGradient(50, 85, SX, SY);
+    gr.addColorStop(0, rgba(WHITE, 0.0)); gr.addColorStop(0.3, rgba(WHITE, 0.09)); gr.addColorStop(1, rgba(WHITE, 0.15));
+    g.fillStyle = gr;
+    g.beginPath(); g.moveTo(14, 20); g.lineTo(84, 150); g.lineTo(SX + 30, SY + 40); g.lineTo(SX - 40, SY - 30); g.closePath(); g.fill();
+    // 虹の扇（球の中心を 40,40 に置いた絵。右下へ広がる）
+    const rainbow = document.createElement('canvas'); rainbow.width = 760; rainbow.height = 760;
+    g = rainbow.getContext('2d');
+    g.globalCompositeOperation = 'lighter';
+    RAINBOW.forEach((c, i) => {
+      const ang = 0.55 + i * 0.075, len = 900;
+      const g2 = g.createLinearGradient(40, 40, 40 + Math.cos(ang) * len, 40 + Math.sin(ang) * len);
+      g2.addColorStop(0, rgba(c, 0.16)); g2.addColorStop(1, rgba(c, 0));
+      g.fillStyle = g2;
+      g.beginPath();
+      g.moveTo(60, 60);
+      g.lineTo(40 + Math.cos(ang - 0.035) * len, 40 + Math.sin(ang - 0.035) * len);
+      g.lineTo(40 + Math.cos(ang + 0.035) * len, 40 + Math.sin(ang + 0.035) * len);
+      g.closePath(); g.fill();
+    });
+    beams = { white, rainbow };
+  }
+
+  // ---- ガラスの球を描く: 奥の面（うすく）→ 手前の面（光の当たる面ほど明るい）---------------
+  const P = new Float32Array(2);
+  function drawSphere(ctx, look, k, tier) {
+    const ex = st.ex + st.boom + 0.06 * k * clamp01(tier - 3), cr = st.crack;
+    const ay = st.rot, ax = 0.35 + 0.15 * Math.sin(st.rot * 0.7);
+    const cy = Math.cos(ay), sy = Math.sin(ay), cx = Math.cos(ax), sx = Math.sin(ax);
+    const rotV = v => { const x = v[0] * cy + v[2] * sy, z0 = -v[0] * sy + v[2] * cy, y = v[1] * cx - z0 * sx, z = v[1] * sx + z0 * cx; return [x, y, z]; };
+    const proj = (x, y, z) => { const f = 900 / (900 - z * SR); P[0] = SX + x * SR * f; P[1] = SY + y * SR * f; return P; };
+    const list = [];
+    for (const F of FACES) {
+      const c = rotV(F.c), off = ex * F.far, shrink = 1 - Math.min(0.25, ex * 0.3);
+      const pts = F.v.map(v => { const r = rotV(v); return [c[0] * off + c[0] + (r[0] - c[0]) * shrink, c[1] * off + c[1] + (r[1] - c[1]) * shrink, c[2] * off + c[2] + (r[2] - c[2]) * shrink]; });
+      list.push({ F, c, pts, z: c[2] });
+    }
+    list.sort((a, b) => a.z - b.z);
+    ctx.lineJoin = 'round';
+    for (const f of list) {
+      const front = f.c[2] > 0;
+      if (!front && gfx === 0) continue;
+      const lam = Math.max(0, f.c[0] * LIGHT[0] + f.c[1] * LIGHT[1] + f.c[2] * LIGHT[2]);
+      const spec = Math.pow(lam, 6);
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) { const q = proj(...f.pts[i]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
+      ctx.closePath();
+      const tintC = mixC(f.F.tint, look.color, 0.4);
+      if (front) {
+        const fade = 1 - 0.45 * clamp01(ex);                    // 開いた破片はうすく（とがった弾とまちがえないように）
+        ctx.fillStyle = rgba(mixC(tintC, WHITE, 0.3 + 0.5 * spec), (0.06 + 0.1 * lam + 0.22 * spec + 0.03 * k) * fade);
+        ctx.fill();
+        ctx.strokeStyle = rgba(mixC(look.color, WHITE, 0.6), (0.3 + 0.4 * lam) * fade);
+        ctx.lineWidth = 1;
+      } else {
+        ctx.fillStyle = rgba(tintC, 0.05);
+        ctx.fill();
+        ctx.strokeStyle = rgba(look.color, 0.14);
+        ctx.lineWidth = 1;
+      }
+      ctx.stroke();
+      // ひび（割れる前だけ。ひびの量に合わせて、入る面が増える）
+      if (front && f.F.crack < cr && ex < 0.05) {
+        const a = proj(...f.pts[f.F.k]), ax0 = a[0], ay0 = a[1];
+        const b1 = f.pts[(f.F.k + 1) % 3], b2 = f.pts[(f.F.k + 2) % 3];
+        const m = proj((b1[0] + b2[0]) / 2, (b1[1] + b2[1]) / 2, (b1[2] + b2[2]) / 2);
+        ctx.strokeStyle = rgba(WHITE, 0.75 * clamp01((cr - f.F.crack) * 6));
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(ax0, ay0); ctx.lineTo(m[0], m[1]); ctx.stroke();
+      }
+    }
+    // 球のまん中のやわらかい光（球が閉じているときほど強い）
+    if (gfx > 0) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = (0.16 + 0.12 * k) * (1 - Math.min(0.7, ex));
+      ctx.drawImage(glowSprite(mixC(look.color, WHITE, 0.4)), SX - SR * 1.4, SY - SR * 1.4, SR * 2.8, SR * 2.8);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+
   // ---- 背景 ----------------------------------------------------------------
   function background(T, look, k, bk, bp) {
-    if (!st.crystals.length) makeCrystals();
     const tier = look.tier;
-    vGradient([[0, rgba(look.skyTop, 1)], [1, rgba(mixC(look.skyBot, WHITE, 0.05 * k * clamp01(tier - 2)), 1)]], GROUND_Y);
+    // ガラスの部屋（奥の壁のガラス板・天井と床へのびる線・左上の高い窓）。ゆっくりしか変わらないので4コマに1回
+    ctx.drawImage(cachedLayer('segRoom', 4, 0, g => {
+      const gr = g.createLinearGradient(0, 0, 0, GROUND_Y);
+      gr.addColorStop(0, rgba(look.skyTop, 1)); gr.addColorStop(1, rgba(look.skyBot, 1));
+      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+      const L = 130, R = W - 130, TOP = 70, BOT = GROUND_Y - 120;           // 奥の壁
+      g.strokeStyle = rgba(mixC(look.color, WHITE, 0.5), 0.09); g.lineWidth = 1;
+      g.beginPath();
+      for (const [x0, y0, x1, y1] of [[0, 0, L, TOP], [W, 0, R, TOP], [0, GROUND_Y, L, BOT], [W, GROUND_Y, R, BOT]]) { g.moveTo(x0, y0); g.lineTo(x1, y1); }
+      g.rect(L, TOP, R - L, BOT - TOP);
+      for (let x = L + 45; x < R; x += 45) { g.moveTo(x, TOP); g.lineTo(x, BOT); }        // 奥の壁のガラス板の継ぎ目
+      for (let i = 1; i < 6; i++) {                                                    // 左右の壁の継ぎ目（遠近）
+        const f = i / 6;
+        g.moveTo(L * f, TOP * f); g.lineTo(L * f, GROUND_Y + (BOT - GROUND_Y) * f);
+        g.moveTo(W - L * f, TOP * f); g.lineTo(W - L * f, GROUND_Y + (BOT - GROUND_Y) * f);
+      }
+      g.stroke();
+      g.globalCompositeOperation = 'lighter';
+      g.fillStyle = rgba(WHITE, 0.025);                                                // ガラスに映る、ななめの光の帯
+      for (const x of [L + 60, L + 300, L + 420]) { g.beginPath(); g.moveTo(x, TOP); g.lineTo(x + 40, TOP); g.lineTo(x - 60, BOT); g.lineTo(x - 100, BOT); g.closePath(); g.fill(); }
+      g.fillStyle = rgba(mixC(look.color, WHITE, 0.7), 0.16);                          // 左上の高い窓（光の入り口）
+      g.beginPath(); g.moveTo(14, 20); g.lineTo(84, 50); g.lineTo(84, 150); g.lineTo(14, 140); g.closePath(); g.fill();
+      g.strokeStyle = rgba(WHITE, 0.3); g.lineWidth = 2; g.stroke();
+      g.beginPath(); g.moveTo(49, 35); g.lineTo(49, 145); g.moveTo(14, 80); g.lineTo(84, 100); g.lineWidth = 1.5; g.stroke();
+      // 窓から差しこむ白い光 → 球を通って虹に分かれる（光の形は1回だけ描いておき、明るさと向きだけ変える）
+      if (gfx > 0) {
+        if (!beams) makeBeams();
+        g.drawImage(beams.white, 0, 0);
+        g.globalAlpha = 0.35 + 0.65 * clamp01((tier - 1) / 3);
+        g.save(); g.translate(SX, SY); g.rotate(Math.sin(bp * Math.PI / 16) * 0.05);
+        g.drawImage(beams.rainbow, -40, -40);
+        g.restore();
+        g.globalAlpha = 1;
+      }
+      g.globalCompositeOperation = 'source-over';
+    }), 0, 0, W, H);
 
     ctx.globalCompositeOperation = 'lighter';
     drawStars(T, [16, 30, 50][gfx]);
 
-    // プリズムの虹の光（盛り上がる場面、画質「高」だけ）
-    if (gfx === 2 && tier >= 2.5) {
-      const a = clamp01((tier - 2.5) / 2) * (0.5 + 0.5 * k);
-      RAINBOW.forEach((c, i) => {
-        const ang = 0.9 + i * 0.07 + Math.sin(bp * Math.PI / 16) * 0.12, len = 1200;
-        const x0 = -60, y0 = -60;
-        const gr = ctx.createLinearGradient(x0, y0, x0 + Math.cos(ang) * len, y0 + Math.sin(ang) * len);
-        gr.addColorStop(0, rgba(c, 0.10 * a)); gr.addColorStop(1, rgba(c, 0));
-        ctx.fillStyle = gr;
-        ctx.beginPath();
-        ctx.moveTo(x0, y0);
-        ctx.lineTo(x0 + Math.cos(ang - 0.03) * len, y0 + Math.sin(ang - 0.03) * len);
-        ctx.lineTo(x0 + Math.cos(ang + 0.03) * len, y0 + Math.sin(ang + 0.03) * len);
-        ctx.closePath(); ctx.fill();
-      });
-    }
-
-    // 浮かぶガラスの結晶（奥のものほどうすく小さい）
-    const n = [6, 11, 16][gfx];
-    for (let i = 0; i < n; i++) {
-      const c = st.crystals[i], a = (0.05 + 0.05 * clamp01(tier / 4)) * (0.5 + c.z) + 0.04 * k * c.z;
-      ctx.save();
-      ctx.translate(c.x, c.y);
-      ctx.rotate(c.rot);
-      ctx.scale(c.z, c.z);
-      ctx.beginPath();
-      c.pts.forEach(([x, y], j) => (j ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-      ctx.closePath();
-      ctx.fillStyle = rgba(mixC(c.c, look.color, 0.5), a);
-      ctx.fill();
-      ctx.strokeStyle = rgba(WHITE, a * 2.2);
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(c.pts[0][0], c.pts[0][1]); ctx.lineTo(c.pts[2][0], c.pts[2][1]); ctx.stroke();   // 面の境目
-      ctx.restore();
-    }
+    // ガラスの球（3コマに1回描き直す）
+    ctx.drawImage(cachedLayer('segSphere', 3, 1, g => {
+      g.globalCompositeOperation = 'lighter';
+      drawSphere(g, look, k, tier);
+    }), 0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
 
     // きらめき
     for (const m of st.motes) {
@@ -132,7 +248,7 @@
     for (const r of fx.bgRings) {
       ctx.strokeStyle = rgba(look.color, r.a * 0.25 * clamp01(tier / 2));
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(CX, 280, 60 + r.r * 0.8, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.arc(SX, SY, SR + 10 + r.r * 0.6, 0, TAU); ctx.stroke();
     }
     ctx.globalCompositeOperation = 'source-over';
   }

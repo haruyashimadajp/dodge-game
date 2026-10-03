@@ -2,70 +2,116 @@
 
 /* =========================================================================
    見た目のセット「gyro」  —  曲⑤「Vertigo」用
-   テーマは「飛行機の姿勢計（水平儀）」。背景は空と地面が水平線で分かれていて、
-   上の目盛りの三角が「いま世界が何度傾いているか」を指す。
+   テーマは「めまいの階段」。ヒッチコックの映画『めまい（Vertigo）』の、鐘楼の階段を見下ろす場面と、
+   ソール・バスのうずまきのタイトルへのオマージュ。
+     背景   … 四角いらせん階段を真上から見下ろした所。段がうずを巻いて奥へ落ちていき、
+              サビでは「めまいショット（ドリーズーム）」のように奥行きだけが伸び縮みする
+     うずまき … サビや最後のサビで、ソール・バス風のうずまきの線がゆっくり回る
+     傾き計 … 上の弧の目盛りの三角が「いま世界が何度傾いているか」を指す（遊ぶのに役立つので残す）
+   画面ごと回る（さかさま）ときは、階段もいっしょに回る。
    床は流れる鉄板（ベルトコンベアの矢印つき）、足場には水準器の泡があって、傾くと泡が高いほうへ動く。
    ========================================================================= */
 
 (function () {
   const CX = W / 2, CY = H * 0.55;
   const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
-  const WHITE = [255, 255, 255], YEL = rgb('#ffe36e');
-  const st = { gyro: 0 };
+  const SANS = '"Helvetica Neue", "Arial Black", "Hiragino Sans", system-ui, sans-serif';
+  const WHITE = [255, 255, 255], YEL = rgb('#ffe36e'), RED = rgb('#ff4a3d');
+  const st = { gyro: 0, fall: 0, twist: 0, swirl: 0 };
+  const LEVELS = 22;
 
-  function reset() {}
-  function update(dt, T, look) { st.gyro += dt * (0.3 + 0.25 * look.tier); }
+  function reset() { st.fall = 0; }
+  function update(dt, T, look) {
+    const tier = look.tier;
+    st.gyro += dt * (0.3 + 0.25 * tier);
+    st.fall += dt * (0.18 + 0.1 * tier);                    // 階段を落ちていく速さ
+    st.twist += dt * (0.02 + 0.015 * tier);
+    st.swirl += dt * (0.5 + 0.25 * tier);
+  }
 
-  // ---- 背景: 姿勢計（画面ごと回るときは、水平線もいっしょに回る）-----------------------
+  // ---- 背景: らせん階段を見下ろす（2コマに1回だけ描き直す）-----------------------------------
+  function stairs(g, look, k, bp, tier) {
+    // めまいショット: サビ（tier 3 以上）で奥行きだけが伸び縮みする
+    const dolly = Math.sin(bp * Math.PI / 8) * clamp01((tier - 3) / 1.5);
+    const kd = 0.15 * (1 + 0.4 * dolly);
+    const f = st.fall % 1, base = Math.floor(st.fall);
+    const lv = [];
+    for (let i = 0; i <= LEVELS; i++) {
+      const d = i - f;                                    // 0 = 手前（画面の外）、大きいほど深い
+      const sc = Math.exp(-Math.max(0, d) * kd);
+      lv.push({ d, h: 640 * sc, a: (d + base) * 0.1 + st.twist, n: i + base });
+    }
+    const corner = (L, j) => { const a = L.a + j * Math.PI / 2 + Math.PI / 4, r = L.h * Math.SQRT2; return [Math.cos(a) * r, Math.sin(a) * r]; };
+    const square = L => { for (let j = 0; j < 4; j++) { const [x, y] = corner(L, j); j ? g.lineTo(x, y) : g.moveTo(x, y); } g.closePath(); };
+    // 壁（各段の輪を、奥ほど暗く塗る。ひと段ずつ明るさを変えてしましまに）
+    for (let i = 0; i < LEVELS; i++) {
+      const A = lv[i], B = lv[i + 1], depth = clamp01(B.d / LEVELS);
+      const sh = mixC(mixC(look.skyBot, look.color, 0.12), look.skyTop, Math.pow(depth, 0.5)), band = (A.n % 2) ? 1 : 0.78;
+      g.fillStyle = rgba(sh.map(v => v * band), 1);
+      g.beginPath(); square(A); square(B);
+      g.fill('evenodd');
+    }
+    // いちばん底（ずっと下の床がぼんやり光る）
+    const bot = lv[LEVELS];
+    g.fillStyle = rgba(mixC(look.color, [255, 255, 255], 0.1), 0.85); g.beginPath(); square(bot); g.fill();
+    g.globalCompositeOperation = 'lighter';
+    const R0 = lv[LEVELS - 8].h * 1.3, bg = g.createRadialGradient(0, 0, 0, 0, 0, R0);
+    bg.addColorStop(0, rgba(look.color, 0.55 + 0.25 * k)); bg.addColorStop(0.35, rgba(look.color, 0.18)); bg.addColorStop(1, rgba(look.color, 0));
+    g.fillStyle = bg; g.beginPath(); g.arc(0, 0, R0, 0, TAU); g.fill();
+    // 段（各輪の4つの辺に、手前の辺から奥の辺へ6本ずつ）
+    if (gfx > 0) {
+      g.strokeStyle = rgba(mixC(look.color, WHITE, 0.3), 0.16);
+      g.lineWidth = 1;
+      g.beginPath();
+      for (let i = 0; i < LEVELS; i++) {
+        const A = lv[i], B = lv[i + 1];
+        for (let j = 0; j < 4; j++) {
+          const a0 = corner(A, j), a1 = corner(A, j + 1), b0 = corner(B, j), b1 = corner(B, j + 1);
+          if (B.h < 30) continue;
+          for (let s2 = 1; s2 < 7; s2++) { const u = s2 / 7; g.moveTo(a0[0] + (a1[0] - a0[0]) * u, a0[1] + (a1[1] - a0[1]) * u); g.lineTo(b0[0] + (b1[0] - b0[0]) * u, b0[1] + (b1[1] - b0[1]) * u); }
+        }
+      }
+      g.stroke();
+    }
+    // 手すり（各段のふち。4段ごとに黄色）
+    g.lineWidth = 2;
+    for (const yel of [false, true]) {
+      g.strokeStyle = rgba(yel ? YEL : look.color, 0.35 + 0.15 * k);
+      g.beginPath();
+      for (let i = 1; i <= LEVELS; i++) if (((lv[i].n % 4) === 0) === yel) square(lv[i]);
+      g.stroke();
+    }
+    // ソール・バス風のうずまき（サビ・最後のサビ）
+    const sw = clamp01((tier - 2.5) / 1.5);
+    if (sw > 0.01 && gfx > 0) {
+      g.strokeStyle = rgba(mixC(look.color, WHITE, 0.4), 0.22 * sw + 0.12 * k * sw);
+      g.lineWidth = 2;
+      g.beginPath();
+      for (let arm = 0; arm < 2; arm++) {
+        for (let t = 0; t < 7 * Math.PI; t += 0.2) {
+          const r = 6 + t * 15 * (1 + 0.15 * dolly), a = t * (arm ? -1 : 1) + st.swirl * (arm ? 1 : -1) + arm * Math.PI;
+          const x = Math.cos(a) * r, y = Math.sin(a) * r * (0.82 + 0.18 * Math.cos(st.swirl * 0.3));
+          t ? g.lineTo(x, y) : g.moveTo(x, y);
+        }
+      }
+      g.stroke();
+    }
+    // 小節の頭で、奥から四角い波
+    for (const r of fx.bgRings) {
+      g.strokeStyle = rgba(look.color, r.a * 0.3);
+      const h = 20 + r.r * 0.7;
+      g.save(); g.rotate(st.twist + r.r * 0.002); g.strokeRect(-h, -h, h * 2, h * 2); g.restore();
+    }
+    g.globalCompositeOperation = 'source-over';
+  }
+
   function background(T, look, k, bk, bp) {
     const tier = look.tier;
-    ctx.fillStyle = rgba(look.skyTop, 1);
-    ctx.fillRect(0, 0, W, H);
-    ctx.save();
-    ctx.translate(CX, CY);
-    ctx.rotate(stage.spin);
-    // 空
-    let g = ctx.createLinearGradient(0, -900, 0, 0);
-    g.addColorStop(0, rgba(look.skyTop, 1)); g.addColorStop(1, rgba(look.skyBot, 1));
-    ctx.fillStyle = g; ctx.fillRect(-1000, -1000, 2000, 1000);
-    // 地面（奥行きのある格子。床が流れると格子も流れる）
-    g = ctx.createLinearGradient(0, 0, 0, 900);
-    g.addColorStop(0, rgba(mixC(look.skyBot, [0, 0, 0], 0.55), 1)); g.addColorStop(1, '#020208');
-    ctx.fillStyle = g; ctx.fillRect(-1000, 0, 2000, 1000);
-    ctx.globalCompositeOperation = 'lighter';
-    if (gfx > 0) {
-      ctx.strokeStyle = rgba(look.color, 0.12 + 0.08 * k);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      const off = ((stage.scroll % 60) + 60) % 60;
-      for (let i = -24; i <= 24; i++) { const x = i * 60 + off; ctx.moveTo(x * 0.08, 0); ctx.lineTo(x * 1.6, 900); }
-      const f = bp - Math.floor(bp);
-      for (let j = 0; j < 7; j++) { const p = (j + f) / 7, y = 900 * p * p; ctx.moveTo(-1000, y); ctx.lineTo(1000, y); }
-      ctx.stroke();
-    }
-    // 水平線 ＋ 目盛り（ピッチのはしご）
-    ctx.strokeStyle = rgba(mixC(look.color, WHITE, 0.4), 0.75 + 0.25 * k);
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-1000, 0); ctx.lineTo(1000, 0); ctx.stroke();
-    ctx.strokeStyle = rgba(look.color, 0.3);
-    ctx.lineWidth = 1.5;
-    ctx.font = `600 11px ${MONO}`; ctx.textBaseline = 'middle';
-    ctx.fillStyle = rgba(look.color, 0.45);
-    for (const y of [-240, -160, -80, 80, 160]) {
-      const w = y % 160 === 0 ? 70 : 40;
-      ctx.beginPath(); ctx.moveTo(-w, y); ctx.lineTo(w, y); ctx.stroke();
-      if (y % 160 === 0) { ctx.textAlign = 'left'; ctx.fillText(String(Math.abs(y / 8)), w + 6, y); ctx.textAlign = 'right'; ctx.fillText(String(Math.abs(y / 8)), -w - 6, y); }
-    }
-    // ジャイロの輪（回り続ける。盛り上がるほど速い）
-    if (gfx > 0) {
-      for (let i = 0; i < 3; i++) {
-        const a = st.gyro * (1 + i * 0.4) + i;
-        ctx.strokeStyle = rgba(i === 1 ? YEL : look.color, 0.08 + 0.04 * tier / 5 + 0.05 * k);
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.ellipse(0, -120, 260, 260 * Math.abs(Math.cos(a)), i * 1.05, 0, TAU); ctx.stroke();
-      }
-    }
-    ctx.restore();
+    ctx.drawImage(cachedLayer('vertStairs', 2, 0, g => {
+      g.fillStyle = rgba(look.skyBot, 1); g.fillRect(0, 0, W, H);
+      g.translate(CX, CY); g.rotate(stage.spin);
+      stairs(g, look, k, bp, tier);
+    }), 0, 0, W, H);
 
     // ロール（傾き）の目盛り: 上の弧と、世界の傾きを指す三角（画面に固定）
     const R = 300, cy = CY - 10;
@@ -176,50 +222,63 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  // ---- 場面の名前: 計器のような等幅の文字 ----------------------------------------------
+  // ---- 場面の名前: ソール・バスのタイトルのように、横に切った文字が左右からすべりこむ ------------------
   function banner() {
     const bn = fx.banner;
     if (!bn) return;
     const e = bn.age, DUR = 2.4;
     if (e > DUR) { fx.banner = null; return; }
-    const a = e < 0.2 ? e / 0.2 : e > DUR - 0.5 ? (DUR - e) / 0.5 : 1;
-    const y = 130, shown = Math.min(bn.name.length, Math.floor(e * 24));
+    const a = e < 0.15 ? e / 0.15 : e > DUR - 0.5 ? (DUR - e) / 0.5 : 1;
+    const y = 130, slide = 1 - easeOut(clamp01(e / 0.7)), out = e > DUR - 0.5 ? easeOut((e - DUR + 0.5) / 0.5) : 0;
     ctx.save();
     ctx.globalAlpha = clamp01(a);
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fillRect(W / 2 - 230, y - 34, 460, 76);
-    ctx.strokeStyle = rgba(bn.c, 0.9);
-    ctx.lineWidth = 2;
-    const br = (x, d) => { ctx.beginPath(); ctx.moveTo(x + d * 14, y - 34); ctx.lineTo(x, y - 34); ctx.lineTo(x, y + 42); ctx.lineTo(x + d * 14, y + 42); ctx.stroke(); };
-    br(W / 2 - 230, 1); br(W / 2 + 230, -1);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `800 32px ${MONO}`;
-    if ('letterSpacing' in ctx) ctx.letterSpacing = '8px';
-    ctx.fillStyle = '#f0fbff';
-    ctx.fillText(bn.name.slice(0, shown) + (shown < bn.name.length ? '_' : ''), W / 2, y - 6);
-    if ('letterSpacing' in ctx) ctx.letterSpacing = '2px';
+    ctx.font = `900 40px ${SANS}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+    const N = 6, top = y - 26, hh = 52 / N;
+    for (let i = 0; i < N; i++) {                       // 6本の横の帯。偶数は左から、奇数は右から
+      const dx = (i % 2 ? 1 : -1) * (260 * slide * (1 + i * 0.15) + 30 * out * (i - 2.5));
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, top + i * hh, W, hh + 0.5); ctx.clip();
+      ctx.fillStyle = i === 2 || i === 3 ? '#ffffff' : rgba(mixC(bn.c, WHITE, 0.5), 1);
+      ctx.fillText(bn.name, W / 2 + dx, y);
+      ctx.restore();
+    }
+    const lw = 240 * easeOut(clamp01((e - 0.2) / 0.5));   // 赤い線と、うずまきの小さな印
+    ctx.fillStyle = rgba(RED, 0.9);
+    ctx.fillRect(W / 2 - lw, y + 34, lw * 2, 2);
+    ctx.strokeStyle = rgba(RED, 0.9); ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let t = 0; t < 4 * Math.PI; t += 0.2) { const r = 1 + t * 0.9, an = t + e * 4; const px = W / 2 + Math.cos(an) * r, py = y + 35 + Math.sin(an) * r; t ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.stroke();
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
     ctx.font = `600 14px ${MONO}`;
-    ctx.fillStyle = rgba(mixC(bn.c, WHITE, 0.4), clamp01((e - 0.3) / 0.4));
-    ctx.fillText(bn.sub, W / 2, y + 26);
+    ctx.fillStyle = rgba(mixC(bn.c, WHITE, 0.4), clamp01((e - 0.4) / 0.4));
+    ctx.fillText(bn.sub, W / 2, y + 56);
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
     ctx.restore();
   }
 
-  // ---- タイトル: ジャイロスコープの輪がゆっくり回る ----------------------------------------
+  // ---- タイトル: ソール・バス風のうずまきがゆっくり回る ----------------------------------------
   function title(look, k, bp) {
-    for (let i = 0; i < 3; i++) {
-      const a = bp * 0.12 * (1 + i * 0.5) + i * 1.3;
-      ctx.strokeStyle = rgba(i === 1 ? YEL : look.color, 0.55 + 0.3 * k);
-      ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.ellipse(CX, 260, 200, 200 * Math.abs(Math.cos(a)), i * 1.05 + Math.sin(bp * 0.1) * 0.2, 0, TAU); ctx.stroke();
+    for (let arm = 0; arm < 3; arm++) {
+      ctx.strokeStyle = rgba(arm === 1 ? RED : arm === 2 ? YEL : look.color, 0.5 + 0.3 * k);
+      ctx.lineWidth = 2.5 - arm * 0.5;
+      ctx.beginPath();
+      for (let t = 0; t < 6 * Math.PI; t += 0.1) {
+        const r = 4 + t * 11 * (1 + 0.05 * k), a = t * (arm % 2 ? -1 : 1) + bp * 0.15 * (arm % 2 ? 1 : -1) + arm * 2.1;
+        const x = CX + Math.cos(a) * r, y = 260 + Math.sin(a) * r * (0.75 + 0.25 * Math.cos(bp * 0.05 + arm));
+        t ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.stroke();
     }
     ctx.fillStyle = rgba(YEL, 0.95);
-    ctx.beginPath(); ctx.arc(CX, 260, 6 + 3 * k, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(CX, 260, 5 + 3 * k, 0, TAU); ctx.fill();
   }
 
   THEMES.gyro = {
     noTrails: true, noScanlines: true, glow: 1.8,
-    clearColors: ['#7ff6ff', '#ffe36e', '#ff5fa2', '#7fffd0', '#a9b4ff'],
+    clearColors: ['#7ff6ff', '#ffe36e', '#ff5fa2', '#ff4a3d', '#a9b4ff'],
     reset, update, background, floor, platform, bullet, flash, banner, title,
   };
 })();
