@@ -671,7 +671,8 @@ function drawHoles(T, look) {
     }
   }
 }
-function drawWalls(T, look) {
+function drawWalls(T, look, k) {
+  if (theme().walls) { theme().walls(T, look, k); return; }   // 見た目のセットが壁を描く（And Revive The Melody の燃えた楽譜のカーテン）
   const zap = stage.shock;
   for (const [x, dir] of [[stage.wl, -1], [stage.wr, 1]]) {
     if (zap <= 0 && x > -1 && x < W + 1) continue;

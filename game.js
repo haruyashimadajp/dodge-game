@@ -569,7 +569,7 @@ function endRun(kind) {
     overlay.classList.remove('over', 'clear');
     overlay.classList.add('result', kind);
     setOverlayTitle(kind === 'clear' ? (song.clearTitle || 'CLEAR') : (song.overTitle || 'GAME OVER'));   // 曲ごとに変えられる（Ward 13 は YOU DIED）
-    ovSub.textContent = kind === 'clear' ? `${DIFFS[difficulty].label} CLEAR ─ ` + (song.clearText || '最後まで生き残った！') : (newBest ? 'NEW BEST!' : '');
+    ovSub.textContent = kind === 'clear' ? `${DIFFS[difficulty].label} CLEAR ─ ` + ((typeof song.clearText === 'function' ? song.clearText() : song.clearText) || '最後まで生き残った！') : (newBest ? 'NEW BEST!' : '');
     resTime.textContent = elapsed.toFixed(1) + 's';
     resBest.textContent = best.toFixed(1) + 's';
     resHits.textContent = hitsTaken;
