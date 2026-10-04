@@ -137,16 +137,20 @@
           ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a - 0.08) * L, y + Math.sin(a - 0.08) * L); ctx.lineTo(x + Math.cos(a + 0.08) * L, y + Math.sin(a + 0.08) * L); ctx.closePath(); ctx.fill();
         }
       } else {
+        if (!st.flameImg) {                                            // 炎の舌 1 枚（前もって描いておく）
+          const fc = document.createElement('canvas'); fc.width = 48; fc.height = 128;
+          const g = fc.getContext('2d'), gr = g.createLinearGradient(0, 128, 0, 0);
+          gr.addColorStop(0, 'rgba(255,80,40,0.55)'); gr.addColorStop(1, 'rgba(255,40,20,0)');
+          g.fillStyle = gr; g.beginPath(); g.moveTo(4, 128); g.quadraticCurveTo(24, 60, 24, 0); g.quadraticCurveTo(24, 64, 44, 128); g.closePath(); g.fill();
+          st.flameImg = fc;
+        }
+        const m0 = ctx.getTransform();
         for (let i = 0; i < 9; i++) {
           const a = -Math.PI / 2 + (i - 4) * 0.36, f = 0.7 + 0.3 * Math.sin(T * 9 + i * 2.1) + 0.3 * k;
-          const bx = x + Math.cos(a) * R * 0.8, by = y + Math.sin(a) * R * 0.8, L = R * (0.9 + 0.6 * f) * (1 - Math.abs(i - 4) * 0.08);
-          const gr = ctx.createLinearGradient(bx, by, bx + Math.cos(a) * L, by + Math.sin(a) * L);
-          gr.addColorStop(0, 'rgba(255,80,40,0.55)'); gr.addColorStop(1, 'rgba(255,40,20,0)');
-          ctx.fillStyle = gr;
-          ctx.beginPath(); ctx.moveTo(bx + Math.cos(a + 1.57) * R * 0.28, by + Math.sin(a + 1.57) * R * 0.28);
-          ctx.quadraticCurveTo(bx + Math.cos(a) * L * 0.6 + Math.sin(T * 7 + i) * 6, by + Math.sin(a) * L * 0.6, bx + Math.cos(a) * L, by + Math.sin(a) * L);
-          ctx.quadraticCurveTo(bx + Math.cos(a) * L * 0.5, by + Math.sin(a) * L * 0.5, bx + Math.cos(a - 1.57) * R * 0.28, by + Math.sin(a - 1.57) * R * 0.28);
-          ctx.closePath(); ctx.fill();
+          const L = R * (0.9 + 0.6 * f) * (1 - Math.abs(i - 4) * 0.08);
+          ctx.translate(x + Math.cos(a) * R * 0.8, y + Math.sin(a) * R * 0.8); ctx.rotate(a + Math.PI / 2);
+          ctx.drawImage(st.flameImg, -R * 0.28 + Math.sin(T * 7 + i) * 2, -L, R * 0.56, L);
+          ctx.setTransform(m0);
         }
       }
     }
@@ -235,6 +239,7 @@
       g.globalAlpha = 0.07 + 0.12 * lo * lo;
       g.drawImage(st.kanji, W / 2 - 230, 30, 460, 460);
       g.globalAlpha = 1;
+      g.drawImage(st.field, 0, 0, W, H);                            // レーン（動かないので、背景の絵にいっしょに入れておく）
     });
     ctx.drawImage(bg, 0, 0, W, H);
     // 炎の粉
@@ -248,7 +253,6 @@
       ctx.globalCompositeOperation = 'source-over';
     }
     // レーン ＋ 手前へ流れる小節線（拍に合わせて進む）
-    ctx.drawImage(st.field, 0, 0, W, H);
     const f = bp - Math.floor(bp);
     ctx.lineWidth = 1.5;
     for (let j = 0; j < 4; j++) {
@@ -294,23 +298,38 @@
   }
 
   // ---- 弾 ----------------------------------------------------------------------------------------
+  // 弾は、形と色ごとに 1 度だけ小さな絵に描いておき、毎コマはそれを貼るだけ（円を 3 つ描くより、ずっと軽い）
+  const spriteCache = new Map();
+  function bulletSprite(s, r, c) {
+    const key = s + r + c.join(','), hit = spriteCache.get(key);
+    if (hit) return hit;
+    const R = Math.ceil(r + 3), cv2 = document.createElement('canvas'); cv2.width = cv2.height = R * 4;
+    const g = cv2.getContext('2d'); g.scale(2, 2); g.translate(R, R);   // 2倍の大きさで描いて、なめらかに
+    drawOgBullet(g, s, 0, 0, r, c);
+    const out = { cv: cv2, R };
+    spriteCache.set(key, out);
+    return out;
+  }
+  function drawOgBullet(ctx, s, x, y, r, c) {
+    ctx.fillStyle = 'rgba(20,0,16,0.85)';                          // 暗いふち（背景から浮かせる）
+    ctx.beginPath(); ctx.arc(x, y, r + 2, 0, TAU); ctx.fill();
+    ctx.fillStyle = rgba(c, 1);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    if (s === 'og-l') {                                            // 危険弾: 二重の輪 ＋ まん中が白い
+      ctx.strokeStyle = 'rgba(255,240,200,0.95)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, r * 0.72, 0, TAU); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.arc(x, y, r * 0.38, 0, TAU); ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.beginPath(); ctx.arc(x, y, r * (s === 'og-m' ? 0.5 : 0.55), 0, TAU); ctx.fill();
+      if (s === 'og-m') { ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r * 0.78, 0, TAU); ctx.stroke(); }
+    }
+  }
   function bullet(b, c, k) {
     const s = b.style;
     if (s === 'og-s' || s === 'og-m' || s === 'og-l') {
-      const r = b.r;
-      ctx.fillStyle = 'rgba(20,0,16,0.85)';                        // 暗いふち（背景から浮かせる）
-      ctx.beginPath(); ctx.arc(b.x, b.y, r + 2, 0, TAU); ctx.fill();
-      ctx.fillStyle = rgba(c, 1);
-      ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, TAU); ctx.fill();
-      if (s === 'og-l') {                                          // 危険弾: 二重の輪 ＋ まん中が白い
-        ctx.strokeStyle = 'rgba(255,240,200,0.95)'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(b.x, b.y, r * 0.72, 0, TAU); ctx.stroke();
-        ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.arc(b.x, b.y, r * 0.38, 0, TAU); ctx.fill();
-      } else {
-        ctx.fillStyle = 'rgba(255,255,255,0.95)';
-        ctx.beginPath(); ctx.arc(b.x, b.y, r * (s === 'og-m' ? 0.5 : 0.55), 0, TAU); ctx.fill();
-        if (s === 'og-m') { ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(b.x, b.y, r * 0.78, 0, TAU); ctx.stroke(); }
-      }
+      const sp = bulletSprite(s, b.r, c);
+      ctx.drawImage(sp.cv, b.x - sp.R, b.y - sp.R, sp.R * 2, sp.R * 2);
       return;
     }
     ctx.fillStyle = rgba(c, 1);
@@ -636,7 +655,7 @@
   }
 
   THEMES.ongeki = {
-    noTrails: true, glow: 1.6,
+    noTrails: true, glow: 1.6, noGlow: true,
     clearColors: ['#ff5fb4', '#ffd23a', '#b36bff', '#ff8a1f', '#ffffff', '#5cff8a'],
     kinds: { bell: bellKind, ognote: noteKind, glove: gloveKind, ogmeteor: meteorKind, imomushi: wormKind },
     reset, update, background, floor, platform, bullet, fire, world, flash, banner, title,

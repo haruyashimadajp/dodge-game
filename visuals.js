@@ -96,7 +96,7 @@ const fx = {
   freeze: 0,        // 時間停止の見た目の強さ（0〜1）
   rewindT: 0,       // 巻き戻しの演出の残り時間
 };
-const PART_CAP = () => [150, 500, 1200][gfx];          // 火花の上限（画質しだい）
+const PART_CAP = () => [150, 400, 700][gfx];           // 火花の上限（画質しだい。多すぎると重いので控えめ）
 
 function fxReset() {
   fx.particles.length = 0; fx.rings.length = 0; fx.bgRings.length = 0; fx.ghosts.length = 0;
@@ -124,7 +124,7 @@ function sparks(x, y, { n = 16, color = '#ffffff', speed = 260, life = 0.6, size
   }
 }
 function shockRing(x, y, { color = '#ffffff', size = 120, life = 0.5, width = 4 } = {}) {
-  if (fx.rings.length > 260) return;
+  if (fx.rings.length > 120) return;
   fx.rings.push({ x, y, r: 0, size, life, max: life, width, c: rgb(color) });
 }
 // ブリンク弾が瞬間移動した: 元の場所に輪の跡が残る
@@ -881,7 +881,7 @@ function drawBullets(T, look, k) {
         ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x - dx * 5, b.y - dy * 5); ctx.stroke();
       }
     }
-    if (gfx === 2 || (gfx === 1 && b.r >= 12)) {
+    if (!th.noGlow && (gfx === 2 || (gfx === 1 && b.r >= 12))) {   // noGlow: その見た目のセットは光のにじみを描かない（軽くする）
       const R = b.r * ((th.glow || 2.5) + 0.9 * k);
       ctx.drawImage(glowSprite(c), b.x - R, b.y - R, R * 2, R * 2);
     }
@@ -1125,12 +1125,16 @@ function drawRings() {
 
 function drawParticles() {
   ctx.globalCompositeOperation = 'lighter';
-  for (const p of fx.particles) {
+  let last = null;
+  for (const p of fx.particles) {                // 色の文字列は粒ごとに 1 回だけ作り、うすさは globalAlpha で（毎コマ文字列を作らない）
     const a = p.life / p.max;
     const s = p.size * (0.4 + 0.6 * a);
-    ctx.fillStyle = rgba(p.c, a);
+    const cs = p.cs || (p.cs = `rgb(${p.c[0] | 0},${p.c[1] | 0},${p.c[2] | 0})`);
+    if (cs !== last) { ctx.fillStyle = cs; last = cs; }
+    ctx.globalAlpha = Math.max(0, Math.min(1, a));
     ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
   }
+  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
 }
 

@@ -658,21 +658,25 @@ function applyGfx(level) {
   }
   gfxVal.textContent = gfxSetting === 'auto' ? `（いま: ${['低', '中', '高'][gfx]}）` : '';
 }
-function setGfx(v) {
+// 自動: 下げた画質は覚えておき、次に開いたときもそこから始める（毎回「高」からカクカクしない）。
+// 「自動」ボタンを押し直すと「高」からやり直す
+function setGfx(v, fromClick = false) {
   gfxSetting = v;
   store.set('dodge_gfx', v);
   gfxBtns.forEach(b => b.classList.toggle('active', b.dataset.gfx === v));
   slowT = 0;
-  applyGfx(v === 'auto' ? 2 : Number(v));
+  if (v === 'auto' && fromClick) store.set('dodge_gfxAuto', '2');
+  const remembered = Number(store.get('dodge_gfxAuto'));
+  applyGfx(v === 'auto' ? ([0, 1, 2].includes(remembered) ? remembered : 2) : Number(v));
 }
 let slowT = 0;                              // how long frames have been slow (s)
 function autoGfx(dt) {
   if (gfxSetting !== 'auto' || gfx === 0 || scene !== 'play' || paused || elapsed < 1.5) return;
-  if (dt > 1 / 45 && dt < 0.25) slowT += dt;              // slower than ~45 fps
+  if (dt > 1 / 50 && dt < 0.25) slowT += dt;              // slower than ~50 fps
   else slowT = Math.max(0, slowT - dt * 0.5);
-  if (slowT > 2) { slowT = 0; applyGfx(gfx - 1); }        // 2 s of slow frames → one step lower
+  if (slowT > 1.2) { slowT = 0; applyGfx(gfx - 1); store.set('dodge_gfxAuto', String(gfx)); }   // 1.2 秒カクカク → 1 段下げて、覚えておく
 }
-gfxBtns.forEach(b => b.addEventListener('click', () => setGfx(b.dataset.gfx)));
+gfxBtns.forEach(b => b.addEventListener('click', () => setGfx(b.dataset.gfx, true)));
 setGfx(gfxSetting);
 
 // Move control type (big ◀ ▶ pad / analog stick) for mobile controls
