@@ -5,7 +5,7 @@
    maimai FiNALE の「PANDORA BOXXX」6曲目（maimai ORANGE を表す曲）。BPM 240（この譜面は半分の 120 で数える）。
    タイトルは Emperor（皇帝）と Error（エラー）をかけた言葉。曲の中で、sasakure.UK の昔の曲を引用している:
      0:03 と 0:43「麒麟」／ 0:28「神威」／ 0:42「Jack-the-Ripper◆」／ 0:43「ガラクタドールプレイ」／ 2:00「ガラテアの螺旋」
-     最後（2:00〜2:05）の「デレレレレレレ…」という 32 分音符の連打は、原作の譜面と同じ左右交互の縦連（TAP の高速の連打）で再現
+     最後（2:00〜2:05）の「デレレレレレレ…」という 32 分音符の連打は、原作の譜面と同じ左右交互の縦連（TAP が 1 つずつ左右交互に降る）で再現
    リメイクでは、画面のまん中に maimai のまるい画面（8 つのボタンと判定の輪）を置き、弾を maimai のノートにした
    （TAP / EACH / BREAK / スライドの☆ / TOUCH）。引用の場所には、その曲にちなんだ弾幕が出る。
    見た目は visuals-emperror.js（theme: 'emperror'）。
@@ -209,32 +209,34 @@ function emperrorChart() {
 
   // ===== ガラテアの螺旋 119.9〜 ｜ 2:00 の引用 ＋ 最後の「デレレレレレレ…」=====================================
   // 120.75〜124.75秒（240〜248拍）に、32分音符（0.0625秒ごと）の高速の連打が 64 回鳴る（だんだん大きくなる）。
-  // 原作の譜面の「左右交互の縦連」: 同じ場所へ 4 つずつ TAP がつぎつぎ降り、半拍ごとに左 → 右 → 左 … と入れかわる（16 本）。
-  // 1つ1つのノートは、その音が鳴る瞬間にちょうど自機の高さに届く。1拍ごとに、左右の 2 列のどちらかが自機の真上に来る
-  // （上にならんで点滅している列が予告）→ 2 列からはなれる向き（画面のまん中がわ）へよける。
-  // 後半は、まん中がわにも左右交互の 2 列がふえて（4 列 → 6 列）、よけられる場所がせまくなる。
+  // 原作の譜面の「左右交互の縦連」: TAP が 1 つずつ 左 → 右 → 左 … と交互に降ってくる（2 列のトリル）。
+  // 1つ1つのノートは、その音が鳴る瞬間にちょうど自機の高さに届く。半拍（4 音）ごとに 2 列の場所が変わり、
+  // 左右どちらかの列が自機の真上に来る（上にならんで点滅している列が予告）→ 2 列からはなれる向き（画面のまん中がわ）へよける。
+  // 2 拍目からは、まん中がわにも交互の 2 列がふえ、6 拍目からはさらにふえて（4 列 → 6 列）、よけられる場所がせまくなる。
   quote(120.0, 'ガラテアの螺旋', "Galatea's spiral ─ 2:00");
-  const ROLL0 = beat(240), R32 = 0.0625, FALL = 600, FROM = -16, HIT_Y = GROUND_Y - 18, JACK = 4, PAIR = 90;
+  const ROLL0 = beat(240), R32 = 0.0625, FALL = 600, FROM = -16, HIT_Y = GROUND_Y - 18, STEP = 4, PAIR = 80;
   const travel = (HIT_Y - FROM) / FALL;                              // 降りはじめてから自機の高さに届くまで（約1.15秒）
-  const clampX = x => Math.max(30, Math.min(W - 30, x));
+  const clampX = x => Math.max(12, Math.min(W - 12, x));
   const JACK_COLOR = ['#ff5fa2', '#ffd84d'];                         // 左の列 = ピンク ／ 右の列 = 黄色
-  for (let g = 0; g < 8; g++) {
-    const warn = 0.4, t0 = ROLL0 + g * 8 * R32 - travel;              // t0 = この拍の1音目が降りはじめる時刻
+  for (let h = 0; h < 64 / STEP; h++) {
+    const g = h * STEP / 8, warn = 0.4, t0 = ROLL0 + h * STEP * R32 - travel;   // t0 = この半拍の1音目が降りはじめる時刻
     burst(t0 - warn, () => {
       const px = clampX(playerXY().x);
       const out = px < 140 ? -1 : px > W - 140 ? 1 : (px < W / 2 ? -1 : 1);   // 2 列目は、かべがわに置く（よける先はまん中がわ）
-      const pairs = [[px, px + out * PAIR]];                         // [1 本目の縦連の場所, 2 本目の場所]
-      if (g >= 3) { const x = px - out * rand(150, 180); pairs.push([x - out * PAIR, x]); }
-      if (g >= 6) { const x = px - out * rand(300, 340); pairs.push([x, x - out * PAIR]); }
-      pairs.forEach(pair => pair.map(clampX).forEach((x, side) => {
-        const left = x <= Math.min(...pair.map(clampX));
-        for (let j = 0; j < JACK; j++) {
-          const n = side * JACK + j, last = g === 7 && n === 7 && pair === pairs[0];   // 最後の1音は BREAK
-          spawn({ x, y: FROM, vy: FALL, r: last ? 14 : 10, delay: warn + n * R32,
-            color: last ? '#ff3b5c' : JACK_COLOR[left ? 0 : 1], style: last ? 'mai-break' : 'mai-tap' });
+      const pairs = [[px, px + out * PAIR]];                         // [1 音目の列, 2 音目の列]（あとは交互）
+      if (g >= 2) { const x = px - out * rand(150, 175); pairs.push([x - out * PAIR, x]); }
+      if (g >= 6) { const x = px - out * rand(285, 320); pairs.push([x, x - out * PAIR]); }
+      pairs.forEach(pair => {
+        const xs = pair.map(clampX), leftX = Math.min(...xs);
+        for (let j = 0; j < STEP; j++) {
+          const x = xs[j % 2], last = h === 64 / STEP - 1 && j === STEP - 1 && pair === pairs[0];   // 最後の1音は BREAK
+          spawn({ x, y: FROM, vy: FALL, r: last ? 14 : 10, delay: warn + j * R32,
+            color: last ? '#ff3b5c' : JACK_COLOR[x === leftX ? 0 : 1], style: last ? 'mai-break' : 'mai-tap' });
         }
-      }));
+      });
     });
+  }
+  for (let g = 0; g < 8; g++) {
     burst(ROLL0 + g * 8 * R32, () => flash(0.12 + 0.04 * g));      // 拍の頭で少し光る（だんだん強く）
   }
   burst(ROLL0 + 64 * R32, () => { flash(0.6); shake(8); });
