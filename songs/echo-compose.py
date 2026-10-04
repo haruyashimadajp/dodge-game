@@ -11,6 +11,8 @@ Everything you hear is made of reflections:
   drums       — kick, rim, snare (sent into a big plate), hats, shaker, toms, crash, a reverse cymbal.
                 The drums come in at bar 8 and the song lifts a little from bar 16, and most at bar 32
   bass        — a round sub bass
+The mix is a cave: rocky early reflections, a few distinct echoes off far walls (0.3 / 0.5 / 0.8 / 1.2 / 1.6 s,
+darker each time), a 6.5-second dark tail, the low breathing rumble of air in the tunnels and far-away drops.
 Writes echo.wav and score.json (beat numbers for the chart, including the times of every audible echo tap).
 
 Run:  python3 echo-compose.py      (needs numpy + scipy)
@@ -27,7 +29,7 @@ BPM = 100
 BEAT = 60 / BPM
 T0 = 0.5
 BARS = 52
-N = int((T0 + BARS * 4 * BEAT + 8.0) * SR)
+N = int((T0 + BARS * 4 * BEAT + 10.0) * SR)
 rng = np.random.default_rng(2401)
 ECHO = 0.75                                   # the delay time in beats (dotted 8th)
 
@@ -171,6 +173,27 @@ def plate(st, decay=3.2, dur=5.0, pre=0.03, bright=7000):
         ir = rng.standard_normal(len(tt)) * np.exp(-tt / (decay / 6.9))
         ir = lp(ir, bright) * (0.6 + 0.4 * np.exp(-tt / 0.5))
         ir[:int(pre * SR)] = 0
+        ir /= np.sqrt(np.sum(ir ** 2))
+        out.append(signal.fftconvolve(st[ch], ir)[:N])
+    return np.vstack(out)
+
+def cave(st, decay=6.5, dur=9.0):
+    """a cave: rocky early reflections, a few distinct echoes off far walls ("hello... hello..."),
+    and a long, dark tail (the rock swallows the highs faster than the lows)"""
+    n = int(dur * SR); tt = np.arange(n) / SR; out = []
+    for ch in range(2):
+        ir = np.zeros(n)
+        for i in range(14):                                                   # early reflections off nearby rock (25-180 ms)
+            d = 0.025 + 0.155 * (i / 13) ** 1.3 + rng.uniform(-0.006, 0.006) + 0.004 * ch
+            ir[int(d * SR)] += rng.choice([-1, 1]) * (0.9 - 0.5 * i / 13) * 3.0
+        for d, g, fc in ((0.29, 0.55, 4500), (0.53, 0.38, 3200), (0.81, 0.24, 2400), (1.17, 0.14, 1800), (1.6, 0.07, 1400)):
+            k = int((d + 0.017 * ch) * SR); m = int(0.03 * SR)                # distant walls: a short smeared copy, darker each time
+            burst = lp(rng.standard_normal(m) * np.exp(-np.arange(m) / SR / 0.006), fc)
+            ir[k:k + m] += burst * g * 9.0
+        lo = lp(rng.standard_normal(n), 1400) * np.exp(-tt / (decay / 6.9))
+        hi = hp(rng.standard_normal(n), 1400) * np.exp(-tt / (decay * 0.35 / 6.9))
+        tail = (lo * 1.4 + hi * 0.6) * np.clip((tt - 0.05) / 0.25, 0, 1)
+        ir += lp(tail, 7000) * 0.9
         ir /= np.sqrt(np.sum(ir ** 2))
         out.append(signal.fftconvolve(st[ch], ir)[:N])
     return np.vstack(out)
@@ -382,10 +405,22 @@ for b in (194.5, 198, 201.5, 204, 206.5):
     verb_send.add(bt(b), drip(88), 0.5, 0.3); score['drip'].append([b, 0.3])
 drums.add(bar(44), crash(3.0), 0.22); verb_send.add(bar(44), crash(3.0), 0.12); score['crash'].append(176)
 
-# ---- mix: a cave -----------------------------------------------------------------------------------
+# ---- the cave itself: air moving through the tunnels (a low, slowly breathing rumble), a faint hiss,
+#      and far-away drops all through the song (only heard through the cave reverb) ------------------------
+amb = Bus()
+tN = np.arange(N) / SR
+breath = 0.55 + 0.45 * np.sin(2 * np.pi * tN / 11.0) * np.sin(2 * np.pi * tN / 4.3 + 1.0)
+air = lp(rng.standard_normal(N), 180, 2) * breath * 0.5 + hp(lp(rng.standard_normal(N), 5000), 1500) * 0.02
+air *= np.clip(tN / 3.0, 0, 1) * np.clip((bt(212) - tN) / 4.0, 0, 1)
+amb.L += air.astype(np.float32); amb.R += np.roll(air, int(0.013 * SR)).astype(np.float32)
+for i in range(70):                                                           # distant drops, never on the beat grid
+    t = rng.uniform(1.0, bt(210)); m = int(rng.integers(80, 96))
+    verb_send.add(t, drip(m), rng.uniform(0.06, 0.14), rng.uniform(-0.9, 0.9))
+
+# ---- mix: a cave ---------------------------------------------------------------------------------------
 ech = pingpong(echo_send.stereo(), 8, 0.55)
-wet = plate(verb_send.stereo() + 0.6 * dry.stereo() + 0.5 * ech + 0.25 * drums.stereo(), 3.6, 6.0)
-mix = dry.stereo() * 0.9 + ech * 0.85 + wet * 0.55 + drums.stereo() * 0.95 + sub.stereo() * 0.8
+wet = cave(verb_send.stereo() + 0.75 * dry.stereo() + 0.6 * ech + 0.28 * drums.stereo(), 6.5, 9.0)
+mix = dry.stereo() * 0.6 + ech * 0.75 + wet * 1.0 + drums.stereo() * 0.92 + sub.stereo() * 0.8 + amb.stereo() * 0.5
 mix -= np.mean(mix, axis=1, keepdims=True)
 mix = np.vstack([hp(mix[0], 30, 2), hp(mix[1], 30, 2)])
 mix /= np.max(np.abs(mix))
@@ -400,9 +435,9 @@ rel = np.exp(-1 / (0.12 * SR))
 gl = signal.lfilter([1 - rel], [1, -rel], gl[::-1])[::-1]
 gl = np.minimum(gl, np.minimum(1, THR / np.maximum(pk * DRIVE, 1e-6)) * 1.15)
 mix = np.tanh(mix * DRIVE * gl / THR * 0.9) * THR
-endi = int((bt(208) + 6.0) * SR)
+endi = int((bt(208) + 8.0) * SR)
 mix = mix[:, :endi]
-mix[:, -int(2.5 * SR):] *= np.linspace(1, 0, int(2.5 * SR)) ** 1.5
+mix[:, -int(4.0 * SR):] *= np.linspace(1, 0, int(4.0 * SR)) ** 1.5
 mix *= 0.95 / np.max(np.abs(mix))
 
 from scipy.io import wavfile
