@@ -2924,6 +2924,133 @@ function rvBell({ x, y, taps = [], n = 10, v = 150, r = 7, delay = 0.6, color = 
   });
 }
 
+/* ---- ここから下は曲⑱「Circle Pit」で生まれた形（ハードコア・パンク）------------------------------
+     hcStud    … 革ジャンの鋲（びょう）の弾。まっすぐ飛ぶ（aim = true なら発射の瞬間の自分をねらう）
+     hcBurst   … 鋲の輪（シンバル）
+     hcBlast   … アンプの音の柱: 横一直線のビーム。床の高さ（跳ぶ）／ 頭の高さ（跳ばない）
+     hcSlam    … 上からたたきつける太い音の柱（開放のコード）
+     hcShout   … みんなの叫び（HEY! / OI! / GO!）の文字が、切り抜き文字になって飛んでくる。1文字ずつ当たる
+     hcDiver   … ステージ・ダイブ: 人が放物線をえがいて飛んでくる
+     hcPit     … サークル・ピット: 床を転がってくる、とげの輪（床から上の半分だけ。跳び越える）
+     hcStick   … 投げたドラムスティック: くるくる回りながら落ちてくる棒
+     hcHop     … ツーステップではねる弾: 床と足場ではずみながら横切る（下をくぐるか、跳び越える）
+   -------------------------------------------------------------------------- */
+function hcStud({ x, y, a = Math.PI / 2, v = 300, aim = false, spread = 0, r = 8, delay = 0, color = '#e8e8e8', style = 'stud', g = 0 }) {
+  return spawn({
+    x, y, r, delay, color, style, a, v, aim, spread, g, lane: aim ? null : [Math.cos(a), Math.sin(a)],
+    move(b, dt) {
+      if (!b.go) {
+        b.go = true;
+        if (b.aim) { const p = playerXY(); b.a = Math.atan2(p.y - b.y, p.x - b.x) + b.spread; }
+        b.vx = Math.cos(b.a) * b.v; b.vy = Math.sin(b.a) * b.v;
+      }
+      b.vy += b.g * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.y > GROUND_Y + 20 || b.x < -30 || b.x > W + 30 || b.y < -60) b.dead = true;
+    },
+  });
+}
+function hcBurst({ x, y, n = 12, v = 200, start = 0, ...o }) {
+  for (let i = 0; i < n; i++) hcStud({ x, y, a: start + i * TAU / n, v, ...o });
+}
+function hcBlast({ side = -1, y = GROUND_Y - 8, width = 16, delay = 0.5, hold = 0.2, color = '#ff2e3a' }) {
+  const b = laser({ x1: side < 0 ? 0 : W, y1: y, x2: side < 0 ? W : 0, y2: y, width, delay, hold, color });
+  b.punk = 'blast'; b.side = side; b.spd = 1;
+  return b;
+}
+function hcSlam({ x, w = 80, delay = 0.5, hold = 0.18, color = '#ffffff' }) {
+  const b = laser({ x1: x, y1: -20, x2: x, y2: GROUND_Y, width: w, delay, hold, color });
+  b.punk = 'slam'; b.spd = 1;
+  b.hits = q => player.x + player.w > q.x1 - q.r + 3 && player.x < q.x1 + q.r - 3;
+  return b;
+}
+function hcShout({ word = 'HEY', x, y, aim = true, a = Math.PI / 2, v = 260, size = 34, delay = 0.5, color = '#ffffff', spread = 0 }) {
+  const chars = (word + '!').split(''), gap = size * 0.95, grp = { a, aimed: !aim };
+  return chars.map((ch, i) => spawn({
+    kind: 'hcLetter', ch, x: x + (i - (chars.length - 1) / 2) * gap, y, r: size * 0.42, size, delay, color, i, grp, v, spread,
+    tilt: (Math.sin(i * 12.9 + x) * 0.5) * 0.5, seed: Math.abs(Math.sin(i * 7.7 + x * 0.13 + y)) * 1000,
+    move(b, dt) {
+      if (!b.grp.aimed) { const p = playerXY(); b.grp.a = Math.atan2(p.y - y, p.x - x) + b.spread; b.grp.aimed = true; }
+      b.vx = Math.cos(b.grp.a) * b.v; b.vy = Math.sin(b.grp.a) * b.v;
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.age > 0.3 && (b.y > GROUND_Y + 30 || b.y < -60 || b.x < -60 || b.x > W + 60)) b.dead = true;
+    },
+  }));
+}
+function hcDiver({ fromLeft = true, x0, y0 = GROUND_Y - 200, x1, apex = 260, dur = 1.4, r = 20, delay = 0.7, color = '#ffffff', burst = 0 }) {
+  if (x0 == null) x0 = fromLeft ? -30 : W + 30;
+  if (x1 == null) x1 = fromLeft ? W * 0.75 : W * 0.25;
+  const yEnd = GROUND_Y - r;
+  // 放物線: 高さ apex まで上がって、dur 秒で (x1, 床) に着く
+  const top = Math.min(y0, yEnd) - apex, sgn = x1 > x0 ? 1 : -1;
+  const ta = dur / (1 + Math.sqrt((yEnd - top) / Math.max(1, y0 - top)));      // てっぺんに着くまでの時間
+  const g = 2 * (y0 - top) / (ta * ta), vy0 = -g * ta;
+  return spawn({
+    kind: 'hcDiver', x: x0, y: y0, r, delay, color, spd: 1, x0, y0, x1, dur, g, vy0, sgn, burst, spin: 0,
+    move(b) {
+      const t = Math.min(b.age, b.dur);
+      b.x = b.x0 + (b.x1 - b.x0) * (t / b.dur);
+      b.y = b.y0 + b.vy0 * t + 0.5 * b.g * t * t;
+      b.spin = b.sgn * b.age * 5;
+      if (b.age >= b.dur) {
+        b.dead = true;
+        if (b.burst) hcBurst({ x: b.x, y: GROUND_Y - 10, n: b.burst, v: 220, start: Math.PI, r: 7, color: '#ffd23f' });
+        if (typeof hcFx === 'function') hcFx('land', b.x);
+      }
+    },
+  });
+}
+function hcPit({ dir = 1, R = 64, n = 8, v = 220, r = 9, delay = 0.8, color = '#ff2e3a' }) {
+  const x0 = dir > 0 ? -R - 10 : W + R + 10;
+  const balls = b => {
+    const out = [];
+    for (let i = 0; i < b.n; i++) {
+      const a = b.rot + i * TAU / b.n, y = GROUND_Y + Math.sin(a) * b.R;
+      if (y < GROUND_Y - 2) out.push([b.x + Math.cos(a) * b.R, y]);
+    }
+    return out;
+  };
+  return spawn({
+    kind: 'hcPit', x: x0, y: GROUND_Y - R / 2, r: R, R, n, v, dir, rot: 0, delay, color, ballR: r, balls, lane: [dir, 0],
+    move(b, dt) {
+      b.x += b.dir * b.v * dt; b.rot += b.dir * b.v / b.R * dt;                // 転がる（すべらない）
+      if ((b.dir > 0 && b.x > W + b.R + 20) || (b.dir < 0 && b.x < -b.R - 20)) b.dead = true;
+    },
+    hits: b => b.balls(b).some(([x, y]) => circleHitsPlayer(x, y, b.ballR)),
+  });
+}
+function hcStick({ x, y = -30, vx = 0, vy = 200, g = 500, spin = 9, len = 44, delay = 0.5, color = '#f0d9a8' }) {
+  return spawn({
+    kind: 'hcStick', x, y, vx, vy, g, spin, len, r: 5, a: Math.random() * TAU, delay, color, lane: [0, 1],
+    move(b, dt) {
+      b.vy += b.g * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.a += b.spin * dt;
+      if (b.y > GROUND_Y + 30) b.dead = true;
+    },
+    hits: b => {
+      const dx = Math.cos(b.a) * b.len / 2, dy = Math.sin(b.a) * b.len / 2;
+      return segmentHitsPlayer(b.x - dx, b.y - dy, b.x + dx, b.y + dy, b.r);
+    },
+  });
+}
+
+function hcHop({ x, y = GROUND_Y - 160, vx = 210, hop = 640, r = 12, life = 5, delay = 0.6, color = '#ffd23f' }) {
+  return spawn({
+    x, y, vx, vy: 0, r, delay, hop, life, color, style: 'stud', lane: [Math.sign(vx), 0],
+    move(b, dt) {
+      const bottom = b.y + b.r;
+      b.vy += 1400 * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.vy > 0) {
+        for (const p of platforms) {                                  // 上から着地したらはねる（床も足場も）
+          if (bottom <= p.y + 1 && b.y + b.r >= p.y && b.x > p.x && b.x < p.x + p.w) {
+            b.y = p.y - b.r; b.vy = -b.hop;
+            if (typeof hcFx === 'function') hcFx('hop', b.x, p.y);
+          }
+        }
+      }
+      if (b.age > b.life || b.x < -40 || b.x > W + 40) b.dead = true;
+    },
+  });
+}
+
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
 let chart = [];
 let chartIndex = 0;

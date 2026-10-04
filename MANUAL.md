@@ -59,7 +59,9 @@ dodge-game/
 │   ├── ongeki.js        ← 曲⑯「怨撃」（細江慎治・オンゲキの LUNATIC ボス曲）の拍・場面・譜面。小節の番号は原作の譜面と同じ
 │   ├── ongeki-score.js / ongeki-env.js ← 曲⑯の音の解析データ（キック・ハイハット・シンセの位置）/ 音量データ
 │   ├── echo.js          ← 曲⑰「Echoes」（オリジナル曲・反響と残響。しずく・ガラスの鈴・ピンポン・ディレイ・ドラム）の拍・場面・譜面
-│   └── echo-score.js / echo-env.js / echo-compose.py ← 曲⑰の楽譜データ（聞こえるこだま1つ1つの時刻も入っている）/ 音量データ / 作曲プログラム
+│   ├── echo-score.js / echo-env.js / echo-compose.py ← 曲⑰の楽譜データ（聞こえるこだま1つ1つの時刻も入っている）/ 音量データ / 作曲プログラム
+│   ├── circlepit.js     ← 曲⑱「Circle Pit」（オリジナル曲・ハードコア・パンク。ひずんだギター・ドラム・みんなの叫び）の拍・場面・譜面
+│   └── circlepit-score.js / circlepit-env.js / circlepit-compose.py ← 曲⑱の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔の中・ステンドグラスのバラ窓の時計・光の筋・真鍮の歯車）
@@ -75,11 +77,12 @@ dodge-game/
 ├── visuals-hall.js  ← 曲⑮の見た目（コンサートホール・弾いているパートが光るオーケストラ・指揮者・幕・強弱記号）
 ├── visuals-ongeki.js ← 曲⑯の見た目（オンゲキのレーン・あかニャン／こんじきニャン・体力・ベルの数・YOU ARE A SUPER SHOOTER!!）
 ├── visuals-cave.js   ← 曲⑰の見た目（反響する洞窟・水の床・結晶・こだまに合わせて光る左右の壁・音の波形とそのこだまの線）
+├── visuals-punk.js   ← 曲⑱の見た目（地下のライブハウス・チラシの壁・アンプの山・照明・モッシュピットの観客・切り抜き文字）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
 ├── style.css    ← 色やレイアウト（タイトル画面・ボタンの見た目）
-├── the EmpErroR.mp3 / Re-Unknown_X.mp3 / Ongeki.mp3 ← 原曲の曲（Echoes.mp3 などそのほかの mp3 は、songs/〜-compose.py で作ったオリジナル曲）
+├── the EmpErroR.mp3 / Re-Unknown_X.mp3 / Ongeki.mp3 ← 原曲の曲（Echoes.mp3・CirclePit.mp3 などそのほかの mp3 は、songs/〜-compose.py で作ったオリジナル曲）
 └── MANUAL.md    ← この説明書
 ```
 
@@ -772,7 +775,24 @@ rvBell({ x, y, taps, n, v, life })             // 音の鳴る結晶（本体は
 score.json の `echo` に「聞こえるこだま」1つ1つの時刻・大きさ・左右が入っている。譜面はこれを使って、鈴の輪や壁の光を、実際に聞こえるこだまにぴったり合わせている。
 画面の演出は `rvFx('wall' / 'tap' / 'bounce' / 'splash' / 'kick' / 'boom' / 'silence' / 'swell' / 'climax' / 'fade')` で呼ぶ（visuals-cave.js）。
 
-### 5-20. 軽くするための道具（visuals.js）
+### 5-20. 曲⑱「Circle Pit」で生まれた形（ハードコア・パンク）
+
+```js
+hcStud({ x, y, a, v, aim, spread, g })         // 鋲（びょう）の弾。まっすぐ飛ぶ（aim = true なら発射の瞬間の自分をねらう。g で重力）
+hcBurst({ x, y, n, v, start })                 // 鋲の輪
+hcBlast({ side, y, width, delay, hold })       // アンプの音の柱: 横一直線のビーム（side = -1 で左から）。床の高さ = 跳ぶ
+hcSlam({ x, w, delay, hold })                  // 上からたたきつける太い音の柱（予告は黄色と黒のしま）。柱の幅の中にいれば、跳んでいても当たる
+hcShout({ word, x, y, v, size })               // 'HEY' / 'OI' / 'GO' の切り抜き文字が、並んだまま自分をねらって飛ぶ（1文字ずつ当たる）
+hcDiver({ fromLeft, x1, apex, dur })           // ステージ・ダイブ: 人が横から放物線をえがいて飛んで、x1 の床に着く（予告は着地点の ×）
+hcPit({ dir, R, n, v })                        // サークル・ピット: 床を転がってくる、とげの輪（床から上の半分だけ当たる。跳び越える）
+hcStick({ x, vy, spin, len })                  // 投げたドラムスティック: 回りながら落ちてくる棒（棒の形で当たる）
+hcHop({ x, vx, hop })                          // ツーステップではねる弾: 床と足場ではずみながら横切る
+```
+曲は songs/circlepit-compose.py が作る。score.json の `gtr` にギターの1音1音（拍・長さ・根音・開放 'o' / ミュート 'm'）、`shout` にみんなの叫び、`beat` に小節ごとのビートの種類が入っている。
+譜面は「ミュートの刻み = アンプの鋲」「開放のコード = 音の柱（根音で位置が決まる）」のように、音の種類で攻撃を決めている。
+画面の演出は `hcFx('kick' / 'snare' / 'bang' / 'crash' / 'china' / 'chug' / 'shout' / 'count' / 'slide' / 'feedback' / 'land' / 'stop' / 'breakdown' / 'mosh' / 'final' / 'end' …)` で呼ぶ（visuals-punk.js）。
+
+### 5-21. 軽くするための道具（visuals.js）
 
 ```js
 cachedLayer('名前', 3, 0, g => { /* g に背景を描く */ })   // ゆっくりしか変わらない層を絵にしておき、3コマに1回だけ描き直す
@@ -908,7 +928,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`・`'cave'` など。visuals-〜.js の `THEMES.名前`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`・`'cave'`・`'punk'` など。visuals-〜.js の `THEMES.名前`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
    同じ曲に別の譜面を足すときは、`addSong` に `variantOf: 'もとの曲のid'` と `variant: '譜面の名前'` を書く
    （◀ ▶ では出てこず、タイトル画面の「譜面」ボタン / C キーで切りかわる。例: `songs/emperror-classic.js`）
