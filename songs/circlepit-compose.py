@@ -12,6 +12,10 @@ A violent electronic hardcore track in the breakcore / glitch style, made only f
   FM keys       — cold, glassy chords in the intro and at the very end
   glitches      — stutters (the mix repeats a tiny slice), tape stops, bit-crush and sample-rate drops,
                   risers, sub drops and crushed impacts
+  sirens        — before every drop an air-raid style siren rises for 3-4 bars, wobbling faster and faster, while the
+                  bass drains out of the mix; a split second of silence, then the drop (a giant kick, crashes, a noise blast)
+  fast bursts   — in every chorus the kick doubles to 8ths and 16ths for a bar at a time; the last chorus goes to 8ths,
+                  then 16ths for good, over a break in 32nds
 No voices of any kind.
 Writes punk.wav and score.json (beat numbers for the chart).
 
@@ -50,9 +54,9 @@ class Bus:
         self.R[i:i + n] += (sig[:n] * gain * np.sin((pan + 1) * np.pi / 4) * np.sqrt(2)).astype(np.float32)
     def stereo(self): return np.vstack([self.L, self.R])
 
-kick_b, brk, syn, lead_b, keys, fxb, sub_b = (Bus() for _ in range(7))
+kick_b, brk, syn, lead_b, keys, fxb, sub_b, sir = (Bus() for _ in range(8))
 score = {k: [] for k in ('gtr', 'kick', 'snare', 'crash', 'china', 'ride', 'tom', 'stick', 'shout', 'slide', 'lead',
-                         'chord', 'beat', 'feedback', 'stop', 'boom', 'impact', 'glitch')}
+                         'chord', 'beat', 'feedback', 'stop', 'boom', 'impact', 'glitch', 'siren', 'drop')}
 GLITCH = []                                  # stutters / tape stops / crush, applied to the finished mix at the end
 KICKS_AT = []                                # hardcore kick times (for the sidechain pump)
 
@@ -155,6 +159,7 @@ BREAKS = {
     'E': 'K..KS..gK.K.S.g.',
     'H': 'K.......S.......',                      # half time
     'X': 'KgSgKgSgKgSgSSrr',                      # double-time chop
+    'Z': 'SrSrSrSrSrSrrrrr',                      # the end: snare in 32nds almost all the way
 }
 def breakbeat(k, pat='A', hats=True, crash=False, g=1.0, pitch=1.0):
     b0 = k * 4
@@ -215,6 +220,34 @@ def impact(b, word='BREAK', g=1.0):
     fxb.add(bt(b), crush(np.tanh(3 * bp(nz(m), 300, 9000) * np.exp(-tt / 0.15)), 4, 8), 0.3 * g)
     boom(b, g)
     score['impact'].append([b, word])
+
+def siren(b0, b1, g=1.0):
+    """the build before a drop: an air-raid style siren that rises and rises (gyuuuuun), its wobble speeding up,
+    getting louder and brighter, cut off right before the drop. Under it the whole mix loses its bass (high-pass sweep)"""
+    d = (b1 - b0) * BEAT - 0.15; n = int(d * SR); t = np.arange(n) / SR; u = t / d
+    f = 160 * (7.5 ** (u ** 1.6))                                                       # 160 Hz → 1200 Hz, slow at first
+    f = f * 2 ** ((1.2 + 1.3 * u) / 12 * np.sin(2 * np.pi * phase(4 + 14 * u ** 2, n)))   # the siren wobble, faster and faster
+    x = 0.5 * saw(f, n) + 0.35 * saw(f * 1.006, n, 0.3) + 0.4 * saw(f * 0.5, n, 0.6)
+    x = np.tanh((2 + 6 * u) * x)
+    y = np.zeros(n)
+    for i in range(0, n, 2048):                                                         # the filter opens as it rises
+        j = min(n, i + 2048); y[i:j] = lp(x[i:j], 900 + 9000 * u[i] ** 1.5)
+    y *= (0.08 + 0.92 * u ** 2) * np.clip((d - t) / 0.01, 0, 1)
+    for ch, pan in ((0, -1), (1, 1)):                                                   # swings left and right
+        w = 0.5 + 0.5 * pan * np.sin(2 * np.pi * phase(0.6 + 3 * u, n))
+        (sir.L if ch == 0 else sir.R)[int(bt(b0) * SR):int(bt(b0) * SR) + n] += (y * (0.4 + 0.6 * w) * 0.55 * g).astype(np.float32)
+    GLITCH.append((bt(b1) - min(2 * 4, b1 - b0) * BEAT, 'hpsweep', min(2 * 4, b1 - b0) * BEAT - 0.15, 0))
+    GLITCH.append((bt(b1) - 0.15, 'gap', 0.15, 0))                                        # a split second of silence, then the drop
+    score['siren'].append([b0, b1])
+
+def drop(b, g=1.0):
+    """the drop: a giant kick, two crashes, a noise blast and a sub drop all at once"""
+    kick_b.add(bt(b), hkick(28, 0.7, 30, bend=7), 0.75 * g); KICKS_AT.append(bt(b))
+    CR(b, 1.3, -0.5); CR(b, 1.1, 0.5); CH(b, 1.0)
+    m = int(1.2 * SR); tt = np.arange(m) / SR
+    fxb.add(bt(b), np.tanh(2 * hp(nz(m), 200)) * np.exp(-tt / 0.35) * 0.5, 0.35 * g)
+    boom(b, 1.5 * g)
+    score['drop'].append(b)
 
 def glitch(b, word, beats=0.5, slice_=0.125):
     """a stutter edit (applied to the whole mix at the end): the sound jams on a tiny slice"""
@@ -308,17 +341,21 @@ def chorus(k0, final=False):
     notes = parse(CHO * 2, k0); chord_of(notes)
     for kk in range(8):
         k = k0 + kk; r = notes[kk * 8][2]
-        for h in range(4):                                                            # four on the floor, ringing kicks
+        if final: step = 0.5 if kk < 3 else 0.25                                    # the last chorus: 8ths, then 16ths
+        else: step = 0.25 if kk in (3, 7) else 0.5 if kk in (1, 5) else 1           # the other choruses: bursts of 8ths and 16ths
+        for h in np.arange(0, 4, step):                                               # four on the floor, ringing kicks
             b = k * 4 + h
-            kick_b.add(bt(b), hkick(r - 12, 0.26, 18), 0.62); KICKS_AT.append(bt(b)); score['kick'].append(b)
+            kick_b.add(bt(b), hkick(r - 12, 0.26 if step == 1 else 0.13 if step == 0.5 else 0.07, 18 + 4 * (step < 1)), 0.62 if h % 1 == 0 else 0.5)
+            KICKS_AT.append(bt(b)); score['kick'].append(float(b))
         score['gtr'] += [[round(k * 4 + j * 0.5, 3), 0.5, r, 'o'] for j in range(8)]
-        syn.add(bar(k), supersaw([m + 12 for m in CHORD[r]], 4 * BEAT), 0.3, 0)
+        syn.add(bar(k), supersaw([m + 12 for m in CHORD[r]], 4 * BEAT), 0.42, 0)
         sub_b.add(bar(k), np.sin(2 * np.pi * phase(float(mtof(r - 12)), int(4 * BEAT * SR))) * 0.8, 0.22)
-        pat = 'D' if kk == 7 else ('X' if final and kk % 2 else 'ABAC'[kk % 4])
+        pat = ('Z' if kk >= 6 else 'X') if final else 'D' if kk == 7 else 'X' if kk == 3 else 'ABAC'[kk % 4]
         breakbeat(k, pat, crash=(kk % 2 == 0), g=0.9 if final else 0.8)
         if kk % 2 == 1: glitch(k * 4, 'X', 0.5, 0.125); glitch(k * 4 + 2, 'X', 0.5, 0.0625)
     play_lead(k0, 0.18 if final else 0.16)
-    impact(k0 * 4, 'CORE', 1.1)
+    impact(k0 * 4, 'CORE', 1.1); drop(k0 * 4, 1.2 if final else 1.0)
+siren(128, 144)
 chorus(36)
 
 # ==== Breakbeat 2 44-52: faster chops, 16th kick pairs ===============================================
@@ -331,6 +368,7 @@ impact(176, 'BREAK')
 for i in range(8): TOM(206 + i * 0.25, [79, 76, 74, 71, 67, 64, 62, 59][i], 0.6 - 0.17 * i)
 
 # ==== Chorus 2 52-60 ==================================================================================
+siren(192, 208)
 chorus(52)
 
 # ==== Stop 60-64: tape stop, single hits, then a kick roll rising in pitch, "GO" ================================
@@ -357,7 +395,8 @@ for k in range(64, 72):
     for i in range(4): CH(k * 4 + i, 1.0 if i == 0 else 0.6)
     if k % 2 == 1: glitch(k * 4 + 2, 'ERR', 0.5, 0.0625)
     if k % 2 == 0: boom(k * 4, 1.2)
-impact(256, 'BREAK', 1.3)
+impact(256, 'BREAK', 1.3); drop(256, 1.2)
+siren(244, 256, 1.1)
 fxb.add(bt(286), noise_riser(2 * BEAT), 0.3); score['slide'].append([286, 288])
 
 # ==== Crush 72-80: heavier — huge hits every 1.5 beats, then 16th kick runs; the whole mix is decimated ======
@@ -378,12 +417,15 @@ impact(288, 'CORE', 1.3)
 fxb.add(bt(316), noise_riser(4 * BEAT), 0.4); score['slide'].append([316, 320])
 
 # ==== Final chorus 80-88: everything, with double-time chops ==================================================
+siren(304, 320, 1.2)
 chorus(80, final=True)
 
 # ==== End 88-92: four hits, the last kick rings, cold keys, and the tape stops ===============================
 for b in (352, 353, 354, 355):
     kick_b.add(bt(b), hkick(28, 0.25, 22), 0.65); KICKS_AT.append(bt(b)); CR(b, 0.9); SN_(b, 1.0)
     score['gtr'].append([b, 1, 40, 'o']); score['kick'].append(b)
+    for j in (0.25, 0.5, 0.75):                                                          # 16th kicks between the hits, rising
+        kick_b.add(bt(b + j), hkick(28 + int((b - 352) * 3 + j * 4), 0.07, 22), 0.5); KICKS_AT.append(bt(b + j)); score['kick'].append(b + j)
 for i in range(12): TOM(354 + i / 6, [76, 74, 71, 69, 67, 64][i // 2], 0.5 - i / 12)
 kick_b.add(bt(356), hkick(28, 3.0, 26, bend=3), 0.7); KICKS_AT.append(bt(356)); score['gtr'].append([356, 12, 40, 'o']); score['kick'].append(356)
 CR(356, 1.2); CH(356, 1.0); impact(356, 'CORE', 1.4)
@@ -435,9 +477,17 @@ for t, kind, dur, sl in sorted(GLITCH):
         u = np.arange(n) / n; pos = np.cumsum(1 - u)
         seg = mix[:, i:i + int(pos[-1]) + 2].copy()
         for ch in range(2): mix[ch, i:i + n] = np.interp(pos, np.arange(seg.shape[1]), seg[ch]) * (1 - u ** 3)
+    elif kind == 'hpsweep':                                                             # the bass drains away before the drop
+        u = np.arange(n) / n
+        for j in range(0, n, 2048):
+            m = min(2048, n - j); fc = 30 * (40 ** (u[j] ** 1.5))
+            for ch in range(2): mix[ch, i + j:i + j + m] = (hp(mix[ch, i + j:i + j + m], fc, 2) if fc > 40 else mix[ch, i + j:i + j + m]) * (1 - 0.6 * u[j])
+    elif kind == 'gap':
+        mix[:, i:i + n] *= np.linspace(1, 0, n) ** 6
     elif kind == 'crush':
         for ch in range(2): mix[ch, i:i + n] = 0.55 * mix[ch, i:i + n] + 0.45 * crush(mix[ch, i:i + n], 6, 5)
 
+mix += sir.stereo()[:, :mix.shape[1]] * 0.45                                    # the sirens go on after the edits
 mix = comp(mix, 0.45, 3, 0.005, 0.12)
 mix /= np.max(np.abs(mix))
 pk = np.max(np.abs(mix), axis=0)
@@ -452,6 +502,9 @@ endi = int(bt(371) * SR)
 mix = mix[:, :endi]
 mix[:, -int(1.0 * SR):] *= np.linspace(1, 0, int(1.0 * SR)) ** 1.5
 mix *= 0.96 / np.max(np.abs(mix))
+for b0, b1 in score['siren']:                                                          # the build gets quieter overall (the siren still rises in it),
+    i0, i1 = int(bt(b0) * SR), int((bt(b1) - 0.15) * SR)                               # so the drop jumps out about 4 dB louder
+    mix[:, i0:i1] *= 1 - 0.38 * np.linspace(0, 1, i1 - i0) ** 1.5
 
 from scipy.io import wavfile
 wavfile.write('punk.wav', SR, (mix.T * 32767).astype(np.int16))

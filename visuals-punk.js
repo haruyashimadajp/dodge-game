@@ -32,7 +32,7 @@
     made: false, wall: null, stage: null, grain: null, beams: null,
     kick: 0, snare: 0, bang: 0, crash: 0, china: 0, nod: 0, cheer: 0, fists: 0, strobe: 0, inv: 0, dark: 0,
     papers: [], pops: [], stamps: [], scratches: [], dust: [], crowd: [], cracks: [], amp: [0, 0], fbUntil: -1, mode: '',
-    quake: 0, rage: 0, screams: [],
+    quake: 0, rage: 0, screams: [], siren: null, sirenU: 0,
   };
   // どれだけ激しくゆらすか（場面ごと）
   const intensity = () => ({ FEEDBACK: 0.7, STOP: 0.35, 'NO FUTURE': 0.7, BREAKDOWN: 1.35, MOSH: 1.45 })[st.mode] || (inSong() && songTime > hcBar(80) ? 1.3 : 1);
@@ -157,7 +157,7 @@
   }
 
   function reset() {
-    Object.assign(st, { kick: 0, snare: 0, bang: 0, crash: 0, china: 0, nod: 0, cheer: 0, fists: 0, strobe: 0, inv: 0, dark: 0, papers: [], pops: [], stamps: [], scratches: [], dust: [], cracks: [], amp: [0, 0], fbUntil: -1, mode: '', quake: 0, rage: 0, screams: [] });
+    Object.assign(st, { kick: 0, snare: 0, bang: 0, crash: 0, china: 0, nod: 0, cheer: 0, fists: 0, strobe: 0, inv: 0, dark: 0, papers: [], pops: [], stamps: [], scratches: [], dust: [], cracks: [], amp: [0, 0], fbUntil: -1, mode: '', quake: 0, rage: 0, screams: [], siren: null, sirenU: 0 });
   }
 
   // ---- 譜面から呼ばれる演出 ----------------------------------------------------------------------------
@@ -197,6 +197,12 @@
       st.cheer = 1; st.fists = 1; st.dark = 0;
       shockRing(W / 2, GROUND_Y - 200, { color: '#ffffff', size: 800, life: 0.8, width: 6 });
       if (type === 'final' || type === 'pit') st.inv = 0.09;
+    } else if (type === 'siren') st.siren = { t0: songTime, dur: a };            // 盛り上がり前のサイレン（だんだん強く）
+    else if (type === 'drop') {                                                   // 盛り上がり: サイレンが切れて、ドカン
+      st.siren = null; st.sirenU = 0; st.inv = 0.12; st.quake = 1; st.cheer = 1; st.fists = 1; st.dark = 0;
+      shake(26); punch(0.1);
+      shockRing(W / 2, GROUND_Y - 250, { color: '#ff2e3a', size: 1000, life: 0.9, width: 10 });
+      shockRing(W / 2, GROUND_Y - 250, { color: '#ffd23f', size: 700, life: 0.7, width: 6 });
     } else if (type === 'stop') st.dark = 1;
     else if (type === 'breakdown' || type === 'mosh') { st.dark = 0; st.inv = 0.1; st.cheer = 1; st.bang = 1; st.nod = 1; }
     else if (type === 'end') { st.inv = 0.1; st.cheer = 1; st.fists = 1; }
@@ -205,6 +211,11 @@
   function update(dt, T) {
     if (!st.made) make();
     st.mode = inSong() ? ((SECTIONS[sectionIndex(T)] || {}).name || '') : 'CIRCLE PIT';
+    if (st.siren && inSong()) {                                                   // サイレン: ゆれもだんだん強く
+      st.sirenU = clamp01((songTime - st.siren.t0) / st.siren.dur);
+      shake((2 + 12 * st.sirenU * st.sirenU) * intensity());
+      if (st.sirenU >= 1) st.siren = null;
+    } else st.sirenU = Math.max(0, st.sirenU - dt * 4);
     const dec = (k, r) => { st[k] = Math.max(0, st[k] - dt * r); };
     st.amp[0] = Math.max(0, st.amp[0] - dt * 8); st.amp[1] = Math.max(0, st.amp[1] - dt * 8);
     for (const c of st.cracks) c.age += dt;
@@ -339,6 +350,29 @@
       const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
       g.addColorStop(0, 'rgba(255,0,20,0)'); g.addColorStop(1, `rgba(255,0,20,${(0.35 * st.rage).toFixed(3)})`);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+    // サイレン: 上の両すみから回転灯の光がまわり、画面が赤く脈打ち、上下のふちに工事中のしま（だんだん強く）
+    if (st.sirenU > 0.01) {
+      const u = st.sirenU, ph = (songTime - (st.siren ? st.siren.t0 : 0));
+      ctx.globalCompositeOperation = 'lighter';
+      for (const [x, dir] of [[30, 1], [W - 30, -1]]) {
+        const ang = dir * ph * (3 + 10 * u * u) + Math.PI / 2;
+        ctx.save(); ctx.translate(x, 30); ctx.rotate(ang - Math.PI / 2); ctx.globalAlpha = clamp01(0.15 + 0.7 * u);
+        ctx.drawImage(beam(dir > 0 ? RED : [255, 140, 20]), -110, 0, 220, 900);
+        ctx.restore();
+        ctx.fillStyle = rgba(dir > 0 ? RED : [255, 140, 20], 0.6 + 0.4 * u); ctx.beginPath(); ctx.arc(x, 30, 10 + 4 * u, 0, TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      const wob = 0.5 + 0.5 * Math.sin(ph * (8 + 28 * u * u));
+      const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.8);
+      g.addColorStop(0, 'rgba(255,0,20,0)'); g.addColorStop(1, `rgba(255,0,20,${((0.1 + 0.4 * u * u) * wob).toFixed(3)})`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.save(); ctx.globalAlpha = clamp01(u * 1.3);
+      for (const y of [8, H - 22]) {
+        ctx.fillStyle = '#111'; ctx.fillRect(0, y, W, 14); ctx.fillStyle = '#ffd23f';
+        for (let x = ((ph * 200) % 28) - 28; x < W; x += 28) { ctx.beginPath(); ctx.moveTo(x, y + 14); ctx.lineTo(x + 14, y); ctx.lineTo(x + 24, y); ctx.lineTo(x + 10, y + 14); ctx.closePath(); ctx.fill(); }
+      }
+      ctx.restore();
     }
     // 止まった所: 暗く
     if (st.dark > 0.01) { ctx.fillStyle = `rgba(0,0,0,${(0.5 * st.dark).toFixed(3)})`; ctx.fillRect(0, 0, W, H); }

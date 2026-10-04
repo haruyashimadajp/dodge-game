@@ -788,9 +788,9 @@ hcPit({ dir, R, n, v })                        // サークル・ピット: 床�
 hcStick({ x, vy, spin, len })                  // 投げたドラムスティック: 回りながら落ちてくる棒（棒の形で当たる）
 hcHop({ x, vx, hop })                          // ツーステップではねる弾: 床と足場ではずみながら横切る
 ```
-曲は songs/circlepit-compose.py が作る。score.json の `gtr` にハードコア・キックのリフの1音1音（拍・長さ・根音・長いキック 'o' / 短いキック 'm'）、`shout` にグリッチ（音がつっかえる所）と画面に出す文字、`impact` に大きな一撃、`beat` に小節ごとのブレイクビーツの型が入っている。
+曲は songs/circlepit-compose.py が作る。score.json の `gtr` にハードコア・キックのリフの1音1音（拍・長さ・根音・長いキック 'o' / 短いキック 'm'）、`shout` にグリッチ（音がつっかえる所）と画面に出す文字、`impact` に大きな一撃、`siren` に盛り上がり前のサイレン（[始まり, 盛り上がりの拍]）、`drop` に盛り上がりの一撃、`beat` に小節ごとのブレイクビーツの型が入っている。
 譜面は「短いキック = アンプの鋲」「長いキック = 音の柱（根音で位置が決まる）」のように、音の種類で攻撃を決めている。
-画面の演出は `hcFx('kick' / 'snare' / 'bang' / 'crash' / 'china' / 'chug' / 'shout' / 'scream' / 'boom2' / 'count' / 'slide' / 'feedback' / 'land' / 'stop' / 'breakdown' / 'mosh' / 'final' / 'end' …)` で呼ぶ（visuals-punk.js）。
+画面の演出は `hcFx('kick' / 'snare' / 'bang' / 'crash' / 'china' / 'chug' / 'shout' / 'scream' / 'boom2' / 'siren' / 'drop' / 'count' / 'slide' / 'feedback' / 'land' / 'stop' / 'breakdown' / 'mosh' / 'final' / 'end' …)` で呼ぶ（visuals-punk.js）。
 見た目のセットに `camera(T, bp, k)` を書くと、カメラを `{ x, y, rot }` だけ動かせる（visuals.js。設定の「画面演出」で小さくなる）。punk はこれで、拍ごとに下へガクッと落ちて左右にゆさぶる（ヘッドバンギング）。
 
 ### 5-21. 軽くするための道具（visuals.js）

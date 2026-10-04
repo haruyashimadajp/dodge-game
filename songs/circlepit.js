@@ -89,6 +89,8 @@ function circlePitChart() {
   SC.slide.forEach(([b0, b1]) => fx(beat(b0), 'slide', (b1 - b0) * HC_BEAT));
   SC.boom.forEach(b => fx(beat(b), 'boom2', 1));                                   // 重低音の落下 = 画面が大きくゆれる
   SC.impact.forEach(([b, w]) => fx(beat(b), 'scream', w));                       // 大きな一撃 = 巨大な切り抜き文字（BREAK / CORE）
+  SC.siren.forEach(([b0, b1]) => fx(beat(b0), 'siren', (b1 - b0) * HC_BEAT - 0.15));   // 盛り上がり前のサイレン = 回転灯・赤い脈・ゆれがだんだん強く
+  SC.drop.forEach(b => { fx(beat(b), 'drop'); burst(beat(b), () => flash(1)); });       // 盛り上がり = ネガ反転・大きな輪・強いゆれ
 
   // ===== FEEDBACK 0〜4 ｜ アンプのうなり → スティックのカウント（スティックが降ってくる）==========================
   fx(0, 'feedback', beat(12));
@@ -107,7 +109,7 @@ function circlePitChart() {
     else slam(b, px(r), { w: 70 });
   });
   hint(bar(5), '白い柱が落ちてくる', 6);
-  shout(46, 'HEY', { x: 260 }); shout(47, 'HEY', { x: 540 });
+  shout(46, 'ERR', { x: 260 }); shout(47, 'ERR', { x: 540 });
   drums(4, 12, 0.8);
 
   // ===== BREAKBEAT 12〜28 ｜ 刻み = ねらう鋲（扇に）／ 小節の終わりのコード = 床の柱（跳ぶ）／ HEY! ======================
@@ -217,7 +219,7 @@ function circlePitChart() {
       notes.filter(g => g[3] === 'o').forEach(g => diver(g[0], k % 4 === 1, { burst: 6 }));
     }
   }
-  shout(300, 'HEY', { x: 220 }); shout(302, 'HEY', { x: 580 });
+  shout(300, 'ERR', { x: 220 }); shout(302, 'ERR', { x: 580 });
   shout(318, 'GO', { size: 48, v: 220, warn: 0.6, color: RED });
   sticks(79, 80);
   drums(72, 80, 1.2);
