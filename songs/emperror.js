@@ -42,8 +42,8 @@ const EMPERROR_SECTIONS = [
   { t: 63.8,    name: '',              sub: '',                             sky: ['#000000', '#000000'], color: '#666666', pulse: 0,     stars: 0 },
   { t: 65.865,  name: 'FATAL ERROR',   sub: 'こわれた画面',                   sky: ['#1a0303', '#050000'], color: '#ff2a2a', pulse: 0.012, stars: 0 },
   { t: 72.865,  name: 'SYSTEM HALT',   sub: 'すき間を探せ',                   sky: ['#160606', '#050101'], color: '#ff6a3d', pulse: 0.010, stars: 0 },
-  { t: 80.865,  name: 'REBOOT',        sub: '再起動',                         sky: ['#1f1206', '#070402'], color: '#ffb21a', pulse: 0.012, stars: 0, zoom: [1, 1.025] },
-  { t: 88.865,  name: 'OVERCLOCK',     sub: 'TOUCH の花火',                   sky: ['#2a1606', '#0a0502'], color: '#ff8c1a', pulse: 0.014, stars: 0, zoom: [1.025, 1.06] },
+  { t: 80.865,  name: 'REBOOT',        sub: 'サビ ─ 再起動',                   sky: ['#1f1206', '#070402'], color: '#ffb21a', pulse: 0.012, stars: 0, zoom: [1, 1.025] },
+  { t: 88.865,  name: 'OVERCLOCK',     sub: 'サビ ─ TOUCH の花火',             sky: ['#2a1606', '#0a0502'], color: '#ff8c1a', pulse: 0.014, stars: 0, zoom: [1.025, 1.06] },
   { t: 96.865,  name: 'EMPEROR',       sub: 'サビ 2 ─ 王冠',                  sky: ['#3a1a03', '#120701'], color: '#ffd84d', pulse: 0.022, stars: 0, beams: true, sway: 1.2 },
   { t: 104.865, name: 'ALL PERFECT?',  sub: 'サビ 2 ─ ぜんぶ',                 sky: ['#3a0a24', '#10030a'], color: '#ff5fa2', pulse: 0.020, stars: 0, beams: true, sway: 1.0 },
   { t: 112.75,  name: 'CLOSING',       sub: 'まるい画面がとじる',              sky: ['#0d0a1a', '#020106'], color: '#e0e7ff', pulse: 0.014, stars: 0, sway: 0.5 },
@@ -157,19 +157,32 @@ function emperrorChart() {
   [73.24, 73.49, 73.72, 73.86].forEach((t, i) => tap(t, i % 2 ? 4 : 5, { v: 360, warn: 0.3 }));
   [146, 150, 154, 158].forEach((n, i) => { burst(beat(n), () => flash(0.4)); touch(beat(n), { x: i % 2 ? W - 120 : 120, y: 200, n: 10 }); });
 
-  // ===== REBOOT 80.9〜88.9秒 ｜ 再起動: 交差するスライド ＋ 毎拍の TAP ================================================
-  burst(beat(162), () => { flash(1); shake(18); punch(0.08); if (typeof maiFx === 'function') maiFx('impact'); });
+  // ===== REBOOT 80.9〜88.9秒 ｜ サビ。再起動: 交差するスライド ＋ 8分の TAP ＋ 王冠の光 ================================
+  // ここ（82〜96秒）が曲でいちばん勢いのある所。毎拍ドラムに合わせて画面が光ってゆれ、小節の頭ごとにリングがはじける。
+  const hype = (n0, n1, f = 0.35, sh = 5) => { for (let n = n0; n < n1; n++) burst(beat(n), () => { flash(n % 4 ? f * 0.6 : f); shake(n % 4 ? sh * 0.5 : sh); if (n % 4 === 0) { punch(0.04); if (typeof maiFx === 'function') maiFx('break'); } }); };
+  const impact = t => burst(t, () => { flash(1); shake(18); punch(0.08); glitch(0.8); if (typeof maiFx === 'function') maiFx('impact'); });
+  impact(beat(162)); hype(163, 192, 0.32, 5);
   fire(beat(162), 0.8, delay => ring({ x: cx, y: cy, count: 36, speed: 240, r: 9, delay, color: ORANGE, style: 'mai-tap' }));
-  for (let n = 164; n < 176; n++) tap(beat(n), [3.5, 5.5, 4, 5, 4.5, 6, 3, 5][n % 8], { v: 320 });
-  for (const n of [166, 170, 174]) slide(beat(n), n % 4 === 2 ? slideLine(8, 4) : slideLine(1, 5), { v: 560, warn: 0.9 });
+  fire(beat(162) + 0.25, 0.8, delay => ring({ x: cx, y: cy, count: 36, speed: 240, r: 9, delay, start: Math.PI / 36, color: GOLD, style: 'mai-each' }));
+  for (let n = 164; n < 176; n += 0.5) tap(beat(n), [3.5, 5.5, 4, 5, 4.5, 6, 3, 5][(n * 2) % 8], { v: 330, color: n % 1 ? GOLD : null });
+  for (const n of [166, 170, 174]) slide(beat(n), n % 4 === 2 ? slideLine(8, 4) : slideLine(1, 5), { v: 580, warn: 0.9 });
+  for (const n of [164, 168, 172]) { impact(beat(n)); fire(beat(n), 0.7, delay => ring({ x: cx, y: cy, count: 24, speed: 210, r: 8, delay, start: n * 0.2, color: ORANGE, style: 'mai-tap' })); }
+  for (const n of [168, 172]) fire(beat(n + 1), 0.7, delay => crownBeams({ x: cx, y: 120, n: 4, spread: 1.0, delay }));
 
-  // ===== OVERCLOCK 88.9〜96.9秒 ｜ TOUCH の花火（足もとから）＋ 回転の連発 ==========================================
-  for (let k = 44; k < 47; k++) {
-    fire(bar(k), 0.7, delay => geyser({ x: playerXY().x, count: 7, gap: 0.08, speed: 520, r: 10, delay }));
-    touch(beat(k * 4 + 2), { n: 10, v: 190 });
-    for (const i of [1, 3]) tap(beat(k * 4 + i), (k + i) % 2 ? 4 : 5, { v: 330 });
+  // ===== OVERCLOCK 88.9〜96.9秒 ｜ サビ後半。TOUCH の花火（足もとから）＋ 左右の逆回転 ＋ BREAK =========================
+  for (let k = 44; k < 48; k++) {
+    impact(bar(k));
+    if (k < 47) {
+      fire(bar(k), 0.7, delay => geyser({ x: playerXY().x, count: 7, gap: 0.08, speed: 520, r: 10, delay }));
+      spin(beat(k * 4 + 1), k % 2 ? 2 : 7, k % 2 ? 1 : -1, 16, { gap: 0.0625, v: 320, color: k % 2 ? ORANGE : GOLD });
+      touch(beat(k * 4 + 2), { n: 12, v: 200 });
+      each(beat(k * 4 + 3), 4, 5, { v: 340 });
+      brk(beat(k * 4 + 3.5), [4.5]);
+      fire(bar(k), 0.7, delay => spinShape({ x: cx, y: cy, count: 12, size: 0, spin: k % 2 ? 0.8 : -0.8, grow: 120, r: 7, pulse: 10, delay, color: ORANGE }));
+    }
   }
   [188, 189].forEach((n, i) => spin(beat(n), i ? 6 : 3, i ? -1 : 1, 32, { gap: 0.015, v: 280, warn: 0.5 }));
+  [190, 191].forEach((n, i) => spin(beat(n), i ? 3 : 6, i ? 1 : -1, 32, { gap: 0.015, v: 280, warn: 0.5, color: GOLD }));
 
   // ===== EMPEROR 96.9〜104.9秒 ｜ 王冠の光 ＋ 左右の逆回転（EACH）＋ BREAK ========================================
   burst(bar(48), () => { flash(1); shake(18); punch(0.08); glitch(0.6); if (typeof maiFx === 'function') maiFx('impact'); });
