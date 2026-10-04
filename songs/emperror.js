@@ -117,27 +117,45 @@ function emperrorChart() {
   for (const [spinV, grow] of [[0.5, 95], [0.6, 90], [0.7, 85]]) fire(bar(19), 0.6, delay => spinShape({ x: cx, y: cy, count: 14, size: 0, spin: spinV, grow, r: 6, pulse: 14, delay, color: ORANGE }));
 
   // ===== the EmpErroR 40.9〜48.9秒 ｜ サビ。0:42 ◆ Jack のナイフ ／ 0:43 ガラクタの人形（振り子）と「麒麟」======
-  burst(bar(20), () => { flash(1); shake(18); punch(0.08); glitch(0.8); if (typeof maiFx === 'function') maiFx('impact'); });
+  // サビは毎拍ドラムに合わせて画面が光ってゆれる（hype）。8分の TAP がとぎれず降り、小節の頭ごとにリングがはじける。
+  const hype = (k0, k1, f = 0.35, sh = 5) => { for (let n = k0 * 4; n < k1 * 4; n++) burst(beat(n), () => { flash(n % 4 ? f * 0.6 : f); shake(n % 4 ? sh * 0.5 : sh); if (n % 4 === 0) { punch(0.04); if (typeof maiFx === 'function') maiFx('break'); } }); };
+  const impact = t => burst(t, () => { flash(1); shake(18); punch(0.08); glitch(0.8); if (typeof maiFx === 'function') maiFx('impact'); });
+  impact(bar(20)); hype(20, 32, 0.3, 5);
   fire(bar(20), 0.8, delay => ring({ x: cx, y: cy, count: 32, speed: 230, r: 9, delay, color: RED, style: 'mai-tap' }));
+  fire(bar(20) + 0.25, 0.8, delay => ring({ x: cx, y: cy, count: 32, speed: 230, r: 9, delay, start: Math.PI / 32, color: WHITE, style: 'mai-tap' }));
   quote(42.0, '◆ Jack-the-Ripper', '0:42');
-  [42.0, 42.25, 42.5].forEach((t, i) => fire(t, 0.5, delay => knives({ x: i % 2 ? 60 : W - 60, y: 60, count: 5, spread: 0.5, delay })));
+  [42.0, 42.25, 42.5, 42.75, 43.0].forEach((t, i) => fire(t, 0.5, delay => knives({ x: i % 2 ? 60 : W - 60, y: 60, count: 6, spread: 0.55, speed: 360, delay })));
   quote(43.2, 'ガラクタドールプレイ / 麒麟', '0:43');
   for (const [k, px, amp] of [[21, 200, 0.7], [22, 600, -0.7], [23, 400, 0.85]]) fire(bar(k) + 0.6, 0.8, delay => { const d = pendulum({ px, py: 70, amp, beats: 4, life: 7, r: 18, delay, color: '#ffd1e0' }); d.style = 'doll'; });
-  for (let k = 21; k < 24; k++) for (const i of [1, 3]) tap(beat(k * 4 + i), (k + i) % 2 ? 4 : 5, { color: RED });
+  for (let k = 21; k < 24; k++) {
+    fire(bar(k), 0.7, delay => ring({ x: cx, y: cy, count: 24, speed: 210, r: 8, delay, start: k * 0.3, color: RED, style: 'mai-tap' }));
+    for (let i = 0; i < 8; i++) tap(beat(k * 4 + i / 2), [4, 5, 4.5, 3.5, 5, 4, 5.5, 4.5][(k + i) % 8], { color: i % 2 ? WHITE : RED, v: 330 });
+    fire(beat(k * 4 + 2), 0.5, delay => knives({ x: k % 2 ? 60 : W - 60, y: 60, count: 5, spread: 0.45, speed: 380, delay }));
+  }
 
   // ===== BREAK 48.9〜56.9秒 ｜ 赤 → 紫 の回転（譜面の色の決まり）＋ BREAK ===========================================
+  // 左右から逆向きの回転が同時に走る（16分）。2拍目は EACH、小節の頭は BREAK ＋ 紫の花。
   for (let k = 24; k < 28; k++) {
-    spin(bar(k), k % 2 ? 2 : 7, k % 2 ? 1 : -1, 16, { gap: 0.125, color: k % 2 ? PURPLE : RED });
-    tap(beat(k * 4 + 2), k % 2 ? 4.5 : 5, { color: k % 2 ? RED : PURPLE });
+    impact(bar(k));
+    spin(bar(k), k % 2 ? 2 : 7, k % 2 ? 1 : -1, 16, { gap: 0.0625, color: k % 2 ? PURPLE : RED });
+    spin(bar(k) + 1, k % 2 ? 7 : 2, k % 2 ? -1 : 1, 16, { gap: 0.0625, color: k % 2 ? RED : PURPLE });
+    each(beat(k * 4 + 1), 4, 5, { v: 340 }); each(beat(k * 4 + 3), 3.5, 5.5, { v: 340 });
+    brk(beat(k * 4 + 2), [k % 2 ? 4.5 : 4, k % 2 ? 4.5 : 5]);
+    fire(bar(k), 0.7, delay => spinShape({ x: cx, y: cy, count: 12, size: 0, spin: k % 2 ? 0.8 : -0.8, grow: 120, r: 7, pulse: 10, delay, color: PURPLE }));
   }
-  brk(beat(108), [4, 5]);
 
   // ===== CRITICAL 56.9〜63.8秒 ｜ 赤 → 白。王冠の光 ＋ 32分の2回転 ==================================================
+  // 王冠の光は 2 拍ごと（左右に振る）。32分の回転は両側から同時、小節の頭に白いリング。
   for (let k = 28; k < 31; k++) {
-    fire(bar(k), 0.7, delay => crownBeams({ x: cx, y: 120, n: 5, spread: 1.1, aim: Math.PI / 2 + (k % 2 ? 0.25 : -0.25), delay }));
-    spin(beat(k * 4 + 2), k % 2 ? 6 : 3, k % 2 ? -1 : 1, 32, { gap: 0.03125, v: 260, color: k === 30 ? WHITE : RED });
+    impact(bar(k));
+    for (const i of [0, 2]) fire(beat(k * 4 + i), 0.7, delay => crownBeams({ x: cx, y: 120, n: 5, spread: 1.1, aim: Math.PI / 2 + (i ? 0.3 : -0.3) * (k % 2 ? 1 : -1), delay }));
+    fire(bar(k), 0.6, delay => ring({ x: cx, y: cy, count: 28, speed: 190, r: 8, delay, start: k * 0.2, color: WHITE, style: 'mai-tap' }));
+    spin(beat(k * 4 + 1), k % 2 ? 6 : 3, k % 2 ? -1 : 1, 32, { gap: 0.03125, v: 280, color: k === 30 ? WHITE : RED });
+    spin(beat(k * 4 + 3), k % 2 ? 3 : 6, k % 2 ? 1 : -1, 32, { gap: 0.03125, v: 280, color: WHITE });
   }
-  fire(bar(31), 0.6, delay => ring({ x: cx, y: cy, count: 30, speed: 150, r: 9, delay, color: WHITE, style: 'mai-tap' }));
+  impact(bar(31));
+  fire(bar(31), 0.6, delay => ring({ x: cx, y: cy, count: 36, speed: 170, r: 9, delay, color: WHITE, style: 'mai-tap' }));
+  fire(bar(31) + 0.25, 0.6, delay => ring({ x: cx, y: cy, count: 36, speed: 170, r: 9, delay, start: Math.PI / 36, color: RED, style: 'mai-tap' }));
 
   // ===== （音が消える）63.8〜65.9秒 ｜ SYSTEM ERROR ===============================================================
   burst(63.9, () => { if (typeof maiFx === 'function') maiFx('error'); });
@@ -172,20 +190,26 @@ function emperrorChart() {
   [188, 189].forEach((n, i) => spin(beat(n), i ? 6 : 3, i ? -1 : 1, 32, { gap: 0.015, v: 280, warn: 0.5 }));
 
   // ===== EMPEROR 96.9〜104.9秒 ｜ 王冠の光 ＋ 左右の逆回転（EACH）＋ BREAK ========================================
-  burst(bar(48), () => { flash(1); shake(18); punch(0.08); glitch(0.6); if (typeof maiFx === 'function') maiFx('impact'); });
+  // サビ 2。左右の逆回転は 2 拍ごと（前の 2 倍）、王冠の光は毎小節の 2 拍目、4 拍目に 4・5 の EACH。
+  impact(bar(48)); hype(48, 56, 0.35, 6);
   fire(bar(48), 0.8, delay => ring({ x: cx, y: cy, count: 30, speed: 200, r: 9, delay, color: GOLD, style: 'mai-each' }));
-  for (let k = 49; k < 52; k++) {
-    spin(bar(k), 2, 1, 8, { gap: 0.25, type: 'each' }); spin(bar(k), 7, -1, 8, { gap: 0.25, type: 'each' });
-    if (k % 2 === 0) fire(beat(k * 4 + 2), 0.7, delay => crownBeams({ x: cx, y: 120, n: 4, spread: 1.0, delay }));
+  fire(bar(48) + 0.25, 0.8, delay => ring({ x: cx, y: cy, count: 30, speed: 200, r: 9, delay, start: Math.PI / 30, color: ORANGE, style: 'mai-tap' }));
+  for (let k = 48; k < 52; k++) {
+    if (k > 48) impact(bar(k));
+    for (const i of [0, 2]) { spin(beat(k * 4 + i), 2, 1, 8, { gap: 0.125, type: 'each' }); spin(beat(k * 4 + i), 7, -1, 8, { gap: 0.125, type: 'each' }); }
+    fire(beat(k * 4 + 1), 0.7, delay => crownBeams({ x: cx, y: 120, n: 4, spread: 1.0, delay }));
+    each(beat(k * 4 + 3), 4, 5, { v: 340 });
   }
-  breakDrop(bar(50));
+  breakDrop(bar(50)); breakDrop(bar(51));
 
   // ===== ALL PERFECT? 104.9〜112.7秒 ｜ TOUCH の花 ＋ 下を回るスライド ＋ ナイフ（ぜんぶの引用がもういちど）==========
   for (let k = 52; k < 56; k++) {
-    if (k % 2 === 0) { touch(bar(k), { x: cx, y: cy, n: 12, v: 170 }); touch(bar(k) + 0.25, { x: cx, y: cy, n: 12, v: 170, start: Math.PI / 12 }); }
-    else slide(bar(k), k % 4 === 1 ? slideArc(2.5, 6.5, 1) : slideArc(6.5, 2.5, -1), { v: 520 });
-    fire(beat(k * 4 + 2), 0.5, delay => knives({ x: k % 2 ? 60 : W - 60, y: 60, count: 4, spread: 0.4, delay }));
-    for (const i of [1, 3]) tap(beat(k * 4 + i), (k + i) % 2 ? 4.5 : 5.5);
+    impact(bar(k));
+    if (k % 2 === 0) { touch(bar(k), { x: cx, y: cy, n: 14, v: 180 }); touch(bar(k) + 0.25, { x: cx, y: cy, n: 14, v: 180, start: Math.PI / 14 }); }
+    else slide(bar(k), k % 4 === 1 ? slideArc(2.5, 6.5, 1) : slideArc(6.5, 2.5, -1), { v: 540 });
+    for (const i of [1, 3]) fire(beat(k * 4 + i), 0.5, delay => knives({ x: (k + i) % 2 ? 60 : W - 60, y: 60, count: 5, spread: 0.45, speed: 360, delay }));
+    for (let i = 1; i < 8; i += 2) tap(beat(k * 4 + i / 2), [4.5, 5.5, 3.5, 4.5][((i - 1) / 2 + k) % 4], { v: 330, color: k % 2 ? GOLD : '#ff5fa2' });
+    spin(beat(k * 4 + 2), k % 2 ? 2 : 7, k % 2 ? 1 : -1, 16, { gap: 0.0625, v: 320, color: k % 2 ? GOLD : RED });
   }
   breakDrop(beat(214));
 
