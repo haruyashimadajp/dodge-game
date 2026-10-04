@@ -145,15 +145,17 @@ function armChart() {
 
   // ---- 金色の音（メロディのかけら）: 譜面のベルの位置 ----
   for (const [b, u] of D.bells) { ARM_STATS.total++; at(armBell(bar(b), armX(u))); }
-  // ---- 横に払う矢印: ぜんぶ床をすべる波になる（同じ向き・ほぼ同じ時刻のものは 1 つにまとめる）----
+  // ---- 横に払う矢印: ぜんぶ床をすべる波になる。
+  //      すぐ続けて来る矢印（間が 1/8 小節より短い）はひとまとまりにして、向きごとに 1 つの波にまとめる（1 回跳べばこえられる）----
   {
-    const ev = [];
-    for (const [b, u0, u1, d] of D.flicks) {
-      if (b > 147) continue;
-      const x = d > 0 ? armX(u0) : armX(u1), e = ev.find(q => q.d === d && Math.abs(q.b - b) < 0.07);
-      if (e) e.x = d > 0 ? Math.min(e.x, x) : Math.max(e.x, x); else ev.push({ b, d, x });
+    const fl = D.flicks.filter(f => f[0] <= 147).sort((p, q) => p[0] - q[0]), runs = [];
+    for (const f of fl) { const r = runs[runs.length - 1]; if (r && f[0] - r[r.length - 1][0] < 0.125) r.push(f); else runs.push([f]); }
+    for (const r of runs) for (const d of [-1, 1]) {
+      const fs = r.filter(f => f[3] === d);
+      if (!fs.length) continue;
+      const x = d > 0 ? Math.min(...fs.map(f => armX(f[1]))) : Math.max(...fs.map(f => armX(f[2])));
+      burst(bar(r[0][0]), () => armGliss({ x: Math.max(stage.wl + 10, Math.min(stage.wr - 10, x)), dir: d }));
     }
-    for (const e of ev) burst(bar(e.b), () => armGliss({ x: Math.max(stage.wl + 10, Math.min(stage.wr - 10, e.x)), dir: e.d }));
   }
 
   // ===== ここから下はオリジナルの弾幕（曲の音に合わせて、オルゴール・不死鳥のことばで作った）=====================
@@ -169,13 +171,13 @@ function armChart() {
   const comb = (t, { n = 1, spread = 0.22, v = 230, warn = 0.3, color = GOLD, style = 'armNote', from = COMB } = {}) =>
     burst(t - warn, () => { for (let i = 0; i < n; i++) { const a0 = Math.atan2(playerXY().y - from.y, playerXY().x - from.x) + (i - (n - 1) / 2) * spread;
       spawn({ x: from.x, y: from.y, vx: Math.cos(a0) * v, vy: Math.sin(a0) * v, r: 7, delay: warn, color, style }); } });
-  // 円盤のまわりから広がる輪（count 個。start でずらす）
-  const discRing = (t, count, v, { start = 0, color = AZURE, style = 'armNote', r = 6, R = 250 } = {}) => burst(t, () => {
-    for (let i = 0; i < count; i++) { const a = start + i / count * TAU; spawn({ x: DISC.x + Math.cos(a) * R, y: DISC.y + Math.sin(a) * R, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r, color, style }); }
+  // 円盤のまん中から広がる輪（count 個。start でずらす）。0.3 秒前からまん中が光って予告 → 拍ぴったりに飛び出す
+  const discRing = (t, count, v, { start = 0, color = AZURE, style = 'armNote', r = 6, warn = 0.3 } = {}) => burst(t - warn, () => {
+    for (let i = 0; i < count; i++) { const a = start + i / count * TAU; spawn({ x: DISC.x + Math.cos(a) * 14, y: DISC.y + Math.sin(a) * 14, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r, color, style, delay: warn }); }
     if (typeof armFx === 'function') armFx('ring');
   });
-  // オルゴールの渦: 円盤のふちから 1 つずつ、角度を回しながら（1 拍に per 個、turn = 1 拍で回る角度）
-  const swirl = (b0, b1, { per = 2, turn = 0.9, v = 150, arms = 1, color = AZURE, style = 'armOrb', R = 60, a0 = 0 } = {}) => {
+  // オルゴールの渦: 円盤のまん中から 1 つずつ、角度を回しながら（1 拍に per 個、turn = 1 拍で回る角度）
+  const swirl = (b0, b1, { per = 2, turn = 0.9, v = 150, arms = 1, color = AZURE, style = 'armOrb', R = 16, a0 = 0 } = {}) => {
     for (let i = 0, t = bar(b0); t < bar(b1) - 1e-6; i++, t += ARM_BEAT / per) {
       const a = a0 + i * turn / per;
       burst(t, () => { for (let k = 0; k < arms; k++) { const aa = a + k * TAU / arms; spawn({ x: DISC.x + Math.cos(aa) * R, y: DISC.y + Math.sin(aa) * R, vx: Math.cos(aa) * v, vy: Math.sin(aa) * v, r: 6, color, style }); } });
@@ -245,7 +247,7 @@ function armChart() {
   // ===== 48〜56 ｜ RESONANCE: キックごとに円盤の輪（大きい音だけ）＋ 2 小節ごとに床から火の粉 ===========================
   {
     let last = -99;
-    for (const i of onsIn('K', 48, 57)) { if (i - last < 8) continue; last = i; discRing(s16(i), 9, 150, { start: i * 0.33, color: VOICE[(i >> 3) % 3], R: 200 }); }
+    for (const i of onsIn('K', 48, 57)) { if (i - last < 8) continue; last = i; discRing(s16(i), 9, 150, { start: i * 0.33, color: VOICE[(i >> 3) % 3] }); }
     for (let k = 48; k < 57; k += 2) for (let j = 0; j < 3; j++) burst(bar(k + 1) + j * ARM_BEAT - 0.55, () => emberNow(Math.max(stage.wl + 20, Math.min(stage.wr - 20, playerXY().x))));   // 自分の足もとをねらう
   }
 
@@ -298,7 +300,7 @@ function armChart() {
   // ===== 119.6〜131 ｜ PHOENIX: 翼から羽根が扇に降る ＋ 床から火の粉 ＋ 円盤の輪 =========================================
   for (let i = 0, t = bar(120); t < bar(132); i++, t += ARM_BEAT / 2) {
     const side = i % 2 ? 1 : -1, wx = W / 2 + side * 250, a = Math.PI / 2 - side * (0.25 + 0.5 * ((i >> 1) % 6) / 5);
-    burst(t, () => spawn({ x: wx, y: 300, vx: Math.cos(a) * 190, vy: Math.sin(a) * 190, r: 7, style: 'armFeather', color: side < 0 ? ROSE : GOLD }));
+    burst(t - 0.35, () => spawn({ x: wx, y: 300, vx: Math.cos(a) * 190, vy: Math.sin(a) * 190, r: 7, delay: 0.35, style: 'armFeather', color: side < 0 ? ROSE : GOLD }));   // 翼の先が光ってから
   }
   for (let k = 120; k < 132; k++) {
     discRing(bar(k), 10, 160, { start: k * 0.5, color: AZURE });
@@ -316,7 +318,7 @@ function armChart() {
   for (let k = 132; k < 145; k++) comb(bar(k + 0.5), { n: 3, spread: 0.2, v: 270, color: ROSE });
 
   // ===== 145.2〜148 ｜ UNISON: 音が集まって止まる → 下向きの扇 → 斜めの列が交差 =======================================
-  burst(bar(146), () => { for (let i = 0; i < 21; i++) { const a = Math.PI / 2 + (i - 10) * 0.12; spawn({ x: DISC.x, y: DISC.y, vx: Math.cos(a) * 230, vy: Math.sin(a) * 230, r: 7, color: GOLD, style: 'armNote' }); } });
+  burst(bar(146) - 0.4, () => { for (let i = 0; i < 21; i++) { const a = Math.PI / 2 + (i - 10) * 0.12; spawn({ x: DISC.x, y: DISC.y, vx: Math.cos(a) * 230, vy: Math.sin(a) * 230, r: 7, delay: 0.4, color: GOLD, style: 'armNote' }); } });
   slant(bar(147), true, W * 0.7, { n: 4, v: 340, color: ROSE });
   slant(bar(147), false, W * 0.3, { n: 4, v: 340, color: AZURE });
 
