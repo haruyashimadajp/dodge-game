@@ -2781,6 +2781,30 @@ function ogRise({ x, v = 520, a = -Math.PI / 2, size = 'm', delay = 0.6, color }
   return spawn({ x, y: GROUND_Y + 16, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: S.r, delay, color: color || S.color, style: 'og-' + size, lane: [Math.cos(a), Math.sin(a)], rise: true });
 }
 
+// ★止まって、急に動く弾★（怨撃・真のはじまり）(x, y) から a の向きへ dist だけ飛び出して、曲の時刻 stopT にぴたっと止まる。
+// 曲の時刻 goT になったら、aim なら そのときのプレイヤーへ（spread だけずらす）、ちがえば同じ向きのまま、一気に goV で飛ぶ
+function ogHalt({ x, y, a, dist, stopT, goT, goV = 640, aim = false, spread = 0, size = 's', color }) {
+  const S = OG_SHOT[size], t0 = songTime;
+  return spawn({
+    x, y, r: S.r, color: color || S.color, style: 'og-' + size, spd: 1, a, x0: x, y0: y, dist, t0, stopT, goT, goV, aim, spread, v: 0,
+    move(b, dt) {
+      if (songTime < b.goT) {                                       // 飛び出して、だんだんおそく → 止まる
+        const u = clamp01((songTime - b.t0) / Math.max(0.01, b.stopT - b.t0)), e = 1 - (1 - u) * (1 - u) * (1 - u);
+        b.x = b.x0 + Math.cos(b.a) * b.dist * e; b.y = b.y0 + Math.sin(b.a) * b.dist * e;
+        b.halted = u >= 1;
+        return;
+      }
+      if (!b.went) {
+        b.went = true; b.halted = false;
+        if (b.aim) { const p = playerXY(); b.a = Math.atan2(p.y - b.y, p.x - b.x) + b.spread; }
+      }
+      b.v = Math.min(b.goV, b.v + b.goV * 8 * dt);                  // 0.12秒で全速
+      b.vx = Math.cos(b.a) * b.v; b.vy = Math.sin(b.a) * b.v;
+      b.x += b.vx * dt; b.y += b.vy * dt;
+    },
+  });
+}
+
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
 let chart = [];
 let chartIndex = 0;

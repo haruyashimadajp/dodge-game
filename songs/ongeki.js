@@ -349,14 +349,50 @@ function ongekiChart(shin = false) {
     const rnd = (a, b) => hsh(a, b);
     const gapX = (a, b) => 110 + rnd(a, b) * 580;                 // すき間の場所（110〜690）
 
-    // ===== 1〜11 小節 ｜ こんじきニャン、はじめから本気 ======================================================
+    // ===== 1〜11 小節 ｜ 原作のはじまり: 「デンッ・デンッ・デン」で弾が飛び出して止まり、次の音で一気に飛ぶ ==========
+    // 音（シンセの強打）は 3・4 小節と 7・8 小節の 16分で 0・6・12 番目（7 小節は 0・4・8・12）。
+    // そのあいだ（5〜6・9〜11 小節）は、左右の上のすみから放射状の弾がゆっくり飛んでくる。
     ogfx(0.1, 'appear');
-    for (let k = 3; k <= 11; k++) {
-      aimed(bar(k), { n: 5, v: 250, spread: 0.24, warn: 0.35 });
-      aimed(bt(k, 2), { n: 3, v: 280, spread: 0.3 });
-      if (k % 2 === 1) for (let i = 0; i < 4; i++) bell(bt(k, 1 + i * 0.5), 120 + ((k * 3 + i) % 6) * 112, { vy: 230 });
+    const s16b = (k, i) => s16((k - 1) * 16 + i);
+    const HITS = [[2, 15], [3, 0], [3, 6], [3, 12], [4, 0], [4, 6], [4, 12], null,
+                  [7, 0], [7, 4], [7, 8], [7, 12], [8, 0], [8, 6], [8, 12], null];
+    // 1回の「デン」で出す形（交互）: 輪（止まったあと外へ）と、ネコのまわりの弧（止まったあと自分をねらう）
+    const haltBurst = (n, t, goT) => burst(t, () => {
+      if (n === 0) {                                                // 最初の強打: 紫の大きい輪
+        for (let i = 0; i < 14; i++) ogHalt({ x: MOUTH.x, y: MOUTH.y, a: i / 14 * TAU + 0.11, dist: 210, stopT: t + 0.2, goT, goV: 560, size: 'm' });
+      } else if (n % 2 === 1) {                                     // 輪: 止まって、同じ向きのまま外へ
+        const st = n * 0.37;
+        for (let i = 0; i < 18; i++) ogHalt({ x: MOUTH.x, y: MOUTH.y, a: st + i / 18 * TAU, dist: 90 + (i % 2) * 50, stopT: t + 0.16, goT, goV: 680 });
+      } else {                                                      // 弧: 止まって、それぞれが自分をねらう
+        for (let i = 0; i < 7; i++) {
+          const a = Math.PI / 2 + (i - 3) * 0.42;
+          ogHalt({ x: MOUTH.x, y: MOUTH.y, a, dist: 230, stopT: t + 0.18, goT, goV: 720, aim: true, size: i === 3 ? 'm' : 's' });
+        }
+      }
+      if (typeof ogFx === 'function') ogFx('fire', n % 2 ? 1 : -1);
+    });
+    for (let j = 0; j < HITS.length; j++) {
+      if (!HITS[j]) continue;
+      const t = s16b(...HITS[j]);
+      const nx = HITS[j + 1] ? s16b(...HITS[j + 1]) : t + 6 * B / 4;     // 次の「デン」で飛ぶ（最後は 16分 6 つあと）
+      haltBurst(j, t, nx);
     }
-    for (const [k, i, n] of [[5, 2, 18], [7, 2, 22], [9, 2, 24], [10, 2, 26], [11, 0, 28]]) ringFrom(bt(k, i), MOUTH, n, 170, { start: k * 0.13 });
+    // 左右の上のすみから、放射状にゆっくり（2拍ごとに左右交互。少しずつ向きが回る）
+    const corner = (t, side, m) => burst(t, () => {
+      const cx = side < 0 ? 20 : W - 20, cy = 24;
+      for (let i = 0; i < 8; i++) {
+        const u = 0.18 + i * 0.17 + (m % 3) * 0.057;                // すみから見て 横〜真下 のあいだ
+        ogShot({ x: cx, y: cy, a: side < 0 ? u : Math.PI - u, v: 135, size: 's', spd: 1, color: side < 0 ? '#ff5fb4' : '#b36bff' });
+      }
+      if (typeof ogFx === 'function') ogFx('fire', side);
+    });
+    { let m = 0;
+      for (const [k0, k1] of [[5, 7], [9, 11]]) for (let b = (k0 - 1) * 4; b < (k1 - 1) * 4; b++) corner(beat(b), b % 2 ? 1 : -1, m++); }
+    for (const k of [3, 7]) for (let i = 0; i < 4; i++) bell(bt(k + 1, i), 160 + ((k + i) % 4) * 160, { vy: 230 });
+    for (const k of [5, 9]) for (let i = 0; i < 4; i++) bell(bt(k, i + 0.5), 400 + (i % 2 ? 1 : -1) * (60 + i * 20), { vy: 230 });
+    // 11 小節: 次のノーツ地帯の前に、ねらい撃ちの扇と輪
+    aimed(bt(11, 0), { n: 5, v: 260, spread: 0.24, warn: 0.35 });
+    ringFrom(bt(11, 2), MOUTH, 24, 180, { start: 0.3 });
 
     // ===== 12〜27 小節 ｜ ノーツ ＋ 毎拍のねらい撃ち ＋ 手からの紫 ＋ 2小節ごとの輪 ============================
     for (let k = 12; k <= 27; k++) {
