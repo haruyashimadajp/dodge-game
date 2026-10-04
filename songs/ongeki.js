@@ -351,7 +351,6 @@ function ongekiChart(shin = false) {
 
     // ===== 1〜11 小節 ｜ 原作のはじまり: 「デンッ・デンッ・デン」で弾が飛び出して止まり、次の音で一気に飛ぶ ==========
     // 音（シンセの強打）は 3・4 小節と 7・8 小節の 16分で 0・6・12 番目（7 小節は 0・4・8・12）。
-    // そのあいだ（5〜6・9〜11 小節）は、左右の上のすみから放射状の弾がゆっくり飛んでくる。
     ogfx(0.1, 'appear');
     const s16b = (k, i) => s16((k - 1) * 16 + i);
     const HITS = [[2, 15], [3, 0], [3, 6], [3, 12], [4, 0], [4, 6], [4, 12], null,
@@ -377,17 +376,11 @@ function ongekiChart(shin = false) {
       const nx = HITS[j + 1] ? s16b(...HITS[j + 1]) : t + 6 * B / 4;     // 次の「デン」で飛ぶ（最後は 16分 6 つあと）
       haltBurst(j, t, nx);
     }
-    // 左右の上のすみから、放射状にゆっくり（2拍ごとに左右交互。少しずつ向きが回る）
-    const corner = (t, side, m) => burst(t, () => {
-      const cx = side < 0 ? 20 : W - 20, cy = 24;
-      for (let i = 0; i < 8; i++) {
-        const u = 0.18 + i * 0.17 + (m % 3) * 0.057;                // すみから見て 横〜真下 のあいだ
-        ogShot({ x: cx, y: cy, a: side < 0 ? u : Math.PI - u, v: 135, size: 's', spd: 1, color: side < 0 ? '#ff5fb4' : '#b36bff' });
-      }
-      if (typeof ogFx === 'function') ogFx('fire', side);
-    });
-    { let m = 0;
-      for (const [k0, k1] of [[5, 7], [9, 11]]) for (let b = (k0 - 1) * 4; b < (k1 - 1) * 4; b++) corner(beat(b), b % 2 ? 1 : -1, m++); }
+    // あいだ（5〜6・9〜10 小節）は軽め: 小節の頭にねらい撃ちの扇、3拍目に輪
+    for (const k of [5, 6, 9, 10]) {
+      aimed(bar(k), { n: 5, v: 250, spread: 0.24, warn: 0.35 });
+      if (k % 2 === 0) ringFrom(bt(k, 2), MOUTH, 20, 170, { start: k * 0.13 });
+    }
     for (const k of [3, 7]) for (let i = 0; i < 4; i++) bell(bt(k + 1, i), 160 + ((k + i) % 4) * 160, { vy: 230 });
     for (const k of [5, 9]) for (let i = 0; i < 4; i++) bell(bt(k, i + 0.5), 400 + (i % 2 ? 1 : -1) * (60 + i * 20), { vy: 230 });
     // 11 小節: 次のノーツ地帯の前に、ねらい撃ちの扇と輪
@@ -395,14 +388,31 @@ function ongekiChart(shin = false) {
     ringFrom(bt(11, 2), MOUTH, 24, 180, { start: 0.3 });
 
     // ===== 12〜27 小節 ｜ ノーツ ＋ 毎拍のねらい撃ち ＋ 手からの紫 ＋ 2小節ごとの輪 ============================
+    // 14〜18 小節は原作のように、左右の上のすみから放射状の弾がゆっくり（そのぶん、ねらい撃ちと輪は減らす）
+    const CORNER = k => k >= 14 && k <= 18, EASE = k => k >= 19 && k <= 21;
+    const corner = (t, side, m) => burst(t, () => {
+      const cx = side < 0 ? 20 : W - 20, cy = 24;
+      for (let i = 0; i < 8; i++) {
+        const u = 0.18 + i * 0.17 + (m % 3) * 0.057;                // すみから見て 横〜真下 のあいだ。少しずつ向きが回る
+        ogShot({ x: cx, y: cy, a: side < 0 ? u : Math.PI - u, v: 140, size: 's', spd: 1, color: side < 0 ? '#ff5fb4' : '#b36bff' });
+      }
+      if (typeof ogFx === 'function') ogFx('fire', side);
+    });
     for (let k = 12; k <= 27; k++) {
       const pr = TAPS[k % 8];
       note(bar(k), pr[0]); note(bt(k, 2), pr[1]);
       note(bt(k, 1), (pr[0] + 3) % 6); note(bt(k, 3), (pr[1] + 3) % 6);
-      if (k >= 20) { note(bt(k, 1.5), (pr[0] + 1) % 6); note(bt(k, 3.5), (pr[1] + 2) % 6); }
-      for (let i = 0; i < 4; i++) aimed(bt(k, i), { n: 3, v: 340, spread: 0.2 });
-      aimed(bt(k, 2), { from: HAND(k % 2 ? 1 : -1), size: 'm', v: 300, n: 2, spread: 0.35, hand: k % 2 ? 1 : -1 });
-      if (k % 2 === 0) ringFrom(bt(k, 0), MOUTH, 24, 210, { start: k * 0.21 });
+      if (k >= 21) { note(bt(k, 1.5), (pr[0] + 1) % 6); note(bt(k, 3.5), (pr[1] + 2) % 6); }
+      if (CORNER(k)) {
+        for (const i of [0, 2]) corner(bt(k, i), i ? 1 : -1, k * 2 + i / 2);      // 2拍ごとに左右交互
+        if (k % 2 === 0) aimed(bt(k, 1), { n: 1, v: 300 });
+      } else if (EASE(k)) {
+        for (const i of [1, 3]) aimed(bt(k, i), { n: 3, v: 320, spread: 0.22 });
+      } else {
+        for (let i = 0; i < 4; i++) aimed(bt(k, i), { n: 3, v: 340, spread: 0.2 });
+        aimed(bt(k, 2), { from: HAND(k % 2 ? 1 : -1), size: 'm', v: 300, n: 2, spread: 0.35, hand: k % 2 ? 1 : -1 });
+        if (k % 2 === 0) ringFrom(bt(k, 0), MOUTH, 24, 210, { start: k * 0.21 });
+      }
       if (k % 4 === 2) for (let i = 0; i < 6; i++) bell(bt(k, i * 0.5), LANE_X((k / 2 + i) % 6), { vy: 300 });
     }
 
