@@ -60,7 +60,7 @@ dodge-game/
 │   ├── ongeki-score.js / ongeki-env.js ← 曲⑯の音の解析データ（キック・ハイハット・シンセの位置）/ 音量データ
 │   ├── echo.js          ← 曲⑰「Echoes」（オリジナル曲・反響と残響。しずく・ガラスの鈴・ピンポン・ディレイ・ドラム）の拍・場面・譜面
 │   ├── echo-score.js / echo-env.js / echo-compose.py ← 曲⑰の楽譜データ（聞こえるこだま1つ1つの時刻も入っている）/ 音量データ / 作曲プログラム
-│   ├── circlepit.js     ← 曲⑱「Circle Pit」（オリジナル曲・200 BPM のハードコア・パンク。ひずんだギター・ドラム・ボーカルとみんなの叫び。画面がずっとヘッドバンギングする）の拍・場面・譜面
+│   ├── circlepit.js     ← 曲⑱「Circle Pit」（オリジナル曲・200 BPM のブレイクコア。ひずんだハードコア・キック・ブレイクビーツ・グリッチ。声なし。画面がずっとヘッドバンギングする）の拍・場面・譜面
 │   └── circlepit-score.js / circlepit-env.js / circlepit-compose.py ← 曲⑱の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
@@ -775,7 +775,7 @@ rvBell({ x, y, taps, n, v, life })             // 音の鳴る結晶（本体は
 score.json の `echo` に「聞こえるこだま」1つ1つの時刻・大きさ・左右が入っている。譜面はこれを使って、鈴の輪や壁の光を、実際に聞こえるこだまにぴったり合わせている。
 画面の演出は `rvFx('wall' / 'tap' / 'bounce' / 'splash' / 'kick' / 'boom' / 'silence' / 'swell' / 'climax' / 'fade')` で呼ぶ（visuals-cave.js）。
 
-### 5-20. 曲⑱「Circle Pit」で生まれた形（ハードコア・パンク）
+### 5-20. 曲⑱「Circle Pit」で生まれた形（ブレイクコア。最初はハードコア・パンクとして作ったので、名前に hc〜・アンプ・ダイブなどが残っている）
 
 ```js
 hcStud({ x, y, a, v, aim, spread, g })         // 鋲（びょう）の弾。まっすぐ飛ぶ（aim = true なら発射の瞬間の自分をねらう。g で重力）
@@ -788,8 +788,8 @@ hcPit({ dir, R, n, v })                        // サークル・ピット: 床�
 hcStick({ x, vy, spin, len })                  // 投げたドラムスティック: 回りながら落ちてくる棒（棒の形で当たる）
 hcHop({ x, vx, hop })                          // ツーステップではねる弾: 床と足場ではずみながら横切る
 ```
-曲は songs/circlepit-compose.py が作る。score.json の `gtr` にギターの1音1音（拍・長さ・根音・開放 'o' / ミュート 'm'）、`shout` にみんなの叫び、`beat` に小節ごとのビートの種類が入っている。
-譜面は「ミュートの刻み = アンプの鋲」「開放のコード = 音の柱（根音で位置が決まる）」のように、音の種類で攻撃を決めている。
+曲は songs/circlepit-compose.py が作る。score.json の `gtr` にハードコア・キックのリフの1音1音（拍・長さ・根音・長いキック 'o' / 短いキック 'm'）、`shout` にグリッチ（音がつっかえる所）と画面に出す文字、`impact` に大きな一撃、`beat` に小節ごとのブレイクビーツの型が入っている。
+譜面は「短いキック = アンプの鋲」「長いキック = 音の柱（根音で位置が決まる）」のように、音の種類で攻撃を決めている。
 画面の演出は `hcFx('kick' / 'snare' / 'bang' / 'crash' / 'china' / 'chug' / 'shout' / 'scream' / 'boom2' / 'count' / 'slide' / 'feedback' / 'land' / 'stop' / 'breakdown' / 'mosh' / 'final' / 'end' …)` で呼ぶ（visuals-punk.js）。
 見た目のセットに `camera(T, bp, k)` を書くと、カメラを `{ x, y, rot }` だけ動かせる（visuals.js。設定の「画面演出」で小さくなる）。punk はこれで、拍ごとに下へガクッと落ちて左右にゆさぶる（ヘッドバンギング）。
 

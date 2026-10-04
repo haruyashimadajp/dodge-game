@@ -2,21 +2,22 @@
 
 /* =========================================================================
    曲⑱  Circle Pit（オリジナル曲）  —  拍・場面・譜面
-   ハードコア・パンク。200 BPM、ホ短調。曲は songs/circlepit-compose.py で作曲・合成した。
-   左右に分けた2本のひずんだギター（パワーコード）、ひずんだベース、ドラム、みんなの叫び（HEY! / OI! / GO!）。
-   ビートは場面ごとに変わる: Dビート（Aメロ）、スカンク・ビート（サビ）、ツーステップ、ハーフタイムのブレイクダウン、ブラスト。
+   ブレイクコア／グリッチ・ハードコア（声なし）。200 BPM、ホ短調。曲は songs/circlepit-compose.py で作曲・合成した。
+   主役はひどくひずませた音程つきのハードコア・キック。きざんだブレイクビーツ、サビのスーパーソウとチップのリード、
+   スタッター（音がつっかえる）・テープストップ・ビットクラッシュなどのグリッチ。声は入っていない。
+   ブレイクビーツは小節ごとに組みかえる（32分のスネアロール・倍速のきざみ・ハーフタイム）。サビはキックが4つ打ち。
    難易度はむずかしい。演出は visuals-punk.js（地下のライブハウス。アンプの山、モッシュする観客、コピーしたチラシ）。
 
    音ごとに攻撃がちがう:
-     ブリッジミュートの刻み = アンプから鋲（びょう）の弾が自分をねらって飛ぶ（刻みの数だけ）
-     開放のコード          = 上から太い音の柱がたたきつけられる（コードの根音で位置が決まる）
-     Aメロの小節の終わりのコード = 床すれすれのアンプの音の柱（跳ぶ）
-     みんなの叫び          = HEY! / OI! / GO! の切り抜き文字が飛んでくる
-     サビ（スカンク・ビート） = サークル・ピット: とげの輪が床を転がってくる（跳び越える）
+     短いキック            = アンプから鋲（びょう）の弾が自分をねらって飛ぶ（キックの数だけ）
+     長く鳴るキック         = 上から太い音の柱がたたきつけられる（コードの根音で位置が決まる）
+     ブレイクビーツの小節の終わりのキック = 床すれすれの音の柱（跳ぶ）
+     グリッチ（つっかえ）  = ERR! / X! / GO! の切り抜き文字が飛んでくる
+     サビ（4つ打ち）       = サークル・ピット: とげの輪が床を転がってくる（跳び越える）
      ステージ・ダイブ      = 人が放物線をえがいて飛んでくる
-     タムのフィル          = ドラムスティックが降ってくる
-     ブレイクダウン        = 遅く重い音の柱と、床の柱。画面がヘッドバンギングする
-     リードギター          = 音の高さの所に鋲が降る
+     FM のザップ音のフィル = ドラムスティックが降ってくる
+     ブレイクダウン        = 音程が下がっていく巨大なキック = 重い柱と床の柱。画面がヘッドバンギングする
+     チップのリード（最後のサビ）= 音の高さの所に鋲が降る
    ========================================================================= */
 
 // 200 BPM: 1拍 = 0.3秒、1小節 = 1.2秒。0拍目 = 0.5秒
@@ -26,18 +27,18 @@ function hcBeatPos(t)  { return (t - 0.5) / HC_BEAT; }
 const hcBar = k => hcBeatTime(k * 4);
 
 const HC_SECTIONS = [
-  { t: 0,          tier: 0, name: 'FEEDBACK',     sub: 'アンプがうなる',                  sky: ['#050505', '#120808'], color: '#ff2e3a', pulse: 0.004, stars: 0 },
-  { t: hcBar(4),   tier: 1, name: 'KICK IT',      sub: 'カウント 1・2・3・4！',           sky: ['#0a0a0a', '#1c0a0a'], color: '#ff2e3a', pulse: 0.02,  stars: 0 },
-  { t: hcBar(12),  tier: 2, name: 'D-BEAT',       sub: 'Dビート ─ 刻みが止まらない',      sky: ['#0b0b0b', '#221010'], color: '#f4f4f4', pulse: 0.02,  stars: 0 },
-  { t: hcBar(28),  tier: 2, name: 'TWO-STEP',     sub: 'ツーステップ ─ はずめ',            sky: ['#0b0b0b', '#1f1a08'], color: '#ffd23f', pulse: 0.025, stars: 0 },
+  { t: 0,          tier: 0, name: 'FEEDBACK',     sub: '起動中…',                        sky: ['#050505', '#120808'], color: '#ff2e3a', pulse: 0.004, stars: 0 },
+  { t: hcBar(4),   tier: 1, name: 'KICK IT',      sub: 'ハードコア・キック',             sky: ['#0a0a0a', '#1c0a0a'], color: '#ff2e3a', pulse: 0.02,  stars: 0 },
+  { t: hcBar(12),  tier: 2, name: 'BREAKBEAT',    sub: 'ブレイクビーツ ─ 刻みが止まらない',    sky: ['#0b0b0b', '#221010'], color: '#f4f4f4', pulse: 0.02,  stars: 0 },
+  { t: hcBar(28),  tier: 2, name: 'STUTTER',      sub: 'スタッター ─ 音がつっかえる',          sky: ['#0b0b0b', '#1f1a08'], color: '#ffd23f', pulse: 0.025, stars: 0 },
   { t: hcBar(36),  tier: 3, name: 'CIRCLE PIT',   sub: 'サビ ─ 輪になって走れ',            sky: ['#140406', '#3a0a10'], color: '#ff2e3a', pulse: 0.03,  stars: 0, sway: 0.3 },
-  { t: hcBar(44),  tier: 3, name: 'D-BEAT II',    sub: 'もっと速く',                      sky: ['#0b0b0b', '#221010'], color: '#f4f4f4', pulse: 0.025, stars: 0 },
+  { t: hcBar(44),  tier: 3, name: 'BREAKBEAT II', sub: 'もっと細かく',                    sky: ['#0b0b0b', '#221010'], color: '#f4f4f4', pulse: 0.025, stars: 0 },
   { t: hcBar(52),  tier: 3, name: 'STAGE DIVE',   sub: 'サビ ─ ステージから飛べ',          sky: ['#140406', '#3a0a10'], color: '#ff4fa3', pulse: 0.03,  stars: 0, sway: 0.3 },
   { t: hcBar(60),  tier: 2, name: 'STOP',         sub: '止まって ─ ため',                 sky: ['#000000', '#0a0a0a'], color: '#f4f4f4', pulse: 0,     stars: 0 },
   { t: hcBar(64),  tier: 3, name: 'BREAKDOWN',    sub: 'ブレイクダウン ─ 頭を振れ',        sky: ['#0a0000', '#2a0000'], color: '#ff2e3a', pulse: 0.04,  stars: 0, zoom: [1, 1.02] },
-  { t: hcBar(72),  tier: 3, name: 'MOSH',         sub: 'モッシュ ─ もっと重く',            sky: ['#0a0000', '#300404'], color: '#ff2e3a', pulse: 0.05,  stars: 0 },
+  { t: hcBar(72),  tier: 3, name: 'MOSH',         sub: 'モッシュ ─ 音がつぶれる',          sky: ['#0a0000', '#300404'], color: '#ff2e3a', pulse: 0.05,  stars: 0 },
   { t: hcBar(80),  tier: 4, name: 'CIRCLE PIT',   sub: '最後のサビ ─ 全員でぶつかれ',      sky: ['#18040a', '#4a0a18'], color: '#ffd23f', pulse: 0.04,  stars: 0, sway: 0.4 },
-  { t: hcBar(88),  tier: 1, name: 'NO FUTURE',    sub: 'ラスト・コード',                   sky: ['#050505', '#140808'], color: '#f4f4f4', pulse: 0.01,  stars: 0 },
+  { t: hcBar(88),  tier: 1, name: 'NO FUTURE',    sub: 'テープが止まる',                 sky: ['#050505', '#140808'], color: '#f4f4f4', pulse: 0.01,  stars: 0 },
 ];
 
 // 弾の速さ: 1.0〜1.2倍
@@ -87,7 +88,7 @@ function circlePitChart() {
     fire(beat(b), 0.45, delay => hcStick({ x: clampX(120 + ((m - 40) / 12) * (W - 240) + (hsh(b) - 0.5) * 60), vy: 260, delay })));
   SC.slide.forEach(([b0, b1]) => fx(beat(b0), 'slide', (b1 - b0) * HC_BEAT));
   SC.boom.forEach(b => fx(beat(b), 'boom2', 1));                                   // 重低音の落下 = 画面が大きくゆれる
-  SC.scream.forEach(([b, w]) => fx(beat(b), 'scream', w));                       // ボーカルの叫び = 大きな文字
+  SC.impact.forEach(([b, w]) => fx(beat(b), 'scream', w));                       // 大きな一撃 = 巨大な切り抜き文字（BREAK / CORE）
 
   // ===== FEEDBACK 0〜4 ｜ アンプのうなり → スティックのカウント（スティックが降ってくる）==========================
   fx(0, 'feedback', beat(12));
@@ -109,7 +110,7 @@ function circlePitChart() {
   shout(46, 'HEY', { x: 260 }); shout(47, 'HEY', { x: 540 });
   drums(4, 12, 0.8);
 
-  // ===== D-BEAT 12〜28 ｜ 刻み = ねらう鋲（扇に）／ 小節の終わりのコード = 床の柱（跳ぶ）／ HEY! ======================
+  // ===== BREAKBEAT 12〜28 ｜ 刻み = ねらう鋲（扇に）／ 小節の終わりのコード = 床の柱（跳ぶ）／ HEY! ======================
   fx(bar(12), 'boom', 1);
   const verse = (k0, k1, o = {}) => {
     for (let k = k0; k < k1; k++) {
@@ -128,7 +129,7 @@ function circlePitChart() {
   drums(12, 28);
   shoutFx(12, 28);
 
-  // ===== TWO-STEP 28〜36 ｜ はねる弾 ／ 刻み = 降る鋲 ／ HO! ============================================================
+  // ===== STUTTER 28〜36 ｜ はねる弾 ／ 刻み = 降る鋲 ／ HO! ============================================================
   fx(bar(28), 'boom', 0.8);
   for (let k = 28; k < 36; k++) {
     const notes = gtr(k, k + 1), shoutBar = k % 2 === 1;
@@ -163,7 +164,7 @@ function circlePitChart() {
   chorus(36, false);
   hint(bar(36) + 0.4, 'とげの輪は 跳び越える', 6);
 
-  // ===== D-BEAT II 44〜52 ｜ 刻みが16分の2連 =========================================================================
+  // ===== BREAKBEAT II 44〜52 ｜ 刻みが16分の2連 =========================================================================
   fx(bar(44), 'boom', 1);
   verse(44, 52, { v: 300 });
   sticks(51, 52);
@@ -231,7 +232,7 @@ function circlePitChart() {
     if (k % 2 === 0) diver(k * 4 + 2, k % 4 === 0, { color: PINK });
   }
   pit(328, 1); pit(340, -1);
-  SC.lead.forEach(([b, L, m]) => fire(beat(b), 0.4, delay => hcStud({ x: 110 + (W - 220) * (m - 74) / 10, y: -10, a: Math.PI / 2, v: 260, g: 260, r: 9, delay, color: YEL })));
+  SC.lead.filter(([b]) => inBars(b, 80, 88)).forEach(([b, L, m]) => fire(beat(b), 0.4, delay => hcStud({ x: 110 + (W - 220) * (m - 74) / 10, y: -10, a: Math.PI / 2, v: 260, g: 260, r: 9, delay, color: YEL })));
   SC.shout.filter(([b]) => inBars(b, 80, 88)).forEach(([b, w], i) => shout(b, w, { x: i % 2 ? 620 : 180, y: 56, v: 300 }));
   drums(80, 88, 1.2);
   shoutFx(80, 88);
@@ -251,7 +252,7 @@ function circlePitChart() {
 addSong({
   id: 'circlepit',
   title: 'Circle Pit',
-  meta: '200 BPM · 1:52 · オリジナル曲 · ハードコア・パンク · 激しい · むずかしい',
+  meta: '200 BPM · 1:52 · オリジナル曲 · ブレイクコア · 激しい · むずかしい',
   file: 'CirclePit.mp3',
   bpm: 200, beat: HC_BEAT, end: 111.3,
   beatTime: hcBeatTime,
