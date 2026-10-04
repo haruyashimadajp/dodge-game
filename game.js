@@ -2805,6 +2805,125 @@ function ogHalt({ x, y, a, dist, stopT, goT, goV = 640, aim = false, spread = 0,
   });
 }
 
+/* ---- ここから下は曲⑰「Echoes」で生まれた形（反響・残響）--------------------------------------
+   （「echo」という名前は ExtremeEX の分身が使っているので、こちらは rv〜 = reverb）
+     rvTrail   … 弾 1 つと、その「こだま」。こだまは同じ道を lag 秒おくれて、少し小さく・うすくなって追いかける
+                 （こだまにも当たる。予告は先頭の弾だけ）。path は発射の瞬間に1回だけ作る道すじ (t → [x, y])
+     rvShot    … rvTrail のまっすぐ版（aim = true なら発射の瞬間の自分をねらう）
+     rvWave    … rvTrail の波版: 横から、高さ y を中心に小さく波打ちながら流れる（サビの旋律）
+     rvBounce  … 壁・天井・床で反射する弾（反響）。bounces 回はね返るたびに少しうすくなる
+     rvRing    … rvBounce の輪
+     rvDrop    … しずく: 天井から落ちて、床に着いたところから水の波紋（rvRipple）
+     rvRipple  … 床を左右に広がる水の波（低い山。跳び越える）。だんだん低くなって消える
+     rvBell    … 音の鳴る結晶（本体は当たらない）。taps の時刻（曲の秒）ごとに、輪を出す（こだまのたびに数が減る）。
+                 輪の弾は life 秒で消える（音が消えるのと同じ）
+   -------------------------------------------------------------------------- */
+function rvTrail({ x, y, path, taps = 3, lag = 0.45, fade = 0.72, r = 9, delay = 0.6, color = '#8fe9ff', style = 'rv', life = 9 }) {
+  const grp = { path: null, make: path };
+  const step = (b) => {
+    if (!grp.path) grp.path = grp.make();
+    const p = grp.path(b.age); b.x = p[0]; b.y = p[1];
+    if (b.age > life || (b.age > 0.3 && (b.x < -80 || b.x > W + 80 || b.y < -120 || b.y > H + 80))) b.dead = true;
+  };
+  const head = spawn({ x, y, r, delay, color, style, spd: 1, move: step, lvl: 1 });
+  for (let i = 1; i <= taps; i++)
+    spawn({ kind: 'rvEcho', x, y, r: r * Math.pow(0.9, i), delay: delay + i * lag, color, style, spd: 1, move: step, lvl: Math.pow(fade, i), tap: i, head });
+  return head;
+}
+function rvShot({ x, y, a = Math.PI / 2, v = 240, aim = false, spread = 0, ...o }) {
+  return rvTrail({ x, y, ...o, path: () => {
+    let ang = a;
+    if (aim) { const p = playerXY(); ang = Math.atan2(p.y - y, p.x - x) + spread; }
+    const cs = Math.cos(ang) * v, sn = Math.sin(ang) * v;
+    return t => [x + cs * t, y + sn * t];
+  } });
+}
+function rvWave({ y, dir = -1, v = 300, amp = 14, freq = 2.2, ...o }) {
+  const x0 = dir < 0 ? W + 30 : -30;
+  return rvTrail({ x: x0, y, ...o, path: () => t => [x0 + dir * v * t, y + amp * Math.sin(t * freq * TAU)] });
+}
+function rvBounce({ x, y, a = Math.PI / 2, v = 220, r = 8, bounces = 2, delay = 0.6, color = '#b9a4ff', aim = false, spread = 0, style = 'rv' }) {
+  return spawn({
+    x, y, r, delay, color, style, spd: 1, a, v, left: bounces, lvl: 1, aim, spread,
+    move(b, dt) {
+      if (b.vx === 0 && b.vy === 0) {
+        if (b.aim) { const p = playerXY(); b.a = Math.atan2(p.y - b.y, p.x - b.x) + b.spread; }
+        b.vx = Math.cos(b.a) * b.v; b.vy = Math.sin(b.a) * b.v;
+      }
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.left <= 0) return;
+      let hit = false;
+      if (b.x < b.r && b.vx < 0) { b.x = b.r; b.vx = -b.vx; hit = true; }
+      else if (b.x > W - b.r && b.vx > 0) { b.x = W - b.r; b.vx = -b.vx; hit = true; }
+      if (b.y < b.r && b.vy < 0) { b.y = b.r; b.vy = -b.vy; hit = true; }
+      else if (b.y > GROUND_Y - b.r && b.vy > 0) { b.y = GROUND_Y - b.r; b.vy = -b.vy; hit = true; }
+      if (hit) { b.left--; b.lvl *= 0.78; if (typeof rvFx === 'function') rvFx('bounce', b.x, b.y, b); }
+    },
+  });
+}
+function rvRing({ x, y, n = 10, v = 180, start = 0, ...o }) {
+  for (let i = 0; i < n; i++) rvBounce({ x, y, a: start + i * TAU / n, v, ...o });
+}
+function rvRipple({ x, v = 230, h = 22, decay = 2.2, delay = 0, color = '#8fe9ff' }) {
+  const HALF = 26;
+  const height = (b, px) => {
+    const hh = b.h0 * Math.exp(-b.age / b.decay);
+    let m = 0;
+    for (const f of [b.x0 - b.d, b.x0 + b.d]) { const d = Math.abs(px - f); if (d < HALF) m = Math.max(m, hh * (1 - d / HALF)); }
+    return m;
+  };
+  return spawn({
+    kind: 'rvRipple', x, y: GROUND_Y - 4, r: 6, x0: x, d: 0, h0: h, v, decay, delay, color, spd: 1, height, half: HALF,
+    move(b) { b.d = b.v * b.age; if (b.h0 * Math.exp(-b.age / b.decay) < 7 || b.d > W + 40) b.dead = true; },
+    hits: b => {
+      if (b.age < 0.05) return false;
+      const l = player.x + 3, r = player.x + player.w - 3;
+      let m = 0;
+      for (const f of [b.x0 - b.d, b.x0 + b.d]) m = Math.max(m, b.height(b, Math.max(l, Math.min(r, f))));
+      return m > 0 && player.y + player.h > GROUND_Y - m + 4;
+    },
+  });
+}
+function rvDrop({ x, y = 20, vy = 120, g = 900, r = 9, delay = 0.7, ripple = true, rv = 230, rh = 22, color = '#8fe9ff' }) {
+  return spawn({
+    x, y, r, vy, delay, color, style: 'rv-drop', spd: 1, lane: [0, 1], g, ripple,
+    move(b, dt) {
+      b.vy += b.g * dt; b.y += b.vy * dt;
+      if (b.y >= GROUND_Y - b.r) {
+        b.dead = true;
+        if (b.ripple) rvRipple({ x: b.x, v: rv, h: rh, color: b.color });
+        if (typeof rvFx === 'function') rvFx('splash', b.x, GROUND_Y, b);
+      }
+    },
+  });
+}
+function rvBell({ x, y, taps = [], n = 10, v = 150, r = 7, delay = 0.6, color = '#ffe9a8', spin = 0.5, bounces = 0, size = 18, life = 3.8 }) {
+  return spawn({
+    kind: 'rvBell', x, y, r: size, size, delay, color, spd: 1, safe: true, taps: taps.slice().sort((a, b) => a[0] - b[0]), pulse: 0, k: 0, out: 0, side: 0,
+    move(b, dt) {
+      b.pulse = Math.max(0, b.pulse - dt * 4);
+      while (b.taps.length && songTime >= b.taps[0][0]) {
+        const [, lvl, side] = b.taps.shift();
+        b.pulse = Math.max(b.pulse, lvl); b.side = side || 0;
+        const m = Math.max(3, Math.round(n * (0.4 + 0.6 * lvl)));
+        const start = (b.k++ * spin) * TAU / m + (side > 0 ? Math.PI / m : 0);
+        for (let i = 0; i < m; i++) {
+          const a = start + i * TAU / m;
+          if (bounces) rvBounce({ x: b.x, y: b.y, a, v: v * (0.8 + 0.2 * lvl), r: r * (0.7 + 0.3 * lvl), bounces, delay: 0, color: b.color });
+          else spawn({ x: b.x, y: b.y, vx: Math.cos(a) * v * (0.8 + 0.2 * lvl), vy: Math.sin(a) * v * (0.8 + 0.2 * lvl), r: r * (0.7 + 0.3 * lvl), color: b.color, style: 'rv', lvl, lvl0: lvl, spd: 1, life,
+            move(q, dt) {                                         // 音の輪は、だんだん消えていく（最後の 0.8 秒でうすくなり、消えたら当たらない）
+              q.x += q.vx * dt; q.y += q.vy * dt;
+              q.lvl = q.lvl0 * Math.min(1, (q.life - q.age) / 0.8);
+              if (q.age > q.life) q.dead = true;
+            } });
+        }
+        if (typeof rvFx === 'function') rvFx('tap', b.x, b.y, b, lvl, side);
+      }
+      if (!b.taps.length && (b.out += dt) > 0.6) b.dead = true;
+    },
+  });
+}
+
 // 譜面の進行役: 時刻が来たキューを順に発火するだけ。
 let chart = [];
 let chartIndex = 0;

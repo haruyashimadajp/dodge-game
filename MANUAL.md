@@ -57,7 +57,9 @@ dodge-game/
 │   ├── overture.js      ← 曲⑮「Grand Overture」（オリジナル曲・オーケストラ）の拍・場面・譜面
 │   ├── overture-score.js / overture-env.js / overture-compose.py ← 曲⑮の楽譜データ / 音量データ / 作曲プログラム
 │   ├── ongeki.js        ← 曲⑯「怨撃」（細江慎治・オンゲキの LUNATIC ボス曲）の拍・場面・譜面。小節の番号は原作の譜面と同じ
-│   └── ongeki-score.js / ongeki-env.js ← 曲⑯の音の解析データ（キック・ハイハット・シンセの位置）/ 音量データ
+│   ├── ongeki-score.js / ongeki-env.js ← 曲⑯の音の解析データ（キック・ハイハット・シンセの位置）/ 音量データ
+│   ├── echo.js          ← 曲⑰「Echoes」（オリジナル曲・反響と残響。しずく・ガラスの鈴・ピンポン・ディレイ・ドラム）の拍・場面・譜面
+│   └── echo-score.js / echo-env.js / echo-compose.py ← 曲⑰の楽譜データ（聞こえるこだま1つ1つの時刻も入っている）/ 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔の中・ステンドグラスのバラ窓の時計・光の筋・真鍮の歯車）
@@ -72,11 +74,12 @@ dodge-game/
 ├── visuals-quake.js ← 曲⑭の見た目（地下の空洞のライブ会場・マグマの割れ目・スピーカーの山・地震計・震度メーター）
 ├── visuals-hall.js  ← 曲⑮の見た目（コンサートホール・弾いているパートが光るオーケストラ・指揮者・幕・強弱記号）
 ├── visuals-ongeki.js ← 曲⑯の見た目（オンゲキのレーン・あかニャン／こんじきニャン・体力・ベルの数・YOU ARE A SUPER SHOOTER!!）
+├── visuals-cave.js   ← 曲⑰の見た目（反響する洞窟・水の床・結晶・こだまに合わせて光る左右の壁・音の波形とそのこだまの線）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
 ├── style.css    ← 色やレイアウト（タイトル画面・ボタンの見た目）
-├── the EmpErroR.mp3 / Re-Unknown_X.mp3 / Ongeki.mp3 ← 原曲の曲
+├── the EmpErroR.mp3 / Re-Unknown_X.mp3 / Ongeki.mp3 ← 原曲の曲（Echoes.mp3 などそのほかの mp3 は、songs/〜-compose.py で作ったオリジナル曲）
 └── MANUAL.md    ← この説明書
 ```
 
@@ -752,7 +755,24 @@ ogHalt({ x, y, a, dist, stopT, goT, goV, aim })    // 止まって急に動く�
 次の打で一気に飛ぶ（輪は外へ、弧は自分をねらう）。14〜18 小節（ノーツ地帯の前半）は、左右の上のすみから放射状の弾がゆっくり来る（そのぶんねらい撃ちと輪は減らし、19〜21 小節も軽め）。
 「怨撃」は原曲（細江慎治・SEGA）の音源を使っています。拍は音の解析で合わせた（1拍目 = 0.122秒、220 BPM）。
 
-### 5-19. 軽くするための道具（visuals.js）
+### 5-19. 曲⑰「Echoes」で生まれた形（反響・残響）
+
+（「echo」という名前は ExtremeEX の分身が使っているので、こちらは `rv`〜 = reverb）
+```js
+rvShot({ x, y, a, v, aim, taps, lag, fade })   // 弾 1 つと、その「こだま」taps 個。こだまは同じ道を lag 秒おくれて、小さく・うすくなって追いかける（こだまにも当たる）
+rvWave({ y, dir, v, amp, freq, taps, lag })    // こだまつきの弾が、横から高さ y を中心に小さく波打ちながら流れる（サビの旋律）
+rvTrail({ x, y, path, taps, lag })             // こだまつきの弾の、いちばん自由な形。path = 発射の瞬間に1回だけ呼ばれて、道すじ (t → [x, y]) を返す関数
+rvBounce({ x, y, a, v, bounces, aim })         // 壁・天井・床で bounces 回はね返る弾（はね返るたびに少しうすくなる）
+rvRing({ x, y, n, v, bounces })                // rvBounce の輪
+rvDrop({ x, vy, g, ripple })                   // しずく: 天井から落ちて、床に着いた所から水の波紋（ripple: false で波紋なし）
+rvRipple({ x, v, h, decay })                   // 床を左右に広がる水の波（低い山 = 跳び越える）。だんだん低くなって消える
+rvBell({ x, y, taps, n, v, life })             // 音の鳴る結晶（本体は当たらない）。taps = [[曲の秒, 大きさ, 左右]] の時刻ごとに輪（小さいこだまほど数が少ない）。輪は life 秒で消える
+```
+曲は songs/echo-compose.py が作る。どの音もピンポン・ディレイ（付点8分 = 0.45 秒ごとに 左 → 右 → 左 …）に送られていて、
+score.json の `echo` に「聞こえるこだま」1つ1つの時刻・大きさ・左右が入っている。譜面はこれを使って、鈴の輪や壁の光を、実際に聞こえるこだまにぴったり合わせている。
+画面の演出は `rvFx('wall' / 'tap' / 'bounce' / 'splash' / 'kick' / 'boom' / 'silence' / 'swell' / 'climax' / 'fade')` で呼ぶ（visuals-cave.js）。
+
+### 5-20. 軽くするための道具（visuals.js）
 
 ```js
 cachedLayer('名前', 3, 0, g => { /* g に背景を描く */ })   // ゆっくりしか変わらない層を絵にしておき、3コマに1回だけ描き直す
@@ -888,7 +908,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`・`'cave'` など。visuals-〜.js の `THEMES.名前`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
    同じ曲に別の譜面を足すときは、`addSong` に `variantOf: 'もとの曲のid'` と `variant: '譜面の名前'` を書く
    （◀ ▶ では出てこず、タイトル画面の「譜面」ボタン / C キーで切りかわる。例: `songs/emperror-classic.js`）
