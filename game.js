@@ -2816,7 +2816,7 @@ function ogHalt({ x, y, a, dist, stopT, goT, goV = 640, aim = false, spread = 0,
      rvDrop    … しずく: 天井から落ちて、床に着いたところから水の波紋（rvRipple）
      rvRipple  … 床を左右に広がる水の波（低い山。跳び越える）。だんだん低くなって消える
      rvBell    … 音の鳴る結晶（本体は当たらない）。taps の時刻（曲の秒）ごとに、輪を出す（こだまのたびに数が減る）。
-                 輪の弾は life 秒で消える（音が消えるのと同じ）
+                 輪の弾は画面の外へ出るまで飛ぶ（life 秒を書くと、そこでうすくなって消える）
    -------------------------------------------------------------------------- */
 function rvTrail({ x, y, path, taps = 3, lag = 0.45, fade = 0.72, r = 9, delay = 0.6, color = '#8fe9ff', style = 'rv', life = 9 }) {
   const grp = { path: null, make: path };
@@ -2897,7 +2897,7 @@ function rvDrop({ x, y = 20, vy = 120, g = 900, r = 9, delay = 0.7, ripple = tru
     },
   });
 }
-function rvBell({ x, y, taps = [], n = 10, v = 150, r = 7, delay = 0.6, color = '#ffe9a8', spin = 0.5, bounces = 0, size = 18, life = 3.8 }) {
+function rvBell({ x, y, taps = [], n = 10, v = 150, r = 7, delay = 0.6, color = '#ffe9a8', spin = 0.5, bounces = 0, size = 18, life = Infinity }) {
   return spawn({
     kind: 'rvBell', x, y, r: size, size, delay, color, spd: 1, safe: true, taps: taps.slice().sort((a, b) => a[0] - b[0]), pulse: 0, k: 0, out: 0, side: 0,
     move(b, dt) {
@@ -2911,10 +2911,10 @@ function rvBell({ x, y, taps = [], n = 10, v = 150, r = 7, delay = 0.6, color = 
           const a = start + i * TAU / m;
           if (bounces) rvBounce({ x: b.x, y: b.y, a, v: v * (0.8 + 0.2 * lvl), r: r * (0.7 + 0.3 * lvl), bounces, delay: 0, color: b.color });
           else spawn({ x: b.x, y: b.y, vx: Math.cos(a) * v * (0.8 + 0.2 * lvl), vy: Math.sin(a) * v * (0.8 + 0.2 * lvl), r: r * (0.7 + 0.3 * lvl), color: b.color, style: 'rv', lvl, lvl0: lvl, spd: 1, life,
-            move(q, dt) {                                         // 音の輪は、だんだん消えていく（最後の 0.8 秒でうすくなり、消えたら当たらない）
+            move(q, dt) {                                         // 音の輪: 画面の外に出るまで飛ぶ（life を書けば、その秒数でうすくなって消える）
               q.x += q.vx * dt; q.y += q.vy * dt;
               q.lvl = q.lvl0 * Math.min(1, (q.life - q.age) / 0.8);
-              if (q.age > q.life) q.dead = true;
+              if (q.age > q.life || q.x < -40 || q.x > W + 40 || q.y < -40 || q.y > H + 40) q.dead = true;
             } });
         }
         if (typeof rvFx === 'function') rvFx('tap', b.x, b.y, b, lvl, side);

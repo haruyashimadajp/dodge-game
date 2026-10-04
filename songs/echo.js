@@ -74,7 +74,7 @@ function echoesChart() {
   // 鈴: 時刻 b に鳴り、そのこだまのたびに輪
   const bell = (b, x, y, taps, o = {}) => {
     const warn = o.warn || 0.7;
-    fire(beat(b), warn, delay => rvBell({ x, y, taps: [[beat(b), 1, 0], ...taps], n: o.n || 10, v: o.v || 140, r: o.r || 7, delay, color: o.color || GOLD, bounces: o.bounces || 0, spin: o.spin || 0.5, life: o.life || 3.8 }));
+    fire(beat(b), warn, delay => rvBell({ x, y, taps: [[beat(b), 1, 0], ...taps], n: o.n || 10, v: o.v || 140, r: o.r || 7, delay, color: o.color || GOLD, bounces: o.bounces || 0, spin: o.spin || 0.5 }));
   };
   // こだまの光（当たらない。左右の壁が、聞こえるこだまに合わせて光る）
   const wallTaps = (kind, k0, k1) => SC.echo.filter(e => e[5] === kind && inBars(e[0], k0, k1)).forEach(e => fx(beat(e[0]), 'wall', e[3], e[2]));
@@ -163,10 +163,10 @@ function echoesChart() {
   SC.kick.filter(b => inBars(b, 32, 44)).forEach(b => fx(beat(b), 'kick', 1));
   wallTaps('lead', 32, 44); wallTaps('snare', 32, 44);
 
-  // ===== FADE 44〜52 ｜ ドラムが消えていく。鈴とそのこだま、しずく。最後の鈴は長くこだまする（輪は長く残って、床まで届く）==============
+  // ===== FADE 44〜52 ｜ ドラムが消えていく。鈴とそのこだま、しずく。最後の鈴は長くこだまする==============
   fx(bar(44), 'fade', 1);
-  SC.ping.filter(([b]) => inBars(b, 44, 48)).forEach(([b, m], i) => bell(b, px(m, 66, 80), 160 + 40 * (i % 2), echoesOf(b, m, 'ping', 0.25), { n: 7, v: 130, color: AQUA, life: 7 }));
-  SC.ping.filter(([b]) => b >= 192).forEach(([b, m], i) => bell(b, [W / 2, 250, 550][i % 3], 170, echoesOf(b, m, 'ping', 0.15), { n: 10, v: 105, color: PEARL, life: 8 }));
+  SC.ping.filter(([b]) => inBars(b, 44, 48)).forEach(([b, m], i) => bell(b, px(m, 66, 80), 160 + 40 * (i % 2), echoesOf(b, m, 'ping', 0.25), { n: 7, v: 130, color: AQUA }));
+  SC.ping.filter(([b]) => b >= 192).forEach(([b, m], i) => bell(b, [W / 2, 250, 550][i % 3], 170, echoesOf(b, m, 'ping', 0.15), { n: 10, v: 105, color: PEARL }));
   SC.drip.filter(([b]) => b >= 190).forEach(([b, pan], i) => drop(b, W / 2 + pan * 300 + (hsh(i, 7) - 0.5) * 200, { rh: 15, rv: 200 }));
   SC.kick.filter(b => inBars(b, 44, 52)).forEach(b => fx(beat(b), 'kick', 0.4));
   wallTaps('ping', 44, 52);
