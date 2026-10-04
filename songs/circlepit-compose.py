@@ -1,5 +1,5 @@
 """Circle Pit — original song for the dodge game (hardcore punk).
-180 BPM, E minor. Beat 0 at t = 0.5 s; 1 beat = 1/3 s; 1 bar = 1.333 s.
+200 BPM, E minor. Beat 0 at t = 0.5 s; 1 beat = 0.3 s; 1 bar = 1.2 s.
 
 A loud, fast hardcore punk song made only from synthesis:
   guitars     — two distorted rhythm guitars, hard left and hard right (double-tracked wall).
@@ -15,6 +15,9 @@ Writes punk.wav and score.json (beat numbers for the chart).
 
 Run:  python3 circlepit-compose.py      (needs numpy + scipy)
 Then: ffmpeg -i punk.wav -b:a 192k CirclePit.mp3, and copy score.json into songs/circlepit-score.js.
+Everything is pushed: the kick runs on every 8th in the verses, double-bass bursts everywhere, blast beats in the second verse
+and the last chorus, a sub drop under every big downbeat, a third lower guitar under the wall, a singer barking "RAH!" / "YEAH!",
+and the master is driven hard into the limiter.
 Form (bars): Feedback 0-4 / Intro riff 4-12 / Verse (d-beat) 12-28 / Two-step 28-36 / Chorus (skank, "OI!") 36-44 /
 Verse 2 44-52 / Chorus 2 52-60 / Stop + "GO!" 60-64 / Breakdown (half time) 64-72 / Mosh (slower) 72-80 /
 Final chorus (blast) 80-88 / Ending 88-92.
@@ -24,7 +27,7 @@ import numpy as np
 from scipy import signal
 
 SR = 44100
-BPM = 180
+BPM = 200
 BEAT = 60 / BPM
 T0 = 0.5
 BARS = 92
@@ -48,7 +51,7 @@ class Bus:
     def stereo(self): return np.vstack([self.L, self.R])
 
 gtrL, gtrR, lead_b, bass_b, sub_b, drums, cym, vox, fxb = (Bus() for _ in range(9))
-score = {k: [] for k in ('gtr', 'kick', 'snare', 'crash', 'china', 'ride', 'tom', 'stick', 'shout', 'slide', 'lead',
+score = {k: [] for k in ('scream', 'boom', 'gtr', 'kick', 'snare', 'crash', 'china', 'ride', 'tom', 'stick', 'shout', 'slide', 'lead',
                          'chord', 'beat', 'feedback', 'stop')}
 
 # ---- tools -------------------------------------------------------------------------------
@@ -96,7 +99,7 @@ def amp(di, gain, mute):
     y = np.tanh(2.2 * y)
     return y
 
-def gtr_note(root, d, typ, seed, gain=26):
+def gtr_note(root, d, typ, seed, gain=34):
     mute = typ == 'm'
     dd = min(d, 0.22) if mute else d
     x = amp(power_di(root, dd + 0.04, mute, seed), gain, mute)
@@ -132,12 +135,13 @@ def parse(lines, start_bar):
     if cur: out.append(cur)
     return out
 
-def play_gtr(notes, gain=26, bass=True, bgain=1.0):
+def play_gtr(notes, gain=34, bass=True, bgain=1.0):
     for i, (b, L, r, typ) in enumerate(notes):
         d = L * BEAT
         jit = rng.uniform(-0.004, 0.004)
         gtrL.add(bt(b) + jit, gtr_note(r, d, typ, 1000 + i, gain), 0.5)
         gtrR.add(bt(b) - jit + 0.006, gtr_note(r, d, typ, 5000 + i, gain * 0.9), 0.5)
+        gtrL.add(bt(b) + 0.011, gtr_note(r - 12 if r >= 45 else r, d, typ, 7000 + i, gain * 1.2), 0.22)   # a third, lower guitar under both (wider, heavier)
         if bass: play_bass(b, L, r - 12, typ, bgain)
         score['gtr'].append([round(b, 3), L, r, typ])
 
@@ -220,10 +224,13 @@ def HH(b, g=1.0, open_=False):
 def TOM(b, m, pan=0.0, g=1.0):
     drums.add(bt(b), mk_tom(m), 0.42 * g, pan); score['tom'].append([round(b, 3), m])
 
-def dbeat(k, crash=False, ride=False):
-    """d-beat: K . S K K . S .  with 8th hats (or ride)"""
+def dkick(b0, b1, step=0.25, g=0.8):
+    """double bass: kicks on every 16th"""
+    for i in range(int(round((b1 - b0) / step))): K(b0 + i * step, g)
+def dbeat(k, crash=False, ride=False, fast=True):
+    """d-beat: K . S K K . S .  with 8th hats (or ride). fast = the kick on every 8th (thrash)"""
     b = k * 4
-    for h in (0, 1.5, 2): K(b + h)
+    for h in ((0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5) if fast else (0, 1.5, 2)): K(b + h, 1.0 if h in (0, 1.5, 2) else 0.8)
     for h in (1, 3): S(b + h)
     for i in range(8):
         if ride: RD(b + i * 0.5, 0.7 + 0.3 * (i % 2 == 0))
@@ -234,15 +241,17 @@ def skank(k, crash_every=1):
     """skank / polka beat: kick on every beat, snare on every off-beat, crash on the beats"""
     b = k * 4
     for i in range(4):
-        K(b + i); S(b + i + 0.5)
+        K(b + i); K(b + i + 0.25, 0.7); S(b + i + 0.5); K(b + i + 0.75, 0.7)
         if i % crash_every == 0: CR(b + i, 0.55 if i else 0.9, 0.4 if i % 2 else -0.4)
     score['beat'].append([b, 'skank'])
 def twostep(k):
     """two-step groove: K . S . . K S .  (bouncy, half the drive)"""
     b = k * 4
     for h in (0, 2.5): K(b + h)
+    dkick(b + 1.5, b + 2.5, 0.25, 0.75)                                            # a double-bass burst into the bounce
     for h in (1, 3): S(b + h)
     for i in range(4): RD(b + i, 1.0 if i % 2 == 0 else 0.7)
+    CH(b, 0.8)
     if k % 2 == 0: CR(b, 0.6)
     score['beat'].append([b, 'twostep'])
 def halftime(k, kicks, china=True):
@@ -257,7 +266,7 @@ def blast(k):
     """blast beat: kick and snare together on every 8th (hammer blast), crash on the beats"""
     b = k * 4
     for i in range(8):
-        K(b + i * 0.5, 0.85); S(b + i * 0.5, 0.75 if i % 2 else 0.9)
+        K(b + i * 0.5, 0.85); K(b + i * 0.5 + 0.25, 0.65); S(b + i * 0.5, 0.75 if i % 2 else 0.9)
         if i % 2 == 0: CR(b + i * 0.5, 0.45 if i else 0.9, 0.4 if i % 4 else -0.4)
     score['beat'].append([b, 'blast'])
 def fill(k, kind='toms', start=2):
@@ -303,6 +312,25 @@ def shout(b, word, g=1.0, voices=8):
         vox.add(bt(b) - pre + rng.uniform(-0.015, 0.03), voice(word, f0, int(rng.integers(1 << 30))), 0.16 * g, -0.8 + 1.6 * v / (voices - 1))
     score['shout'].append([round(b, 3), word])
 
+def scream(b, word='RAH', g=1.0):
+    """the singer: a harsh, distorted bark (noise + a low buzz through the vowel 'a', doubled)"""
+    for v in range(2):
+        r = np.random.default_rng(int(rng.integers(1 << 30)))
+        d = 0.55 if word == 'RAH' else 0.45; n = int(d * SR); t = np.arange(n) / SR
+        f0 = r.uniform(140, 175) * (1 + 0.15 * np.exp(-t / 0.08) - 0.12 * np.clip((t - d * 0.5) / (d * 0.5), 0, 1))
+        src = 0.6 * saw(f0, n) + 0.9 * r.standard_normal(n) + 0.5 * saw(f0 * 0.5, n)   # rough, growled (sub-harmonic)
+        seq = ('e', 'a') if word == 'YEAH' else ('a', 'a')
+        u = np.clip(t / (d * 0.4), 0, 1)
+        y = formant(src, seq[0]) * (1 - u) + formant(src, seq[1]) * u
+        y = np.tanh(5 * y) * np.minimum(1, t / 0.02) * np.clip((d - t) / 0.12, 0, 1)
+        vox.add(bt(b) - 0.03 + v * 0.012, bp(y, 250, 6000), 0.4 * g, -0.15 + 0.3 * v)
+    score['scream'].append([round(b, 3), word])
+def boom(b, g=1.0):
+    """a sub drop under the big downbeats (falls from 60 to 30 Hz)"""
+    n = int(1.4 * SR); t = np.arange(n) / SR
+    x = np.sin(2 * np.pi * phase(30 + 32 * np.exp(-t / 0.25), n)) * np.exp(-t / 0.6) * np.minimum(1, t / 0.004)
+    sub_b.add(bt(b), np.tanh(1.5 * x), 0.55 * g); score['boom'].append(b)
+
 # ---- noises ------------------------------------------------------------------------------
 def pick_slide(b_end, beats=2):
     """a pick scraped down the low strings: a grinding noise falling in pitch, distorted"""
@@ -343,7 +371,14 @@ def chord_of(notes):
 
 # ==== Feedback 0-4: amp hum and feedback, a tom roll, sticks ======================================
 feedback(0, 12, 64)
-for i in range(4): drums.add(bt(12 + i), mk_stick(), 0.35); score['stick'].append(12 + i)
+for b in range(0, 8):                                                              # pounding floor toms and kick, getting louder
+    g = 0.5 + 0.5 * b / 8; K(b, g); TOM(b, 41, -0.3, g); TOM(b + 0.5, 45, 0.3, g * 0.7)
+    if b % 2 == 0: CR(b, g * 0.7, 0.4 if b % 4 else -0.4)
+for i in range(16): TOM(8 + i * 0.25, [52, 50, 48, 45][i // 4], -0.6 + i * 0.08, 0.6 + 0.4 * i / 16)
+dkick(8, 12, 0.25, 0.75)
+for i in range(4):
+    drums.add(bt(12 + i), mk_stick(), 0.35); score['stick'].append(12 + i)
+    K(12 + i, 1.1); CH(12 + i, 1.0); S(12 + i, 0.8)
 pick_slide(16, 4)
 
 # ==== Intro riff 4-12 ===================================================================
@@ -356,6 +391,7 @@ for k in range(4, 12):
         score['kick'] = [x for x in score['kick'] if not (44 + 2 <= x < 48)]
 fill(11, 'snare', 2)
 shout(46, 'HEY'); shout(47, 'HEY')
+scream(16); boom(16)
 
 # ==== Verse 12-28: d-beat, palm-muted chugs answered by open chords ==========================
 VERSE = ['e e e e e e G -', 'e e e e e e A -', 'e e e e e e Bb A', 'G - - - F# - - -']
@@ -363,6 +399,7 @@ VERSE_END = ['e e e e e e G -', 'e e e e e e A -', 'e e e e e e Bb A', 'G - G - 
 v1 = parse(VERSE * 3 + VERSE_END, 12); play_gtr(v1); chord_of(v1)
 for k in range(12, 28):
     dbeat(k, crash=(k % 4 == 0))
+    if k % 4 == 0: scream(k * 4, 'YEAH' if k % 8 else 'RAH', 0.9); boom(k * 4, 0.8)
     if k % 4 == 3:
         shout(k * 4 + 2, 'HEY', 0.9)
 fill(27, 'toms', 3)
@@ -372,6 +409,7 @@ pick_slide(112, 2)
 TWO = ['E - - e . e G -', 'A - - a . a Bb -', 'E - - e . e G -', 'C - - - B - - -']
 t2 = parse(TWO * 2, 28); play_gtr(t2); chord_of(t2)
 for k in range(28, 36): twostep(k)
+boom(112); scream(112, 'RAH')
 for k in (29, 31, 33, 35): shout(k * 4 + 3, 'HO', 0.85)
 fill(35, 'snare', 2)
 pick_slide(144, 2)
@@ -381,6 +419,7 @@ CHO = ['C C C C C C C C', 'G G G G G G G G', 'D D D D D D D D', 'E E E E E E E E
 CHO_END = ['C C C C C C C C', 'G G G G G G G G', 'D D D D D D D D', 'E - - - B - Bb -']
 def chorus(k0, last=False):
     c = parse(CHO + (CHO_END if not last else CHO), k0); play_gtr(c, 24); chord_of(c)
+    boom(k0 * 4); scream(k0 * 4, 'YEAH')
     for k in range(k0, k0 + 8):
         skank(k)
         if k % 2 == 1:
@@ -390,8 +429,9 @@ chorus(36)
 # ==== Verse 2 44-52: faster drums (ride), more chugs ========================================
 VERSE2 = ['e+e e e+e e e e G -', 'e+e e e+e e e e A -', 'e+e e e+e e e e Bb A', 'G - - - F# - - -']
 v2 = parse(VERSE2 + VERSE2[:3] + ['G - G - Bb - B -'], 44); play_gtr(v2); chord_of(v2)
+boom(176); scream(176, 'RAH')
 for k in range(44, 52):
-    dbeat(k, crash=(k % 4 == 0), ride=True)
+    blast(k) if k % 4 != 3 else dbeat(k, crash=False, ride=True)
     if k % 4 == 3: shout(k * 4 + 2, 'HEY')
 fill(51, 'toms', 2)
 
@@ -413,7 +453,9 @@ br = parse(BRK * 2, 64); play_gtr(br, 30, bgain=1.2); chord_of(br)
 for k in range(64, 72):
     kicks = [h for (b, L, r, typ) in br if k * 4 <= b < k * 4 + 4 for h in [b - k * 4]]
     halftime(k, kicks)
-    if k % 2 == 1: shout(k * 4 + 2, 'HEY', 0.9)
+    if k % 2 == 1: shout(k * 4 + 2, 'HEY', 0.9); dkick(k * 4 + 2.5, k * 4 + 4, 0.25, 0.85)   # double-bass roll after the shout
+    if k % 2 == 0: boom(k * 4, 1.2)
+scream(256, 'RAH', 1.3)
 CR(256, 1.0)
 pick_slide(288, 2)
 
@@ -423,6 +465,7 @@ mo = parse(MOSH * 2, 72); play_gtr(mo, 32, bgain=1.3); chord_of(mo)
 for k in range(72, 80):
     b0 = k * 4
     if k % 2 == 0:
+        boom(b0, 1.3)
         for h in (0, 1.5, 3):
             K(b0 + h, 1.15); CH(b0 + h, 1.1)
         S(b0 + 1.5, 1.2)
@@ -433,15 +476,16 @@ for k in range(72, 80):
         score['kick'] = [x for x in score['kick'] if not (b0 + 1 <= x < b0 + 3)]
         fill(79, 'toms', 1)
 shout(300, 'HEY'); shout(302, 'HEY'); shout(304, 'HEY'); shout(306, 'HEY')
-shout(318, 'GO', 1.3)
+shout(318, 'GO', 1.3); scream(288, 'RAH', 1.3)
 pick_slide(320, 2)
 
 # ==== Final chorus 80-88: blast beat, strummed chords, a lead guitar screaming over the top ====================
 cf = parse(CHO * 2, 80); play_gtr(cf, 26); chord_of(cf)
 for k in range(80, 88):
-    if k < 86: blast(k)
-    else: skank(k)
+    blast(k)
+    if k % 2 == 0: boom(k * 4, 1.1)
     if k % 2 == 1: shout(k * 4, 'OI', 1.1); shout(k * 4 + 2, 'OI', 1.1)
+scream(320, 'RAH', 1.3); scream(336, 'YEAH', 1.2)
 LEAD = [(320, 2, 79), (322, 1, 76), (323, 1, 74), (324, 3, 74), (327, 1, 76),
         (328, 2, 78), (330, 1, 79), (331, 1, 81), (332, 4, 83),
         (336, 2, 84), (338, 1, 83), (339, 1, 81), (340, 3, 79), (343, 1, 78),
@@ -460,7 +504,7 @@ for i, (b, L, r, typ) in enumerate(en):
     score['gtr'].append([b, L if i < 4 else 12, r, 'o'])
     K(b, 1.1); CR(b, 1.0, -0.4); CR(b, 0.8, 0.4); S(b, 1.0)
 for i in range(12): TOM(354 + i / 6, [52, 50, 48, 47, 45, 43][i // 2], 0.5 - i / 12)
-K(356, 1.2); CR(356, 1.2); CH(356, 1.0)
+K(356, 1.2); CR(356, 1.2); CH(356, 1.0); boom(356, 1.5); scream(356, 'RAH', 1.4)
 shout(356, 'HEY', 1.3)
 feedback(357, 368, 76)
 
@@ -491,7 +535,7 @@ V = vox.stereo()
 V = np.tanh(V * 1.5) / 1.5
 Lg = np.vstack([cab(lead_b.L), cab(lead_b.R)])
 verb = room(D * 0.45 + V * 0.9 + C * 0.3 + Lg * 0.6 + G * 0.08, 1.2, 2.0)
-mix = G * 0.78 + D * 1.0 + C * 0.75 + B * 0.9 + sub_b.stereo() * 0.7 + V * 0.85 + Lg * 0.9 + fxb.stereo() * 1.0 + verb * 0.32
+mix = G * 0.85 + D * 1.05 + C * 0.75 + B * 0.9 + sub_b.stereo() * 0.7 + V * 0.85 + Lg * 0.9 + fxb.stereo() * 1.0 + verb * 0.32
 mix -= np.mean(mix, axis=1, keepdims=True)
 mix = np.vstack([hp(mix[0], 28, 2), hp(mix[1], 28, 2)])
 mix /= np.max(np.abs(mix))
@@ -499,7 +543,7 @@ mix = comp(mix, 0.45, 3, 0.005, 0.15)
 mix /= np.max(np.abs(mix))
 pk = np.max(np.abs(mix), axis=0)
 pk = np.maximum.reduce([np.roll(pk, -i) for i in range(0, int(0.004 * SR), 8)])
-DRIVE, THR = 2.0, 0.9
+DRIVE, THR = 2.6, 0.9
 gl = np.minimum(1, THR / np.maximum(pk * DRIVE, 1e-6))
 rel = np.exp(-1 / (0.08 * SR))
 gl = signal.lfilter([1 - rel], [1, -rel], gl[::-1])[::-1]

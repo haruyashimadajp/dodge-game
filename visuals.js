@@ -417,6 +417,8 @@ function drawScene() {
   const mir = Math.abs(stage.mirror) < 0.03 ? 0.03 * Math.sign(stage.mirror || 1) : stage.mirror;
   ctx.save();
   ctx.translate(W / 2 + sx, H * 0.55 + sy);
+  const cam = th.camera ? th.camera(T, bp, k) : null;      // 見た目のセットが決めるカメラの動き（Circle Pit のヘッドバンギングなど）
+  if (cam) { ctx.translate((cam.x || 0) * fxScale, (cam.y || 0) * fxScale); ctx.rotate((cam.rot || 0) * fxScale); }
   ctx.rotate(rot);
   ctx.scale(zoom * mir, zoom);
   ctx.translate(-(W / 2 + (pc.x - W / 2) * fo), -(H * 0.55 + (pc.y - H * 0.55) * fo));

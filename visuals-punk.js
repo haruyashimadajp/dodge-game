@@ -32,7 +32,10 @@
     made: false, wall: null, stage: null, grain: null, beams: null,
     kick: 0, snare: 0, bang: 0, crash: 0, china: 0, nod: 0, cheer: 0, fists: 0, strobe: 0, inv: 0, dark: 0,
     papers: [], pops: [], stamps: [], scratches: [], dust: [], crowd: [], cracks: [], amp: [0, 0], fbUntil: -1, mode: '',
+    quake: 0, rage: 0, screams: [],
   };
+  // どれだけ激しくゆらすか（場面ごと）
+  const intensity = () => ({ FEEDBACK: 0.7, STOP: 0.35, 'NO FUTURE': 0.7, BREAKDOWN: 1.35, MOSH: 1.45 })[st.mode] || (inSong() && songTime > hcBar(80) ? 1.3 : 1);
 
   // ---- 前もって描く絵 ---------------------------------------------------------------------------------
   function ransomBox(g, ch, x, y, s, seed, tilt) {                        // 切り抜き文字1つ（バナー・叫び・チラシで使う）
@@ -154,18 +157,23 @@
   }
 
   function reset() {
-    Object.assign(st, { kick: 0, snare: 0, bang: 0, crash: 0, china: 0, nod: 0, cheer: 0, fists: 0, strobe: 0, inv: 0, dark: 0, papers: [], pops: [], stamps: [], scratches: [], dust: [], cracks: [], amp: [0, 0], fbUntil: -1, mode: '' });
+    Object.assign(st, { kick: 0, snare: 0, bang: 0, crash: 0, china: 0, nod: 0, cheer: 0, fists: 0, strobe: 0, inv: 0, dark: 0, papers: [], pops: [], stamps: [], scratches: [], dust: [], cracks: [], amp: [0, 0], fbUntil: -1, mode: '', quake: 0, rage: 0, screams: [] });
   }
 
   // ---- 譜面から呼ばれる演出 ----------------------------------------------------------------------------
   window.hcFx = function (type, a, b) {
-    if (type === 'kick') st.kick = Math.max(st.kick, 0.6 + 0.4 * a);
+    if (type === 'kick') { st.kick = Math.max(st.kick, 0.6 + 0.4 * a); shake(3.5 * intensity()); }
+    else if (type === 'boom2') { st.quake = 1; shake(18 * intensity()); punch(0.05); }
+    else if (type === 'scream') {
+      st.quake = Math.max(st.quake, 0.8); st.rage = 1; shake(14 * intensity());
+      st.screams.push({ word: a + '!', age: 0, seed: Math.random() * 99 });
+    }
     else if (type === 'chug') st.amp[a] = 1;
     else if (type === 'crack') { if (st.cracks.length < 12) st.cracks.push({ x: a, age: 0, seed: Math.random() * 99 }); }
-    else if (type === 'snare') { st.snare = 1; if (st.mode === 'BREAKDOWN' || st.mode === 'MOSH') st.nod = Math.max(st.nod, 0.6); }
+    else if (type === 'snare') { st.snare = 1; shake(6 * intensity()); if (st.mode === 'BREAKDOWN' || st.mode === 'MOSH') st.nod = Math.max(st.nod, 0.6); }
     else if (type === 'bang') { st.bang = 1; st.nod = 1; shake(5); }
     else if (type === 'crash' || type === 'china') {
-      st[type] = 1;
+      st[type] = 1; shake((type === 'crash' ? 9 : 7) * intensity());
       const n = [2, 4, 7][gfx] * (a || 1);
       for (let i = 0; i < n && st.papers.length < [20, 45, 80][gfx]; i++)
         st.papers.push({ x: Math.random() * W, y: -10 - Math.random() * 40, vx: (Math.random() - 0.5) * 80, vy: 60 + Math.random() * 90, rot: Math.random() * TAU, vr: (Math.random() - 0.5) * 8, w: 6 + Math.random() * 7, c: PAPER[Math.floor(Math.random() * PAPER.length)] });
@@ -201,6 +209,9 @@
     st.amp[0] = Math.max(0, st.amp[0] - dt * 8); st.amp[1] = Math.max(0, st.amp[1] - dt * 8);
     for (const c of st.cracks) c.age += dt;
     st.cracks = st.cracks.filter(c => c.age < 1.2);
+    dec('quake', 2.2); dec('rage', 1.6);
+    for (const q of st.screams) q.age += dt;
+    st.screams = st.screams.filter(q => q.age < 0.9);
     dec('kick', 6); dec('snare', 7); dec('bang', 4); dec('crash', 2); dec('china', 3); dec('nod', 5); dec('cheer', 0.8); dec('fists', 0.7); dec('inv', 1);
     st.strobe = st.mode === 'CIRCLE PIT' && T > hcBar(80) - 0.1 && T < hcBar(88) ? 1 : 0;
     for (const p of st.papers) { p.x += p.vx * dt + Math.sin(p.rot) * 20 * dt; p.y += p.vy * dt; p.rot += p.vr * dt; }
@@ -317,6 +328,18 @@
       ctx.restore();
     }
     ctx.globalAlpha = 1;
+    // ボーカルの叫び: 巨大な切り抜き文字がたたきつけられる（弾のうしろ）
+    for (const q of st.screams) {
+      const e = q.age, land = easeOut(clamp01(e / 0.1)), a = clamp01(1 - (e - 0.45) / 0.45), n = q.word.length;
+      ctx.save(); ctx.globalAlpha = 0.35 * a; ctx.translate(W / 2 + Math.sin(e * 70) * 6 * (1 - land), 330); ctx.scale(2.6 - 1.2 * land, 2.6 - 1.2 * land);
+      [...q.word].forEach((ch, i) => ransomBox(ctx, ch, (i - (n - 1) / 2) * 52, (hs(q.seed, i) - 0.5) * 12, 60, q.seed + i * 3, (hs(q.seed, i + 9) - 0.5) * 0.5));
+      ctx.restore();
+    }
+    if (st.rage > 0.01) {                                                 // 叫びと重低音で、画面のふちが赤く脈打つ
+      const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
+      g.addColorStop(0, 'rgba(255,0,20,0)'); g.addColorStop(1, `rgba(255,0,20,${(0.35 * st.rage).toFixed(3)})`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
     // 止まった所: 暗く
     if (st.dark > 0.01) { ctx.fillStyle = `rgba(0,0,0,${(0.5 * st.dark).toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
   }
@@ -626,10 +649,22 @@
     stud(cx, cy, 16 + 4 * k, YEL);
   }
 
+  // カメラ: 拍ごとにヘッドバンギング（下にガクッ）＋ 左右に交互にゆさぶる。ブレイクダウンとモッシュは特に重く
+  function camera(T, bp, k) {
+    const I = inSong() ? intensity() : 0.35;
+    const n = Math.floor(bp), f = bp - n, side = n % 2 ? 1 : -1, hit = Math.exp(-f * 5);
+    const heavy = st.mode === 'BREAKDOWN' || st.mode === 'MOSH';
+    const lo = inSong() ? songEnv(0, T) : 0.4;
+    let y = I * (10 * hit + (heavy ? 22 * st.nod : 0) + 14 * st.quake);
+    let x = side * I * 7 * hit + (Math.random() * 2 - 1) * I * 3 * lo + Math.sin(T * 41) * 6 * st.quake;
+    const rot = side * I * 0.022 * hit + Math.sin(T * 37) * 0.02 * st.quake + (heavy ? side * 0.02 * st.nod : 0);
+    return { x, y, rot };
+  }
+
   THEMES.punk = {
     noTrails: true, glow: 1.6, noScanlines: true, noGlow: false,
     clearColors: ['#ff2e3a', '#f4f4f4', '#ffd23f', '#ff4fa3', '#111111'],
     kinds: { hcLetter: letterKind, hcDiver: diverKind, hcPit: pitKind, hcStick: stickKind },
-    reset, update, background, floor, platform, bullet, laser, fire, flash, banner, hint, title,
+    reset, update, background, floor, platform, bullet, laser, fire, flash, banner, hint, title, camera,
   };
 })();

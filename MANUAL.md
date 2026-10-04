@@ -60,7 +60,7 @@ dodge-game/
 │   ├── ongeki-score.js / ongeki-env.js ← 曲⑯の音の解析データ（キック・ハイハット・シンセの位置）/ 音量データ
 │   ├── echo.js          ← 曲⑰「Echoes」（オリジナル曲・反響と残響。しずく・ガラスの鈴・ピンポン・ディレイ・ドラム）の拍・場面・譜面
 │   ├── echo-score.js / echo-env.js / echo-compose.py ← 曲⑰の楽譜データ（聞こえるこだま1つ1つの時刻も入っている）/ 音量データ / 作曲プログラム
-│   ├── circlepit.js     ← 曲⑱「Circle Pit」（オリジナル曲・ハードコア・パンク。ひずんだギター・ドラム・みんなの叫び）の拍・場面・譜面
+│   ├── circlepit.js     ← 曲⑱「Circle Pit」（オリジナル曲・200 BPM のハードコア・パンク。ひずんだギター・ドラム・ボーカルとみんなの叫び。画面がずっとヘッドバンギングする）の拍・場面・譜面
 │   └── circlepit-score.js / circlepit-env.js / circlepit-compose.py ← 曲⑱の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
@@ -790,7 +790,8 @@ hcHop({ x, vx, hop })                          // ツーステップではねる
 ```
 曲は songs/circlepit-compose.py が作る。score.json の `gtr` にギターの1音1音（拍・長さ・根音・開放 'o' / ミュート 'm'）、`shout` にみんなの叫び、`beat` に小節ごとのビートの種類が入っている。
 譜面は「ミュートの刻み = アンプの鋲」「開放のコード = 音の柱（根音で位置が決まる）」のように、音の種類で攻撃を決めている。
-画面の演出は `hcFx('kick' / 'snare' / 'bang' / 'crash' / 'china' / 'chug' / 'shout' / 'count' / 'slide' / 'feedback' / 'land' / 'stop' / 'breakdown' / 'mosh' / 'final' / 'end' …)` で呼ぶ（visuals-punk.js）。
+画面の演出は `hcFx('kick' / 'snare' / 'bang' / 'crash' / 'china' / 'chug' / 'shout' / 'scream' / 'boom2' / 'count' / 'slide' / 'feedback' / 'land' / 'stop' / 'breakdown' / 'mosh' / 'final' / 'end' …)` で呼ぶ（visuals-punk.js）。
+見た目のセットに `camera(T, bp, k)` を書くと、カメラを `{ x, y, rot }` だけ動かせる（visuals.js。設定の「画面演出」で小さくなる）。punk はこれで、拍ごとに下へガクッと落ちて左右にゆさぶる（ヘッドバンギング）。
 
 ### 5-21. 軽くするための道具（visuals.js）
 

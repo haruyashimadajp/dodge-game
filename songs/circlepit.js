@@ -2,7 +2,7 @@
 
 /* =========================================================================
    曲⑱  Circle Pit（オリジナル曲）  —  拍・場面・譜面
-   ハードコア・パンク。180 BPM、ホ短調。曲は songs/circlepit-compose.py で作曲・合成した。
+   ハードコア・パンク。200 BPM、ホ短調。曲は songs/circlepit-compose.py で作曲・合成した。
    左右に分けた2本のひずんだギター（パワーコード）、ひずんだベース、ドラム、みんなの叫び（HEY! / OI! / GO!）。
    ビートは場面ごとに変わる: Dビート（Aメロ）、スカンク・ビート（サビ）、ツーステップ、ハーフタイムのブレイクダウン、ブラスト。
    難易度はむずかしい。演出は visuals-punk.js（地下のライブハウス。アンプの山、モッシュする観客、コピーしたチラシ）。
@@ -19,8 +19,8 @@
      リードギター          = 音の高さの所に鋲が降る
    ========================================================================= */
 
-// 180 BPM: 1拍 = 1/3秒、1小節 = 4/3秒。0拍目 = 0.5秒
-const HC_BEAT = 1 / 3;
+// 200 BPM: 1拍 = 0.3秒、1小節 = 1.2秒。0拍目 = 0.5秒
+const HC_BEAT = 0.3;
 function hcBeatTime(n) { return 0.5 + n * HC_BEAT; }
 function hcBeatPos(t)  { return (t - 0.5) / HC_BEAT; }
 const hcBar = k => hcBeatTime(k * 4);
@@ -86,6 +86,8 @@ function circlePitChart() {
   const sticks = (k0, k1) => SC.tom.filter(([b]) => inBars(b, k0, k1)).forEach(([b, m], i) =>
     fire(beat(b), 0.45, delay => hcStick({ x: clampX(120 + ((m - 40) / 12) * (W - 240) + (hsh(b) - 0.5) * 60), vy: 260, delay })));
   SC.slide.forEach(([b0, b1]) => fx(beat(b0), 'slide', (b1 - b0) * HC_BEAT));
+  SC.boom.forEach(b => fx(beat(b), 'boom2', 1));                                   // 重低音の落下 = 画面が大きくゆれる
+  SC.scream.forEach(([b, w]) => fx(beat(b), 'scream', w));                       // ボーカルの叫び = 大きな文字
 
   // ===== FEEDBACK 0〜4 ｜ アンプのうなり → スティックのカウント（スティックが降ってくる）==========================
   fx(0, 'feedback', beat(12));
@@ -249,9 +251,9 @@ function circlePitChart() {
 addSong({
   id: 'circlepit',
   title: 'Circle Pit',
-  meta: '180 BPM · 2:04 · オリジナル曲 · ハードコア・パンク · むずかしい',
+  meta: '200 BPM · 1:52 · オリジナル曲 · ハードコア・パンク · 激しい · むずかしい',
   file: 'CirclePit.mp3',
-  bpm: 180, beat: HC_BEAT, end: 123.6,
+  bpm: 200, beat: HC_BEAT, end: 111.3,
   beatTime: hcBeatTime,
   beatPos: hcBeatPos,
   speedAt: hcSpeedAt,
@@ -260,8 +262,8 @@ addSong({
   build: circlePitChart,
   theme: 'punk',                   // visuals-punk.js の見た目のセット
   titleLook: { sky: ['#0a0a0a', '#2a0808'], color: '#ff2e3a', tier: 2, pulse: 0.03, stars: 0 },
-  titleBpm: 180,
-  preview: 48.5,
+  titleBpm: 200,
+  preview: 43.7,
   clearTitle: 'CIRCLE PIT',
   overTitle: 'ピットから放り出された…',
   clearText: '最後のコードが鳴りやまない。',
