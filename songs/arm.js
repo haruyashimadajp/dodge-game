@@ -369,9 +369,10 @@ function armChart() {
     const STYLES = [['armFlame', EMBER, 8], ['armOrb', VIOLET, 7], ['armFeather', PINK, 7]];
     let i = 0;
     for (let t = t0; t < t1; t += ARM_BEAT / 2, i++) {
-      const g = gapAt(t), half = 72 - 8 * Math.min(1, (t - t0) / 3);
-      const [style, color, r] = STYLES[i % 3], off = (i % 2) * 17;
-      for (let x = 24 + off; x <= W - 24; x += 34) if (Math.abs(x - g) > half) at(armNote(t, x, { r, style, color }));
+      // 道の広さ: 最初は広く（すき間 約 280px）→ だんだん狭く → 最後はぎりぎり（音符と音符のあいだ 約 38px。自分の幅は 20px）
+      const u = Math.min(1, (t - t0) / (t1 - t0 - 0.4)), half = 150 - 123 * u * (0.6 + 0.4 * u), g = gapAt(t);
+      const [style, color, r] = STYLES[i % 3];
+      for (const sd of [-1, 1]) for (let x = g + sd * (half + r); x > 12 && x < W - 12; x += sd * 34) at(armNote(t, x, { r, style, color }));   // 道のふちの音符から外へ
       if (i % 4 === 2) { ARM_STATS.total++; at(armBell(t, g)); }
     }
   }
