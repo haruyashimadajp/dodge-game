@@ -21,7 +21,7 @@
   const SPEC = SPECTRUM.map(rgb);
   const PS = 0.5;                                           // 光の絵は半分の大きさで描く（やわらかく、軽い）
   const M = 360;                                            // 光の絵は画面より M だけ広い（世界が回っても、絵のはしが見えない）
-  const st = { pc: null, px: null, lastBeat: -99, strokes: [], twinkles: [], zaps: [], blooms: null, brushPrev: null, tex: null, end: 0 };
+  const st = { pc: null, px: null, sc: null, scF: -9, lastBeat: -99, strokes: [], twinkles: [], zaps: [], blooms: null, brushPrev: null, tex: null, end: 0 };
   let ARP = null;
   const inSong = () => scene !== 'title';
   const hash = (a, b = 0) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -30,6 +30,12 @@
     st.pc = document.createElement('canvas'); st.pc.width = (W + 2 * M) * PS; st.pc.height = (H + 2 * M) * PS;
     st.px = st.pc.getContext('2d');
     st.blooms = Array.from({ length: 6 }, (_, i) => ({ x: Math.random() * W, y: 120 + Math.random() * 420, r: 220 + Math.random() * 200, c: SPEC[(i * 3) % 7], ph: Math.random() * TAU, sp: 0.04 + Math.random() * 0.05 }));
+    for (const b of st.blooms) {                                         // にじみの丸い絵（毎回グラデーションを作るより軽い）
+      const c = b.img = document.createElement('canvas'); c.width = c.height = 128;
+      const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+      gr.addColorStop(0, rgba(b.c, 0.1)); gr.addColorStop(1, rgba(b.c, 0));
+      g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    }
     // キャンバスの布目（小さな模様をくり返す）
     const t = document.createElement('canvas'); t.width = t.height = 96;
     const g = t.getContext('2d');
@@ -41,7 +47,7 @@
   function reset() {
     if (!st.pc) make();
     st.px.clearRect(0, 0, st.pc.width, st.pc.height);
-    Object.assign(st, { lastBeat: -99, strokes: [], twinkles: [], zaps: [], brushPrev: null, end: 0 });
+    Object.assign(st, { lastBeat: -99, strokes: [], twinkles: [], zaps: [], brushPrev: null, end: 0, scF: -9 });
   }
 
   // ---- 光の絵に描く --------------------------------------------------------
@@ -141,19 +147,19 @@
   function background(T, look, k, bk, bp) {
     if (!st.pc) make();
     // 空のグラデーション ＋ 水彩のにじみ ＋ 布目は、ゆっくりしか変わらないので3コマに1回だけ描き直した絵を貼る（軽くするため）
-    ctx.drawImage(cachedLayer('prismSky', 3, 0, g => {
+    ctx.drawImage(cachedLayer('prismSky', 6, 0, g => {
       const gr0 = g.createLinearGradient(0, 0, 0, H);
       gr0.addColorStop(0, rgba(look.skyTop, 1)); gr0.addColorStop(1, rgba(look.skyBot, 1));
       g.fillStyle = gr0; g.fillRect(0, 0, W, H);
       if (gfx === 0) return;
       const lowE = inSong() ? songEnv(1, T) : 0.3;
       g.globalCompositeOperation = 'lighter';
-      for (const b of st.blooms) {                                       // 水彩のにじみ（ゆっくり漂う）
+      g.globalAlpha = 0.5 + 0.5 * lowE;
+      for (const b of st.blooms) {                                       // 水彩のにじみ（ゆっくり漂う。前もって描いた丸い絵を貼る）
         const x = b.x + Math.sin(T * b.sp + b.ph) * 120, y = b.y + Math.cos(T * b.sp * 1.3 + b.ph) * 60;
-        const gr = g.createRadialGradient(x, y, 0, x, y, b.r);
-        gr.addColorStop(0, rgba(b.c, 0.05 + 0.05 * lowE)); gr.addColorStop(1, rgba(b.c, 0));
-        g.fillStyle = gr; g.fillRect(x - b.r, y - b.r, b.r * 2, b.r * 2);
+        g.drawImage(b.img, x - b.r, y - b.r, b.r * 2, b.r * 2);
       }
+      g.globalAlpha = 1;
       g.globalCompositeOperation = 'source-over';
       g.fillStyle = st.tex; g.fillRect(0, 0, W, H);
     }), 0, 0, W, H);
@@ -181,10 +187,27 @@
   // ---- 床: みがいた黒い床。光の絵が映りこむ ＋ その上に光の絵（カメラの中なので、世界といっしょに回る）----
   function floor(look, k) {
     const y = GROUND_Y;
-    const g = ctx.createLinearGradient(0, y, 0, H);
-    g.addColorStop(0, '#0d0b14'); g.addColorStop(1, '#030206');
-    ctx.fillStyle = g; ctx.fillRect(-400, y, W + 800, H - y + 400);
-    if (st.pc) {
+    ctx.fillStyle = '#09080f'; ctx.fillRect(-400, y, W + 800, H - y + 400);   // 黒い床（グラデーションより軽い）
+    if (st.pc && Math.abs(stage.spin) + Math.abs(stage.tilt) < 0.005 && stage.zoom >= 1) {
+      // 世界が回っていない間は、映りこみ ＋ 光の絵を1枚の絵にまとめて（3コマに1回だけ作り直す）貼る（軽くするため）
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.5;
+      // 光の絵と同じ半分の大きさで作って、引きのばして貼る（作り直しが軽い）
+      if (!st.sc) { st.sc = document.createElement('canvas'); st.sc.width = W * PS; st.sc.height = H * PS; st.scF = -9; }
+      if (layerFrame - st.scF >= 3 || layerFrame < st.scF) {
+        st.scF = layerFrame;
+        const g = st.sc.getContext('2d'), R = H - y + 60;
+        g.setTransform(PS, 0, 0, PS, 0, 0); g.globalAlpha = 1;
+        g.globalCompositeOperation = 'copy';
+        g.drawImage(st.pc, M * PS, M * PS, W * PS, H * PS, 0, 0, W, H);
+        g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.44;
+        g.translate(0, 2 * y); g.scale(1, -1);
+        g.drawImage(st.pc, M * PS, (y - R + M) * PS, W * PS, R * PS, 0, y - R, W, R);
+      }
+      ctx.drawImage(st.sc, 0, 0, W, H);
+      ctx.restore();
+    } else if (st.pc) {
       // 映りこみ（上下さかさまに、うすく）
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -197,10 +220,7 @@
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.5;
-      if (Math.abs(stage.spin) + Math.abs(stage.tilt) < 0.005 && stage.zoom >= 1) {
-        // 世界が回っていない間は、画面の大きさに引きのばした絵（3コマに1回だけ作り直す）を貼る（毎コマ引きのばすより軽い）
-        ctx.drawImage(cachedLayer('prismPaint', 3, 1, g => g.drawImage(st.pc, M * PS, M * PS, W * PS, H * PS, 0, 0, W, H)), 0, 0, W, H);
-      } else ctx.drawImage(st.pc, -M, -M, W + 2 * M, H + 2 * M);                 // 回っている間は、画面の外まで広い絵をそのまま
+      ctx.drawImage(st.pc, -M, -M, W + 2 * M, H + 2 * M);                // 回っている間は、画面の外まで広い絵をそのまま
       ctx.restore();
     }
     ctx.strokeStyle = rgba(mixC(look.color, WHITE, 0.5), 0.35 + 0.3 * k); ctx.lineWidth = 1.5;

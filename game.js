@@ -285,11 +285,26 @@ function update(dt) {
   if (sc !== scoreEl.textContent) scoreEl.textContent = sc;
 }
 
+// 曲の時計。start() で bgm.currentTime = 0 にしても、ブラウザによっては
+// すぐには反映されず、しばらく前の位置（やめた所やプレビューの所）を返すことがある。
+// そのまま使うと、そこまでの攻撃がぜんぶ一度に出てしまうので、
+// 音がゲームの時計より大きく先にいるあいだは、ゲームの時計を使って、もう一度 0 へもどす。
+let clockSynced = false;
+function songClock() {
+  if (!bgm || bgm.paused) return elapsed;
+  const a = bgm.currentTime;
+  if (!clockSynced) {
+    if (a <= elapsed + 0.5) clockSynced = true;
+    else { try { bgm.currentTime = elapsed; } catch (e) { /* not loaded yet */ } return elapsed; }
+  }
+  return a;
+}
+
 // ---- Bullets: spawn from the timeline, then move & collide --------------
 function updateBullets(dt) {
   // Spawn whatever the chart scheduled. Clock to the song so bullets stay in
   // sync; if the music didn't start (e.g. blocked), fall back to the game clock.
-  songTime = (bgm && !bgm.paused) ? bgm.currentTime : elapsed;
+  songTime = songClock();
   runChart(songTime);
   updateStage(dt);
   updateEcho(dt);
@@ -503,6 +518,7 @@ function start() {
   stopPreview();
   bgm.volume = masterVol;
   bgm.currentTime = 0;
+  clockSynced = false;
   bgm.play().catch(() => {});                    // play from the top (user gesture)
 }
 
@@ -932,12 +948,15 @@ function changeChart() {
 }
 
 // A short loop from the song's catchiest part, while choosing on the title
-let previewTimer = 0;
+let previewTimer = 0, previewId = 0;
 function playPreview() {
   stopPreview();
   if (masterVol <= 0) return;
   const t0 = song.preview || 0;
-  const seek = () => { try { bgm.currentTime = t0; } catch (e) { /* not loaded yet */ } };
+  // 読みこみ前なら、読みこめた時にシークする。ただし、その前にゲームを始めていたら何もしない
+  // （でないと、プレイ中に曲がプレビューの位置へ飛んで、そこまでの攻撃がいっせいに出る）
+  const id = ++previewId;
+  const seek = () => { if (id !== previewId || running) return; try { bgm.currentTime = t0; } catch (e) { /* not loaded yet */ } };
   if (bgm.readyState >= 1) seek(); else bgm.addEventListener('loadedmetadata', seek, { once: true });
   bgm.volume = 0;
   bgm.play().catch(() => {});
@@ -952,7 +971,7 @@ function playPreview() {
 function stopPreview() {
   if (!previewTimer) return;
   clearInterval(previewTimer);
-  previewTimer = 0;
+  previewTimer = 0; previewId++;
   bgm.pause();
   bgm.volume = masterVol;
 }
