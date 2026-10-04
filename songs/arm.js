@@ -7,16 +7,16 @@
    （0〜25秒 ロシェ＠ペンギン / 25〜63秒 ものくろっく / 63〜89秒 じゃこレモン / 89〜123秒 アマリリス / 123秒〜 みそかつ侍）。
    最後は作者いわく「思い出ボムラッシュ」。
 
-   この譜面は、MASTER 譜面の画像（sdvx.in）から、床の広さ・長い音・弾・金色の音・横に払う矢印の位置を
-   1 小節ずつ読み取って（songs/arm-data.js）、このゲームのルールに置きかえたもの。
-   オンゲキの見た目（レーン・ノーツの板・キャラクター）は使わず、「止まってしまったメロディを生き返らせる」
-   という曲名から作った、燃えた楽譜の世界で遊ぶ:
-     床の広さ       … 左右の壁（燃えた楽譜のカーテン）。上から、これから先の形が下りてくる
-     長い音（ホールド）… 空から下りてくるリボン。床や足場にふれた所が熱い → その上にいないか、跳びこえる
-     短い音（タップ） … 床に落ちて光るだけ（当たらない。拍がわかる）
-     弾             … 上から落ちてくる黒い音符。ふつうの弾と同じ
+   この譜面は、MASTER 譜面の画像（sdvx.in）から読み取った「床の広さ」「横に払う矢印」「金色の音（ベル）」の位置だけを残し
+   （songs/arm-data.js）、ほかの弾幕は曲の音に合わせたオリジナル。オンゲキの見た目（レーン・ノーツ・キャラクター）は使わず、
+   「止まってしまったメロディを生き返らせる」という曲名から作った、オルゴールと燃えた楽譜の世界で遊ぶ:
+     床の広さ       … 左右の壁（燃えた楽譜のカーテン）。上から、これから先の形が下りてくる。
+                      原作よりなめらかにして、左右の動きを半分にしてある（最低でも 336px の広さ、壁が動くのは 140px/秒まで）
+     横に払う矢印    … ぜんぶ、床をすべる光の波（グリッサンド）になる → 跳びこえる
      金色の音（ベル） … 「メロディのかけら」。さわると取れる（当たりではない）。最後に、いくつ取れたかが出る
-     横に払う矢印    … 大きいものだけ、床をすべる光の波（グリッサンド）になる → 跳びこえる
+     短い音（タップ） … 床に落ちて光るだけ（当たらない。拍がわかる）
+   オリジナルの弾幕: くし（円盤の上の金属の歯）からのねらい撃ち・円盤の輪・オルゴールの渦（ARM_ONSETS のキックやメロディに合わせる）・
+   ゆれて落ちる羽根・床から上がる火の粉・くしの歯（たての光）・五線のビーム（床すれすれ → 跳ぶ）・隅からの斜めの列・最後の思い出ボムラッシュ。
    音の解析: 1小節目の頭 = 1.21秒（イントロのメロディが 3 小節目、最初の盛り上がりが 7 小節目から）。
    拍は最後まで 220 BPM のまま（途中の「止まる所」は休符）。
    見た目は visuals-revive.js（theme: 'revive'）。
@@ -26,8 +26,7 @@ const ARM_BEAT = 60 / 220, ARM_T0 = 1.21;
 function armBeatTime(n) { return ARM_T0 + n * ARM_BEAT; }
 function armBeatPos(t) { return (t - ARM_T0) / ARM_BEAT; }
 const armBar = b => ARM_T0 + (b - 1) * 4 * ARM_BEAT;          // b 小節目（1 から。小数も可）の時刻
-const ARM_FALL = 600;                                         // 楽譜（リボン・弾・金色の音）が落ちてくる速さ px/秒
-const ARM_HOT = 22;                                           // リボンが床や足場にふれている所の、熱い高さ（px）
+const ARM_FALL = 600;                                         // 楽譜（壁の形・弾・金色の音）が落ちてくる速さ px/秒
 const armX = u => W / 2 + (u - 0.5) * 1120;                   // 譜面の横の位置 u → 画面の x（ふつうの床の広さ ≒ 画面いっぱい）
 const ARM_STATS = { got: 0, total: 0 };                       // メロディのかけら（金色の音）
 
@@ -35,10 +34,8 @@ const ARM_STATS = { got: 0, total: 0 };                       // メロディの
 const ARM = (() => {
   const D = ARM_DATA;
   const line = pts => ({ t: pts.map(p => armBar(p[0])), x: pts.map(p => armX(p[1])) });
-  const holds = D.holds.map(([c, pts]) => { const l = line(pts); return { c, t: l.t, x: l.x, t0: l.t[0], t1: l.t[l.t.length - 1] }; })
-    .sort((a, b) => a.t0 - b.t0);
   return {
-    L: line(D.field.L), R: line(D.field.R), holds,
+    L: line(D.field.L), R: line(D.field.R),
     taps: D.taps.map(([b, u, c]) => ({ t: armBar(b), x: armX(u), c })),
     flicks: D.flicks.map(([b, u0, u1, d]) => ({ t: armBar(b), x0: armX(u0), x1: armX(u1), d })),
     walls: D.walls.map(([b, u]) => ({ t: armBar(b), side: u < 0.5 ? -1 : 1 })),
@@ -59,33 +56,16 @@ function armLerp(l, t) {
 // 時刻 t の床の広さ（左の壁 l・右の壁 r。画面の外にはみ出すこともある）
 function armField(t) { return { l: armLerp(ARM.L, t), r: armLerp(ARM.R, t) }; }
 
-// リボン（長い音）が床・足場にふれている所に、プレイヤーの足があるか
-function armRibbonHit() {
-  const feet = player.y + player.h, cx = player.x + player.w / 2;
-  for (const p of platforms) {
-    if (feet < p.y - ARM_HOT || feet > p.y + 2) continue;               // その面の、熱い高さにいない
-    if (!p.ground && (player.x + player.w < p.x || player.x > p.x + p.w || platformGone(p))) continue;
-    const tau = songTime + (GROUND_Y - p.y) / ARM_FALL;                // いまその高さを通っているのは、楽譜のどの時刻か
-    for (const h of ARM.holds) {
-      if (h.t0 > tau) break;
-      if (h.t1 < tau) continue;
-      const x = armLerp(h, tau);
-      if (Math.abs(x - cx) < 9 + player.w / 2 - 2 && (p.ground || (x > p.x - 6 && x < p.x + p.w + 6))) return true;
-    }
-  }
-  return false;
-}
-
-// ★楽譜★ 1 曲に 1 つ。壁を動かし、リボンの当たり判定を持つ（見た目は visuals-revive.js の armSheet）
+// ★楽譜★ 1 曲に 1 つ。毎コマ、左右の壁を譜面の床の広さに合わせる（見た目は visuals-revive.js の armSheet）
 function armSheet() {
   return spawn({
     kind: 'armSheet', x: W / 2, y: H / 2, r: 0, spd: 1, noFreeze: true, noTrail: true,
     move() {
       const f = armField(songTime);
-      stage.wl = Math.max(0, Math.min(W / 2 - 50, f.l));
-      stage.wr = Math.min(W, Math.max(W / 2 + 50, f.r));
+      stage.wl = Math.max(0, Math.min(W, f.l));                         // 見た目の壁と同じ位置（押されたら、ちゃんと壁のふちまで動く）
+      stage.wr = Math.max(stage.wl + 40, Math.min(W, f.r));
     },
-    hits: () => armRibbonHit(),
+    safe: true,
   });
 }
 
@@ -110,15 +90,15 @@ function armBell(t, x) {
   }) };
 }
 
-// ★グリッサンド★ 床をすべる光の波（横に払う矢印が床に着いたとき）。高さ 20px → 跳びこえる
-function armGliss({ x, dir = 1, v = 720, len = 70 }) {
+// ★グリッサンド★ 床をすべる光の波（横に払う矢印が床に着いたとき）。高さ 16px → 跳びこえる
+function armGliss({ x, dir = 1, v = 600, len = 64 }) {
   return spawn({
     kind: 'armGliss', x, y: GROUND_Y - 10, dir, v, len, r: 10, spd: 1,
     move(b, dt) {
       b.x += b.dir * b.v * dt;
       if (b.x < stage.wl - b.len || b.x > stage.wr + b.len) b.dead = true;
     },
-    hits: b => player.y + player.h > GROUND_Y - 20 && player.x + player.w > b.x - b.len / 2 + 4 && player.x < b.x + b.len / 2 - 4,
+    hits: b => player.y + player.h > GROUND_Y - 16 && player.x + player.w > b.x - b.len / 2 + 10 && player.x < b.x + b.len / 2 - 10,
   });
 }
 
@@ -129,11 +109,11 @@ const ARM_SECTIONS = [
   { t: 0,            mood: 0, name: '',                  sub: '',                                 sky: ['#07060f', '#120d1c'], color: '#cfc6e8', pulse: 0.002, stars: 0 },
   { t: armBar(3),    mood: 0, name: 'PRELUDE',           sub: 'メロディのかけら',                   sky: ['#0a0816', '#1a1228'], color: '#ffe3a1', pulse: 0.004, stars: 0 },
   { t: armBar(7),    mood: 1, name: 'And Revive',        sub: '黒魔 ─ 220 BPM',                    sky: ['#120a1e', '#2a1430'], color: '#ff8fb1', pulse: 0.012, stars: 0 },
-  { t: armBar(15),   mood: 1, name: 'RIBBON',            sub: 'リボンの上にいないで',                sky: ['#140a22', '#2e1638'], color: '#ffd36b', pulse: 0.012, stars: 0 },
+  { t: armBar(15),   mood: 1, name: 'FEATHERS',          sub: '羽根がゆれて落ちる',                sky: ['#140a22', '#2e1638'], color: '#ffd36b', pulse: 0.012, stars: 0 },
   { t: armBar(19),   mood: 1, name: 'PULSE',             sub: '',                                 sky: ['#120a22', '#2a1640'], color: '#8fd8ff', pulse: 0.014, stars: 0 },
-  { t: armBar(23),   mood: 1, name: 'CADENCE',           sub: '床が右へ、左へ',                     sky: ['#100c24', '#24184a'], color: '#b7a4ff', pulse: 0.012, stars: 0 },
+  { t: armBar(23),   mood: 1, name: 'CADENCE',           sub: 'くしの歯が鳴る',                     sky: ['#100c24', '#24184a'], color: '#b7a4ff', pulse: 0.012, stars: 0 },
   { t: armBar(29),   mood: 2, name: 'REFRAIN',           sub: '黒い音符が降る',                     sky: ['#1e0a1e', '#481838'], color: '#ff8fb1', pulse: 0.018, stars: 0, sway: 0.4 },
-  { t: armBar(39),   mood: 1, name: 'CROSSING',          sub: 'リボンが交差する',                   sky: ['#0c0a20', '#1c1a44'], color: '#8fd8ff', pulse: 0.008, stars: 0 },
+  { t: armBar(39),   mood: 1, name: 'CROSSING',          sub: 'オルゴールの渦',                   sky: ['#0c0a20', '#1c1a44'], color: '#8fd8ff', pulse: 0.008, stars: 0 },
   { t: armBar(47),   mood: 2, name: 'RESONANCE',         sub: '',                                 sky: ['#1a0c26', '#3c1846'], color: '#ffd36b', pulse: 0.016, stars: 0 },
   { t: armBar(57),   mood: 2, name: 'FORTISSIMO',        sub: '',                                 sky: ['#220a1c', '#521a34'], color: '#ff8fb1', pulse: 0.02,  stars: 0, sway: 0.5 },
   { t: armBar(73),   mood: 1, name: 'DRIFT',             sub: 'かたむいた床',                       sky: ['#0e0c22', '#22204a'], color: '#b7a4ff', pulse: 0.012, stars: 0 },
@@ -163,26 +143,182 @@ function armChart() {
 
   burst(0, () => armSheet());
 
-  // ---- 譜面から: 弾・弾の列・弾の流れ ----
-  for (const [b, u] of D.bullets) at(armNote(bar(b), armX(u)));
-  for (const [b, u0, u1] of D.rows) {
-    const x0 = armX(u0), x1 = armX(u1), n = Math.max(1, Math.round((x1 - x0) / 34));
-    for (let i = 0; i <= n; i++) at(armNote(bar(b), x0 + (x1 - x0) * i / n, { r: 6 }));
-  }
-  for (const [b0, b1, u0, u1] of D.streams) {
-    if (b0 >= 147.5) continue;
-    for (let b = b0, i = 0; b < b1; b += 1 / 8, i++) at(armNote(bar(b), armX(u0 + (u1 - u0) * hsh(b * 7, i)), { r: 6, color: VIOLET, style: 'armOrb' }));
-  }
-  // ---- 金色の音（メロディのかけら）----
+  // ---- 金色の音（メロディのかけら）: 譜面のベルの位置 ----
   for (const [b, u] of D.bells) { ARM_STATS.total++; at(armBell(bar(b), armX(u))); }
-  // ---- 横に払う矢印: 大きいものだけ、床をすべる波になる（つづけて来すぎないように 3/4 小節あける）----
-  let lastG = -9;
-  for (const [b, u0, u1, d] of D.flicks) {
-    if (u1 - u0 < 0.18 || b - lastG < 0.75 || b > 147) continue;
-    lastG = b;
-    const x0 = armX(u0), x1 = armX(u1);
-    burst(bar(b), () => armGliss({ x: d > 0 ? x0 : x1, dir: d }));
+  // ---- 横に払う矢印: ぜんぶ床をすべる波になる（同じ向き・ほぼ同じ時刻のものは 1 つにまとめる）----
+  {
+    const ev = [];
+    for (const [b, u0, u1, d] of D.flicks) {
+      if (b > 147) continue;
+      const x = d > 0 ? armX(u0) : armX(u1), e = ev.find(q => q.d === d && Math.abs(q.b - b) < 0.07);
+      if (e) e.x = d > 0 ? Math.min(e.x, x) : Math.max(e.x, x); else ev.push({ b, d, x });
+    }
+    for (const e of ev) burst(bar(e.b), () => armGliss({ x: Math.max(stage.wl + 10, Math.min(stage.wr - 10, e.x)), dir: e.d }));
   }
+
+  // ===== ここから下はオリジナルの弾幕（曲の音に合わせて、オルゴール・不死鳥のことばで作った）=====================
+  const ON = ARM_ONSETS, s16 = i => ARM_T0 + i * ARM_BEAT / 4;
+  const onsIn = (key, b0, b1) => ON[key].filter(i => i >= (b0 - 1) * 16 && i < (b1 - 1) * 16);
+  const COMB = { x: W / 2, y: 40 }, DISC = { x: W / 2, y: 300 };
+  const glissT = D.flicks.map(f => bar(f[0]));                    // 床の波が来る時刻（ほかの攻撃と重ねすぎないように使う）
+  const ROSE = '#ff7aa0', GOLD = '#ffd36b', AZURE = '#8fd8ff';
+  const VOICE = [ROSE, GOLD, AZURE];
+  const fieldMid = t => { const f = armField(t); return (Math.max(0, f.l) + Math.min(W, f.r)) / 2; };
+  const fieldW = t => { const f = armField(t); return Math.min(W, f.r) - Math.max(0, f.l); };
+  // くし（円盤の上）から、ねらって撃つ音符。n 個を spread ずつ開く
+  const comb = (t, { n = 1, spread = 0.22, v = 230, warn = 0.3, color = GOLD, style = 'armNote', from = COMB } = {}) =>
+    burst(t - warn, () => { for (let i = 0; i < n; i++) { const a0 = Math.atan2(playerXY().y - from.y, playerXY().x - from.x) + (i - (n - 1) / 2) * spread;
+      spawn({ x: from.x, y: from.y, vx: Math.cos(a0) * v, vy: Math.sin(a0) * v, r: 7, delay: warn, color, style }); } });
+  // 円盤のまわりから広がる輪（count 個。start でずらす）
+  const discRing = (t, count, v, { start = 0, color = AZURE, style = 'armNote', r = 6, R = 250 } = {}) => burst(t, () => {
+    for (let i = 0; i < count; i++) { const a = start + i / count * TAU; spawn({ x: DISC.x + Math.cos(a) * R, y: DISC.y + Math.sin(a) * R, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r, color, style }); }
+    if (typeof armFx === 'function') armFx('ring');
+  });
+  // オルゴールの渦: 円盤のふちから 1 つずつ、角度を回しながら（1 拍に per 個、turn = 1 拍で回る角度）
+  const swirl = (b0, b1, { per = 2, turn = 0.9, v = 150, arms = 1, color = AZURE, style = 'armOrb', R = 60, a0 = 0 } = {}) => {
+    for (let i = 0, t = bar(b0); t < bar(b1) - 1e-6; i++, t += ARM_BEAT / per) {
+      const a = a0 + i * turn / per;
+      burst(t, () => { for (let k = 0; k < arms; k++) { const aa = a + k * TAU / arms; spawn({ x: DISC.x + Math.cos(aa) * R, y: DISC.y + Math.sin(aa) * R, vx: Math.cos(aa) * v, vy: Math.sin(aa) * v, r: 6, color, style }); } });
+    }
+  };
+  // 羽根: 上からゆれながら落ちる
+  const feather = (t, x, { vy = 170, sw = 40, color = ROSE } = {}) => burst(t, () => spawn({
+    x, y: -16, x0: x, vy, sw, ph: hsh(x, t) * TAU, r: 7, style: 'armFeather', color,
+    move(b, dt) { b.y += b.vy * dt; b.x = b.x0 + Math.sin(b.age * 2.2 + b.ph) * b.sw; },
+  }));
+  // 火の粉: 床の下から上へ（予告 = 光の筋）
+  const emberNow = (x, { v = 560, warn = 0.55 } = {}) => spawn({ x, y: GROUND_Y + 12, vy: -v, r: 7, delay: warn, style: 'armFlame', color: EMBER, lane: [0, -1] });
+  const ember = (t, x, o = {}) => burst(t - (o.warn || 0.55), () => emberNow(x, o));
+  // くしの歯（たての光）: 上から床まで
+  const tooth = (t, x, { w = 30, warn = 0.6, hold = 0.2, color = GOLD } = {}) => glissT.some(g => Math.abs(g - t) < 0.4) ? null : burst(t - warn, () => laser({ x1: x, y1: -40, x2: x, y2: GROUND_Y + 30, width: w, delay: warn, hold, color }));
+  // 五線のビーム: 床すれすれの横の光 → 跳ぶ
+  const staff = (t, { warn = 0.7, hold = 0.16, color = ROSE } = {}) => glissT.some(g => Math.abs(g - t) < 0.8) ? null : burst(t - warn, () => laser({ x1: -40, y1: GROUND_Y - 6, x2: W + 40, y2: GROUND_Y - 6, width: 10, delay: warn, hold, color }));
+  // 斜めの音符の列（隅から、床の xT のあたりへ）
+  const slant = (t, fromLeft, xT, { n = 6, gap = ARM_BEAT / 2, v = 300, color = AZURE } = {}) => {
+    for (let i = 0; i < n; i++) burst(t + i * gap, () => { const x0 = fromLeft ? -10 : W + 10, y0 = 60, a = Math.atan2(GROUND_Y - y0, xT - x0);
+      spawn({ x: x0, y: y0, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 7, color, style: 'armNote' }); });
+  };
+
+  // ===== 3〜6 ｜ PRELUDE: 2 拍ごとに、くしから 1 つだけ（ゆっくり）==================================================
+  for (let b = 3; b < 7; b += 0.5) comb(bar(b), { v: 150, warn: 0.4, color: GOLD });
+
+  // ===== 7〜14 ｜ AWAKENING: 小節の頭に円盤の輪、2・4 拍目にくしから 3 つ ============================================
+  for (let k = 7; k < 15; k++) {
+    discRing(bar(k), 12, 140, { start: k * 0.37, color: VOICE[k % 3] });
+    comb(bar(k + 0.25), { n: 3, spread: 0.3, v: 220 });
+    comb(bar(k + 0.75), { n: 3, spread: 0.3, v: 220, color: ROSE });
+  }
+
+  // ===== 15〜18 ｜ RIBBON: 羽根の流れ（8 分音符ごと。落ちる場所が波の形にゆれる。波の外側はあいている）=================
+  for (let i = 0, t = bar(15); t < bar(19); i++, t += ARM_BEAT / 2) {
+    const m = fieldMid(t), wv = fieldW(t) * 0.32;
+    feather(t, m + Math.sin(i * 0.42) * wv, { color: i % 2 ? ROSE : GOLD });
+  }
+  for (let k = 15; k < 19; k++) comb(bar(k + 0.5), { n: 1, v: 260, color: AZURE });
+
+  // ===== 19〜22 ｜ PULSE: 階段のように落ちる音符（8 分）＋ キックの輪 =================================================
+  for (let i = 0, t = bar(19); t < bar(23); i++, t += ARM_BEAT / 2) {
+    const step = i % 16, dir = Math.floor(i / 16) % 2 ? -1 : 1;
+    at(armNote(t + 1.15, fieldMid(t) + dir * (step - 7.5) * fieldW(t) / 18, { color: VOICE[step % 3] }));
+  }
+  for (const i of onsIn('K', 19, 23).filter((v, j, a) => j === 0 || v - a[j - 1] >= 8)) discRing(s16(i), 10, 160, { start: i * 0.21, color: GOLD });
+
+  // ===== 23〜28 ｜ CADENCE: くしの歯（たての光）が小節ごとに 3 本。左・まんなか・右の順に、あく場所が変わる ===========
+  for (let k = 23; k < 29; k++) {
+    const t = bar(k), m = fieldMid(t), w = fieldW(t), safe = k % 3;
+    for (let j = 0; j < 4; j++) if (j !== safe && j !== safe + 1) tooth(t, m + (j - 1.5) * w / 4.2, { color: VOICE[j % 3] });
+    comb(bar(k + 0.5), { n: 2, spread: 0.5, v: 240, color: AZURE });
+  }
+
+  // ===== 29〜38 ｜ REFRAIN: 2 本腕のオルゴールの渦 ＋ 小節の頭にねらい撃ち。31〜36 は羽根も =============================
+  swirl(29, 39, { per: 2, turn: 0.55, v: 150, arms: 2, color: AZURE });
+  for (let k = 29; k < 39; k++) comb(bar(k), { n: 3, spread: 0.18, v: 260, color: ROSE });
+  for (let k = 31; k < 37; k++) for (let q = 0; q < 4; q++) feather(bar(k + q / 4 + 0.125), fieldMid(bar(k)) + (q % 2 ? 1 : -1) * (120 + 60 * hsh(k, q)), { color: GOLD });
+  staff(bar(39) - 0.02);
+
+  // ===== 39〜46 ｜ CROSSING: キックが消える所。円盤からゆっくり 4 本腕の渦が回る（右回り → 43 から左回り）=================
+  swirl(39.25, 43, { per: 2, turn: 0.3, v: 110, arms: 3, color: AZURE, a0: 0.4 });
+  swirl(43, 47, { per: 2, turn: -0.3, v: 115, arms: 3, color: ROSE, a0: 0.1 });
+  discRing(bar(47), 20, 120, { color: GOLD, start: 0.15 });
+  staff(bar(47.75), { color: GOLD });
+
+  // ===== 48〜56 ｜ RESONANCE: キックごとに円盤の輪（大きい音だけ）＋ 2 小節ごとに床から火の粉 ===========================
+  {
+    let last = -99;
+    for (const i of onsIn('K', 48, 57)) { if (i - last < 8) continue; last = i; discRing(s16(i), 9, 150, { start: i * 0.33, color: VOICE[(i >> 3) % 3], R: 200 }); }
+    for (let k = 48; k < 57; k += 2) for (let j = 0; j < 3; j++) burst(bar(k + 1) + j * ARM_BEAT - 0.55, () => emberNow(Math.max(stage.wl + 20, Math.min(stage.wr - 20, playerXY().x))));   // 自分の足もとをねらう
+  }
+
+  // ===== 57〜72 ｜ FORTISSIMO: 2 小節ずつ「くしの歯が左から右へ歩く」と「すき間つきの羽根のカーテン」を交互に ==============
+  for (let k = 57; k < 73; k += 2) {
+    const t = bar(k), m = fieldMid(t), w = fieldW(t);
+    if ((k - 57) % 4 === 0) {
+      const dir = (k - 57) % 8 === 0 ? 1 : -1;
+      for (let j = 0; j < 6; j++) tooth(bar(k + j * 0.25), m + dir * (j - 2.5) * w / 6.5, { w: 26, warn: 0.5, hold: 0.16, color: VOICE[j % 3] });
+      comb(bar(k + 1.5), { n: 3, spread: 0.22, v: 240, color: ROSE });
+    } else {
+      for (let r = 0; r < 4; r++) {
+        const tt = bar(k + r * 0.5), g = m + Math.sin(k * 0.7 + r * 0.45) * w * 0.22;   // すき間は 1 列ごとに少しずつ動く
+        for (let x = 30; x < W - 20; x += 44) if (Math.abs(x - g) > 88) at(armNote(tt + 1.1, x, { r: 6, style: 'armFeather', color: r % 2 ? GOLD : ROSE }));
+      }
+      discRing(bar(k + 1), 14, 150, { color: AZURE });
+    }
+  }
+  staff(bar(73) - 0.02, { color: AZURE });
+
+  // ===== 73〜80 ｜ DRIFT: 床がかたむく所。隅から斜めに音符の列（1 小節ごとに左右が入れかわる）==========================
+  for (let k = 73; k < 81; k++) slant(bar(k), k % 2 === 1, fieldMid(bar(k + 0.5)) + (k % 2 ? 1 : -1) * 60, { n: 6, v: 320, color: k % 2 ? AZURE : ROSE });
+
+  // ===== 81〜86 ｜ FADING: 音がうすくなる。ゆっくりの音符だけ ==========================================================
+  for (let b = 81; b < 86; b += 0.5) comb(bar(b), { v: 170, color: '#cfc6e8' });
+  staff(bar(86.5), { color: GOLD });
+
+  // ===== 86.5〜92 ｜ RISE: 火の粉が床から、左 → 右 → 左へ行進 ＋ 小節の頭にねらい撃ち =================================
+  for (let i = 0, t = bar(86.5); t < bar(92.5); i++, t += ARM_BEAT) {
+    const m = fieldMid(t), w = fieldW(t) - 60, ph = (i % 16) / 15, x = m - w / 2 + w * (Math.floor(i / 16) % 2 ? 1 - ph : ph);
+    ember(t, x, { v: 600, warn: 0.6 });
+  }
+  for (let k = 87; k < 93; k++) comb(bar(k), { n: 3, spread: 0.24, v: 260, color: GOLD });
+
+  // ===== 93〜105 ｜ CRESCENDO: 2 本腕の渦が速くなっていく ＋ 4 小節ごとに輪が重なる ====================================
+  swirl(93, 99, { per: 2, turn: 0.62, v: 165, arms: 2, color: ROSE });
+  swirl(99, 105, { per: 3, turn: 0.62, v: 180, arms: 2, color: GOLD, a0: 1 });
+  for (let k = 93; k < 105; k++) if (k % 2) comb(bar(k + 0.5), { n: 2, spread: 0.6, v: 250, color: AZURE });
+  for (const k of [97, 101, 103, 104]) { discRing(bar(k), 16, 150, { color: AZURE }); discRing(bar(k) + ARM_BEAT, 16, 150, { color: AZURE, start: TAU / 32 }); }
+
+  // ===== 105.5〜108.5 ｜ LAST LIGHT: 最後の光。上からゆっくり、まばらな音符 ============================================
+  for (let b = 105.75; b < 108.5; b += 0.25) at(armNote(bar(b) + 1.1, fieldMid(bar(b)) + Math.sin(b * 5.1) * 230, { v: 380, color: '#ffe3a1' }));
+
+  // ===== 111〜119 ｜ REVIVE: ひとつの音から。メロディの音ごとに小さな音符が 1 つ（だんだん増える）=======================
+  {
+    let last = -99;
+    for (const i of onsIn('M', 113, 119.5)) { if (i - last < 4) continue; last = i; comb(s16(i), { v: 150, color: '#ffe3a1', warn: 0.35 }); }
+  }
+
+  // ===== 119.6〜131 ｜ PHOENIX: 翼から羽根が扇に降る ＋ 床から火の粉 ＋ 円盤の輪 =========================================
+  for (let i = 0, t = bar(120); t < bar(132); i++, t += ARM_BEAT / 2) {
+    const side = i % 2 ? 1 : -1, wx = W / 2 + side * 250, a = Math.PI / 2 - side * (0.25 + 0.5 * ((i >> 1) % 6) / 5);
+    burst(t, () => spawn({ x: wx, y: 300, vx: Math.cos(a) * 190, vy: Math.sin(a) * 190, r: 7, style: 'armFeather', color: side < 0 ? ROSE : GOLD }));
+  }
+  for (let k = 120; k < 132; k++) {
+    discRing(bar(k), 10, 160, { start: k * 0.5, color: AZURE });
+    if (k % 2 === 0) ember(bar(k + 0.5), Math.max(40, Math.min(W - 40, fieldMid(bar(k)) + (k % 4 ? 160 : -160))));
+  }
+  staff(bar(132) - 0.02, { color: ROSE });
+
+  // ===== 132〜144 ｜ REPRISE: サビをもう一度。渦 ＋ くしの歯 ＋ ねらい撃ち =============================================
+  swirl(132, 138, { per: 2, turn: 0.55, v: 160, arms: 2, color: AZURE });
+  for (let k = 138; k < 145; k += 2) {
+    const t = bar(k), m = fieldMid(t), w = fieldW(t);
+    for (let j = 0; j < 6; j++) tooth(bar(k + j * 0.25), m + (k % 4 ? -1 : 1) * (j - 2.5) * w / 6.5, { w: 26, warn: 0.5, hold: 0.16, color: VOICE[j % 3] });
+    discRing(bar(k + 1.5), 14, 155, { color: GOLD });
+  }
+  for (let k = 132; k < 145; k++) comb(bar(k + 0.5), { n: 3, spread: 0.2, v: 270, color: ROSE });
+
+  // ===== 145.2〜148 ｜ UNISON: 音が集まって止まる → 下向きの扇 → 斜めの列が交差 =======================================
+  burst(bar(146), () => { for (let i = 0; i < 21; i++) { const a = Math.PI / 2 + (i - 10) * 0.12; spawn({ x: DISC.x, y: DISC.y, vx: Math.cos(a) * 230, vy: Math.sin(a) * 230, r: 7, color: GOLD, style: 'armNote' }); } });
+  slant(bar(147), true, W * 0.7, { n: 4, v: 340, color: ROSE });
+  slant(bar(147), false, W * 0.3, { n: 4, v: 340, color: AZURE });
 
   // ---- 場面の演出 ----
   for (const b of [7, 15, 19, 23, 29, 39, 47, 57, 73, 87, 93, 121, 133]) fx(bar(b), 'swell', b >= 120 ? 1 : 0.6);
@@ -201,7 +337,7 @@ function armChart() {
   // 148: 譜面の「爆弾の帯」= まんなか（金色の音のところ）だけあいた横一列
   {
     const t = bar(148);
-    for (let x = 40; x <= W - 40; x += 32) if (Math.abs(x - W / 2) > 70) at(armNote(t, x, { r: 8, style: 'armFlame', color: EMBER }));
+    for (let x = 40; x <= W - 40; x += 32) if (Math.abs(x - W / 2) > 120) at(armNote(t, x, { r: 8, style: 'armFlame', color: EMBER, v: 430 }));   // ゆっくり落とす（すみからでも間に合う）
     ARM_STATS.total++; at(armBell(t, W / 2));
     fx(t, 'band');
   }
@@ -231,7 +367,7 @@ function armChart() {
     const STYLES = [['armFlame', EMBER, 8], ['armOrb', VIOLET, 7], ['armFeather', PINK, 7]];
     let i = 0;
     for (let t = t0; t < t1; t += ARM_BEAT / 2, i++) {
-      const g = gapAt(t + (GROUND_Y - 10 + 14) / ARM_FALL), half = 72 - 8 * Math.min(1, (t - t0) / 3);
+      const g = gapAt(t), half = 72 - 8 * Math.min(1, (t - t0) / 3);
       const [style, color, r] = STYLES[i % 3], off = (i % 2) * 17;
       for (let x = 24 + off; x <= W - 24; x += 34) if (Math.abs(x - g) > half) at(armNote(t, x, { r, style, color }));
       if (i % 4 === 2) { ARM_STATS.total++; at(armBell(t, g)); }

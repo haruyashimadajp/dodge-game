@@ -62,8 +62,8 @@ dodge-game/
 │   ├── echo-score.js / echo-env.js / echo-compose.py ← 曲⑰の楽譜データ（聞こえるこだま1つ1つの時刻も入っている）/ 音量データ / 作曲プログラム
 │   ├── circlepit.js     ← 曲⑱「Circle Pit」（オリジナル曲・200 BPM のブレイクコア。ひずんだハードコア・キック・ブレイクビーツ・グリッチ。声なし。画面がずっとヘッドバンギングする）の拍・場面・譜面
 │   ├── circlepit-score.js / circlepit-env.js / circlepit-compose.py ← 曲⑱の楽譜データ / 音量データ / 作曲プログラム
-│   ├── arm.js           ← 曲⑲「And Revive The Melody」（黒魔。オンゲキの MASTER 譜面を読み取って、このゲームのルールに置きかえた）の拍・場面・譜面
-│   └── arm-data.js / arm-env.js ← 曲⑲の譜面データ（床の広さ・長い音・弾・金色の音・矢印の位置）/ 音量データ
+│   ├── arm.js           ← 曲⑲「And Revive The Melody」（黒魔。オンゲキの MASTER 譜面の床の広さ・矢印・ベルを読み取り、ほかはオリジナルの弾幕）の拍・場面・譜面
+│   └── arm-data.js / arm-env.js ← 曲⑲の譜面データ（床の広さ・金色の音・矢印の位置・曲の音の解析）/ 音量データ
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔の中・ステンドグラスのバラ窓の時計・光の筋・真鍮の歯車）
@@ -80,7 +80,7 @@ dodge-game/
 ├── visuals-ongeki.js ← 曲⑯の見た目（オンゲキのレーン・あかニャン／こんじきニャン・体力・ベルの数・YOU ARE A SUPER SHOOTER!!）
 ├── visuals-cave.js   ← 曲⑰の見た目（反響する洞窟・水の床・結晶・こだまに合わせて光る左右の壁・音の波形とそのこだまの線）
 ├── visuals-punk.js   ← 曲⑱の見た目（地下のライブハウス・チラシの壁・アンプの山・照明・モッシュピットの観客・切り抜き文字）
-├── visuals-revive.js ← 曲⑲の見た目（オルゴールの円盤・光の羽・燃えた楽譜のカーテン・絹のリボン・金色の音符）
+├── visuals-revive.js ← 曲⑲の見た目（オルゴールの円盤・光の羽・燃えた楽譜のカーテン・金色の音符）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
@@ -796,18 +796,21 @@ hcHop({ x, vx, hop })                          // ツーステップではねる
 画面の演出は `hcFx('kick' / 'snare' / 'bang' / 'crash' / 'china' / 'chug' / 'shout' / 'scream' / 'boom2' / 'siren' / 'drop' / 'count' / 'slide' / 'feedback' / 'land' / 'stop' / 'breakdown' / 'mosh' / 'final' / 'end' …)` で呼ぶ（visuals-punk.js）。
 見た目のセットに `camera(T, bp, k)` を書くと、カメラを `{ x, y, rot }` だけ動かせる（visuals.js。設定の「画面演出」で小さくなる）。punk はこれで、拍ごとに下へガクッと落ちて左右にゆさぶる（ヘッドバンギング）。
 
-### 5-21. 曲⑲「And Revive The Melody」で生まれた形（オンゲキの譜面を、このゲームのルールに置きかえる）
+### 5-21. 曲⑲「And Revive The Melody」で生まれた形（オンゲキの譜面の一部を、このゲームのルールに置きかえる）
 
-オンゲキ MASTER 譜面の画像から、床の広さ・長い音・弾・金色の音・横に払う矢印の位置を 1 小節ずつ読み取って
+オンゲキ MASTER 譜面の画像から、床の広さ・横に払う矢印・金色の音（ベル）の位置を 1 小節ずつ読み取って
 `songs/arm-data.js` に入れてある（位置は「小節」と「横の位置 u（0〜1）」）。`armBar(小節)` で秒に、`armX(u)` で画面の x になる。
+同じファイルの `ARM_ONSETS` は曲の音の解析（キック・スネア・ハイハット・メロディの 16 分音符の番号）。
 ```js
-armSheet()                    // 楽譜（1 曲に 1 つ）。毎コマ、左右の壁（stage.wl / wr）を譜面の床の広さに合わせる。
-                              //   長い音のリボンは、床や足場にふれている所（高さ ARM_HOT = 22px）だけ当たる → その上にいないか、跳ぶ
-armNote(t, x, { r, style })   // 時刻 t にプレイヤーの高さの x へ来るように落ちる弾（{ at, go } を返す。style: armNote / armOrb / armFlame / armFeather）
+armSheet()                    // 楽譜（1 曲に 1 つ）。毎コマ、左右の壁（stage.wl / wr）を床の広さに合わせる（見た目の壁と同じ位置）
+armNote(t, x, { r, style, v }) // 時刻 t にプレイヤーの高さの x へ来るように落ちる弾（{ at, go } を返す。style: armNote / armOrb / armFlame / armFeather）
 armBell(t, x)                 // メロディのかけら（金色の音）。さわると取れる（ARM_STATS.got が増える）
-armGliss({ x, dir })          // 床をすべる光の波（高さ 20px → 跳びこえる）
+armGliss({ x, dir })          // 床をすべる光の波（高さ 16px → 跳びこえる）。矢印はぜんぶこれになる
 armField(t)                   // 時刻 t の床の広さ { l, r }（px）
 ```
+譜面の中の道具（songs/arm.js の armChart）: `comb`（くしからねらい撃ち）・`discRing`（円盤の輪）・`swirl`（オルゴールの渦）・
+`feather`（ゆれて落ちる羽根）・`ember`（床から上がる火の粉）・`tooth`（くしの歯 = たての光）・`staff`（五線のビーム = 床すれすれの横の光）・`slant`（隅から斜めの列）。
+`tooth` と `staff` は、床の波が来る時刻の近くでは出さない（二つ同時によけられないことがないように）。
 見た目のセットに `walls(T, look, k)` を書くと、左右の壁をそのセットが描く（visuals.js の drawWalls の代わり）。revive はこれで、
 これから先の床の形を、燃えた楽譜のカーテンとして上から下ろしている。`clearText` は関数にもできる（クリアしたときに文字を作る）。
 画面の演出は `armFx('bell' / 'swell' / 'open' / 'lastlight' / 'fade' / 'dark' / 'spark' / 'phoenix' / 'band' / 'hush' / 'rush' / 'revived' …)` で呼ぶ（visuals-revive.js）。

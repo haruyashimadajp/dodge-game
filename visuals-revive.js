@@ -7,7 +7,7 @@
                    109 小節で止まって真っ暗になり、111 小節のひとつの音から、もう一度回り出す
      盛り上がり  … 円盤のうしろに、光の羽（不死鳥の翼）が開く。下から火の粉がのぼる
      床の広さ    … 左右の壁は、燃えた楽譜のカーテン。これから先の形が上から下りてくる（ふちが燃えている）
-     長い音      … 空から下りてくる絹のリボン（ばら色・金色・空色）。床や足場にふれた所が熱く光る
+     弾          … くしからの音符・円盤の輪と渦・羽根・火の粉・くしの歯の光・五線のビーム
      短い音      … 小さな音符が床に落ちて、光の輪になる（当たらない）
      弾          … 黒い音符（色のふち）。流れの弾 = すみれ色の玉、最後のラッシュ = 炎・すみれ・羽根
      金色の音    … 金色の八分音符（メロディのかけら）。取ると、左上の五線に音符がたまる
@@ -250,7 +250,7 @@
     ctx.fillRect(p.x + 5, p.y, 1, p.h);
   }
 
-  // ---- 楽譜（リボン・短い音・矢印・壁ぎわの音・前奏のメロディ）-----------------------------------------------
+  // ---- 楽譜（短い音・矢印・壁ぎわの音・前奏のメロディ）-----------------------------------------------
   const yOf = (t, T) => GROUND_Y - (t - T) * ARM_FALL;
   function sheetKind(b, T) {
     const ahead = (GROUND_Y + 30) / ARM_FALL, lit = 1 - 0.7 * st.dark;
@@ -289,42 +289,6 @@
       for (let x = f.x0 + 8; x < f.x1 - 4; x += 16) { ctx.moveTo(x - d * 5, y - 6); ctx.lineTo(x + d * 3, y); ctx.lineTo(x - d * 5, y + 6); }
     }
     ctx.stroke();
-    // リボン（長い音）
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    const hot = [];
-    for (const h of ARM.holds) {
-      if (h.t0 > T + ahead) break;
-      if (h.t1 < T - 0.05) continue;
-      const c = RIB[h.c];
-      ctx.beginPath();
-      let started = false;
-      const tA = Math.max(h.t0, T), tB = Math.min(h.t1, T + ahead);
-      if (tB <= tA) continue;
-      ctx.moveTo(armLerp(h, tA), yOf(tA, T));
-      for (let j = 0; j < h.t.length; j++) if (h.t[j] > tA && h.t[j] < tB) ctx.lineTo(h.x[j], yOf(h.t[j], T));
-      ctx.lineTo(armLerp(h, tB), yOf(tB, T));
-      ctx.strokeStyle = rgba(c, 0.32 * lit); ctx.lineWidth = 12; ctx.stroke();
-      ctx.strokeStyle = rgba(mixC(c, WHITE, 0.15), 0.95 * lit); ctx.lineWidth = 5; ctx.stroke();
-      ctx.strokeStyle = rgba(WHITE, 0.55 * lit); ctx.lineWidth = 1.5; ctx.stroke();
-      if (h.t0 <= T) hot.push([armLerp(h, T), GROUND_Y, c]);
-      for (const p of platforms) {                                          // 足場にふれている所
-        if (p.ground || platformGone(p)) continue;
-        const tau = T + (GROUND_Y - p.y) / ARM_FALL;
-        if (tau < h.t0 || tau > h.t1) continue;
-        const x = armLerp(h, tau);
-        if (x > p.x - 6 && x < p.x + p.w + 6) hot.push([x, p.y, c]);
-      }
-    }
-    // 熱い所（ふれている所が光る）
-    ctx.globalCompositeOperation = 'lighter';
-    for (const [x, y, c] of hot) {
-      const R = 20 + 6 * Math.sin(T * 30 + x);
-      ctx.drawImage(glowSprite(c), x - R, y - R, R * 2, R * 2);
-      ctx.fillStyle = rgba(WHITE, 0.85); ctx.fillRect(x - 9, y - 3, 18, 3);
-      ctx.fillStyle = rgba(c, 0.35); ctx.fillRect(x - 11, y - ARM_HOT, 22, ARM_HOT);
-      if (gfx > 0 && Math.random() < 0.25) sparks(x, y - 2, { n: 1, color: rgbHex(c), speed: 160, life: 0.35, size: 2, gravity: 500, dir: -Math.PI / 2, spread: 2 });
-    }
-    ctx.globalCompositeOperation = 'source-over';
     // 壁ぎわの音: カーテンのふちで、すみれ色にはじける
     for (const w of ARM.walls) {
       if (w.t < T - 0.25 || w.t > T + ahead) continue;
@@ -340,7 +304,7 @@
     if (!st.paperPat) st.paperPat = ctx.createPattern(st.paper, 'repeat');
     const lit = 1 - 0.6 * st.dark, STEP = 10, ys = [];
     for (let y = -60; y <= GROUND_Y; y += STEP) ys.push(y);
-    const at = y => armField(T + (GROUND_Y - y) / ARM_FALL);
+    const at = y => armField(T + Math.max(0, GROUND_Y - 40 - y) / ARM_FALL);   // プレイヤーの高さ（床から 40px）より下は、いまの壁 = 当たりの壁とぴったり同じ
     const pts = ys.map(y => [y, at(y)]);
     const now = armField(T);
     const scroll = (T * ARM_FALL) % 256;
