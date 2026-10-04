@@ -281,7 +281,8 @@ function update(dt) {
   if (Math.abs(player.squash) < 0.01) player.squash = 0;
 
   updateBullets(dt);
-  scoreEl.textContent = elapsed.toFixed(1) + 's';
+  const sc = elapsed.toFixed(1) + 's';                 // 文字が変わったときだけ書きかえる（毎コマ書きかえると、ページの描き直しが起きる）
+  if (sc !== scoreEl.textContent) scoreEl.textContent = sc;
 }
 
 // ---- Bullets: spawn from the timeline, then move & collide --------------
@@ -440,6 +441,8 @@ function roundRect(x, y, w, h, r) {
 // advances while playing; effects keep moving except while paused.
 let lastT = 0;
 function loop(t) {
+  // 120Hz などの画面では、約 60 回 / 秒だけ描く（2 倍描いても見た目はほぼ同じで、重さは 2 倍になる）
+  if (t - lastT < 13) { requestAnimationFrame(loop); return; }
   let dt = (t - lastT) / 1000;
   lastT = t;
   autoGfx(dt);

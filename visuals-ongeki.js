@@ -125,6 +125,49 @@
     for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(r * 0.1 + i * r * 0.28, -r * 0.2); ctx.lineTo(r * 0.2 + i * r * 0.28, r * (0.45 + fist * 0.2)); ctx.stroke(); }
     ctx.restore();
   }
+  // ネコの動かない部分（耳・頭・王冠・目）は前もって絵にしておく（毎コマ、グラデーションや図形を作り直さない）
+  const catCache = {};
+  function catBody(gold, blink) {
+    const key = (gold ? 'g' : 'a') + blink;
+    if (catCache[key]) return catCache[key];
+    const R = 46, HALF = R * 1.9, SC = 2, c = document.createElement('canvas');
+    c.width = c.height = Math.ceil(HALF * 2 * SC);
+    const ctx = c.getContext('2d'); ctx.scale(SC, SC);
+    const x = HALF, y = HALF;
+    // 耳（とがった円すい）＋ ヘッドホンのように耳をつなぐ電波
+    const ear = sgn => {
+      const a = -Math.PI / 2 + sgn * 0.62, bx = x + Math.cos(a) * R * 0.78, by = y + Math.sin(a) * R * 0.78;
+      const tx = x + Math.cos(a) * R * 1.62, ty = y + Math.sin(a) * R * 1.62;
+      ctx.fillStyle = gold ? '#e3a51c' : '#141018'; ctx.strokeStyle = gold ? '#7a4a06' : '#ff3048'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(bx + Math.cos(a + 1.57) * R * 0.34, by + Math.sin(a + 1.57) * R * 0.34); ctx.lineTo(tx, ty); ctx.lineTo(bx + Math.cos(a - 1.57) * R * 0.34, by + Math.sin(a - 1.57) * R * 0.34); ctx.closePath(); ctx.fill(); ctx.stroke();
+      return [tx, ty];
+    };
+    ear(-1); ear(1);
+    // 頭（丸い体）
+    const gr = ctx.createRadialGradient(x - R * 0.35, y - R * 0.4, R * 0.1, x, y, R);
+    if (gold) { gr.addColorStop(0, '#fff8d0'); gr.addColorStop(0.45, '#f2c232'); gr.addColorStop(1, '#8a5a08'); }
+    else { gr.addColorStop(0, '#4a4452'); gr.addColorStop(0.5, '#1c1820'); gr.addColorStop(1, '#060508'); }
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, R, 0, TAU); ctx.fill();
+    ctx.strokeStyle = gold ? '#fff0a0' : '#ff3048'; ctx.lineWidth = 2.5; ctx.stroke();
+    // 王冠（こんじきニャン）
+    if (gold) {
+      const cy = y - R * 0.98, cw = R * 0.9;
+      ctx.fillStyle = '#ffd23a'; ctx.strokeStyle = '#7a4a06'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x - cw / 2, cy); ctx.lineTo(x - cw / 2, cy - R * 0.32); ctx.lineTo(x - cw / 4, cy - R * 0.12); ctx.lineTo(x, cy - R * 0.42); ctx.lineTo(x + cw / 4, cy - R * 0.12); ctx.lineTo(x + cw / 2, cy - R * 0.32); ctx.lineTo(x + cw / 2, cy); ctx.closePath(); ctx.fill(); ctx.stroke();
+      for (const [dx, col] of [[-0.25, '#ff4d6d'], [0, '#4da6ff'], [0.25, '#5cff8a']]) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + dx * cw, cy - R * 0.08, R * 0.06, 0, TAU); ctx.fill(); }
+    }
+    // 目（つり目。光る）＋ 口
+    for (const sgn of [-1, 1]) {
+      const ex = x + sgn * R * 0.36, ey = y - R * 0.08;
+      ctx.save(); ctx.translate(ex, ey); ctx.rotate(sgn * 0.32); ctx.scale(1, blink);
+      ctx.fillStyle = gold ? '#fffbe8' : '#ff2a3a';
+      ctx.beginPath(); ctx.ellipse(0, 0, R * 0.2, R * 0.12, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = gold ? '#7a4a06' : '#1a0004';
+      ctx.beginPath(); ctx.ellipse(sgn * R * 0.03, 0, R * 0.05, R * 0.1, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+    return (catCache[key] = { cv: c, HALF });
+  }
   function drawCat(x, y, s, gold, T, k, mood = 0) {
     const R = 46 * s;
     // 炎（あかニャン）/ 金の光（こんじきニャン）
@@ -156,41 +199,14 @@
     }
     ctx.drawImage(glowSprite(gold ? GOLD : RED), x - R * 2.4, y - R * 2.4, R * 4.8, R * 4.8);
     ctx.globalCompositeOperation = 'source-over';
-    // 耳（とがった円すい）＋ ヘッドホンのように耳をつなぐ電波
-    const ear = sgn => {
-      const a = -Math.PI / 2 + sgn * 0.62, bx = x + Math.cos(a) * R * 0.78, by = y + Math.sin(a) * R * 0.78;
-      const tx = x + Math.cos(a) * R * 1.62, ty = y + Math.sin(a) * R * 1.62;
-      ctx.fillStyle = gold ? '#e3a51c' : '#141018'; ctx.strokeStyle = gold ? '#7a4a06' : '#ff3048'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.moveTo(bx + Math.cos(a + 1.57) * R * 0.34, by + Math.sin(a + 1.57) * R * 0.34); ctx.lineTo(tx, ty); ctx.lineTo(bx + Math.cos(a - 1.57) * R * 0.34, by + Math.sin(a - 1.57) * R * 0.34); ctx.closePath(); ctx.fill(); ctx.stroke();
-      return [tx, ty];
-    };
-    const [lx, ly] = ear(-1), [rx, ry] = ear(1);
+    // 耳をつなぐ電波（動く点線）→ 動かない部分の絵 → 目の光・口（動く）
+    const tip = sgn => { const a = -Math.PI / 2 + sgn * 0.62; return [x + Math.cos(a) * R * 1.62, y + Math.sin(a) * R * 1.62]; };
+    const [lx, ly] = tip(-1), [rx, ry] = tip(1);
     ctx.strokeStyle = gold ? rgba(GOLD, 0.7) : rgba(PINK, 0.65); ctx.lineWidth = 2; ctx.setLineDash([4, 5]); ctx.lineDashOffset = -T * 30;
     ctx.beginPath(); ctx.moveTo(lx, ly); ctx.quadraticCurveTo(x, y - R * 2.3, rx, ry); ctx.stroke(); ctx.setLineDash([]);
-    // 頭（丸い体）
-    const gr = ctx.createRadialGradient(x - R * 0.35, y - R * 0.4, R * 0.1, x, y, R);
-    if (gold) { gr.addColorStop(0, '#fff8d0'); gr.addColorStop(0.45, '#f2c232'); gr.addColorStop(1, '#8a5a08'); }
-    else { gr.addColorStop(0, '#4a4452'); gr.addColorStop(0.5, '#1c1820'); gr.addColorStop(1, '#060508'); }
-    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, R, 0, TAU); ctx.fill();
-    ctx.strokeStyle = gold ? '#fff0a0' : '#ff3048'; ctx.lineWidth = 2.5; ctx.stroke();
-    // 王冠（こんじきニャン）
-    if (gold) {
-      const cy = y - R * 0.98, cw = R * 0.9;
-      ctx.fillStyle = '#ffd23a'; ctx.strokeStyle = '#7a4a06'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(x - cw / 2, cy); ctx.lineTo(x - cw / 2, cy - R * 0.32); ctx.lineTo(x - cw / 4, cy - R * 0.12); ctx.lineTo(x, cy - R * 0.42); ctx.lineTo(x + cw / 4, cy - R * 0.12); ctx.lineTo(x + cw / 2, cy - R * 0.32); ctx.lineTo(x + cw / 2, cy); ctx.closePath(); ctx.fill(); ctx.stroke();
-      for (const [dx, col] of [[-0.25, '#ff4d6d'], [0, '#4da6ff'], [0.25, '#5cff8a']]) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + dx * cw, cy - R * 0.08, R * 0.06, 0, TAU); ctx.fill(); }
-    }
-    // 目（つり目。光る）＋ 口
     const blink = (Math.floor(T * 0.7) % 5 === 0 && (T * 0.7) % 1 < 0.08) ? 0.15 : 1;
-    for (const sgn of [-1, 1]) {
-      const ex = x + sgn * R * 0.36, ey = y - R * 0.08;
-      ctx.save(); ctx.translate(ex, ey); ctx.rotate(sgn * 0.32); ctx.scale(1, blink);
-      ctx.fillStyle = gold ? '#fffbe8' : '#ff2a3a';
-      ctx.beginPath(); ctx.ellipse(0, 0, R * 0.2, R * 0.12, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = gold ? '#7a4a06' : '#1a0004';
-      ctx.beginPath(); ctx.ellipse(sgn * R * 0.03, 0, R * 0.05, R * 0.1, 0, 0, TAU); ctx.fill();
-      ctx.restore();
-    }
+    const cb = catBody(gold, blink), hs = cb.HALF * s;
+    ctx.drawImage(cb.cv, x - hs, y - hs, hs * 2, hs * 2);
     if (!gold && gfx > 0) { ctx.globalCompositeOperation = 'lighter'; for (const sgn of [-1, 1]) ctx.drawImage(glowSprite(RED), x + sgn * R * 0.36 - 16, y - R * 0.08 - 16, 32, 32); ctx.globalCompositeOperation = 'source-over'; }
     const open = clamp01(st.fired + mood);
     ctx.strokeStyle = gold ? '#5a3404' : '#ff5a6a'; ctx.lineWidth = 2.2; ctx.fillStyle = gold ? '#5a3404' : '#3a0008';
@@ -229,7 +245,7 @@
     if (!st.made) make();
     const lo = inSong() ? songEnv(0, T) : 0.3 + 0.4 * k;
     const gold = goldAt(T);
-    const bg = cachedLayer('ongekiBg', 3, 0, g => {
+    const bg = cachedLayer('ongekiBg', 6, 0, g => {
       const sk = g.createLinearGradient(0, 0, 0, H);
       sk.addColorStop(0, rgba(look.skyTop, 1)); sk.addColorStop(0.55, rgba(look.skyBot, 1)); sk.addColorStop(1, rgba(mixC(look.skyBot, [0, 0, 0], 0.5), 1));
       g.fillStyle = sk; g.fillRect(0, 0, W, H);
@@ -339,18 +355,27 @@
   }
 
   // ベル（金色の鈴。ゆらゆら）
-  function bellKind(b, T, k) {
-    if (b.delay > 0) return;
-    const r = b.r, sw = Math.sin(T * 8 + b.x * 0.05) * 0.25;
-    if (gfx > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glowSprite(GOLD), b.x - r * 2.4, b.y - r * 2.4, r * 4.8, r * 4.8); ctx.globalCompositeOperation = 'source-over'; }
-    ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(sw);
+  // ベルの絵も 1 度だけ描いておき、ゆらしながら貼る
+  let bellImg = null;
+  function bellSprite() {
+    if (bellImg) return bellImg;
+    const r = 11, c = document.createElement('canvas'); c.width = c.height = 64;
+    const ctx = c.getContext('2d'); ctx.scale(2, 2); ctx.translate(16, 16);
     const g = ctx.createLinearGradient(-r, -r, r, r); g.addColorStop(0, '#fff6c0'); g.addColorStop(0.5, '#ffd23a'); g.addColorStop(1, '#b07a08');
     ctx.fillStyle = g; ctx.strokeStyle = '#5a3a02'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(-r * 0.95, r * 0.55); ctx.quadraticCurveTo(-r * 0.85, -r * 0.95, 0, -r); ctx.quadraticCurveTo(r * 0.85, -r * 0.95, r * 0.95, r * 0.55); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#ffe9a0'; ctx.fillRect(-r * 1.05, r * 0.45, r * 2.1, r * 0.25);
     ctx.fillStyle = '#7a5004'; ctx.beginPath(); ctx.arc(0, r * 0.82, r * 0.22, 0, TAU); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.ellipse(-r * 0.35, -r * 0.35, r * 0.15, r * 0.3, 0.5, 0, TAU); ctx.fill();
-    ctx.restore();
+    return (bellImg = c);
+  }
+  function bellKind(b, T, k) {
+    if (b.delay > 0) return;
+    const r = b.r, sw = Math.sin(T * 8 + b.x * 0.05) * 0.25, S = r / 11 * 16;
+    if (gfx > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glowSprite(GOLD), b.x - r * 2.4, b.y - r * 2.4, r * 4.8, r * 4.8); ctx.globalCompositeOperation = 'source-over'; }
+    const m = ctx.getTransform();
+    ctx.translate(b.x, b.y); ctx.rotate(sw); ctx.drawImage(bellSprite(), -S, -S, S * 2, S * 2);
+    ctx.setTransform(m);
   }
 
   // ノーツ（TAP / HOLD / WALL）: 着く所のレーンにうすい光の柱と、判定ラインの上の影
@@ -530,6 +555,30 @@
     if (st.awaken < 0 || T < st.awaken) return 1 - 0.88 * clamp01((T - t3) / (t101 - t3));
     return 1 - clamp01((T - st.awaken - 0.8) / (t125 - st.awaken - 0.8)) * (T - st.awaken < 0.8 ? 0 : 1);
   }
+  function drawHud(hp, gold) {
+    if (!st.hud || st.hud.width !== Math.round(W * renderScale)) { st.hud = document.createElement('canvas'); st.hud.width = Math.round(W * renderScale); st.hud.height = Math.round(64 * renderScale); }
+    const g = st.hud.getContext('2d');
+    g.setTransform(renderScale, 0, 0, renderScale, 0, 0); g.clearRect(0, 0, W, 64);
+    const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+    const x = 14, y = 14;
+    g.fillStyle = 'rgba(10,2,10,0.72)'; rr(x, y, 270, 46, 8); g.fill();
+    g.strokeStyle = gold ? rgba(GOLD, 0.8) : rgba(PINK, 0.7); g.lineWidth = 1.5; g.stroke();
+    g.font = `800 15px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillStyle = gold ? '#ffe9a0' : '#ffd0e4'; g.fillText(gold ? 'こんじきニャン' : 'あかニャン', x + 12, y + 15);
+    g.font = `700 12px ${FONT}`; g.fillStyle = 'rgba(255,255,255,0.75)';
+    g.fillText(gold ? 'Lv.1 ─ 怨撃・真' : 'Lv.60 ─ 火', x + (gold ? 132 : 108), y + 15);
+    g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(x + 12, y + 29, 246, 8);
+    const hg = g.createLinearGradient(x + 12, 0, x + 258, 0);
+    if (gold) { hg.addColorStop(0, '#ffb02e'); hg.addColorStop(1, '#fff3a0'); } else { hg.addColorStop(0, '#ff2a4a'); hg.addColorStop(1, '#ff8ab8'); }
+    g.fillStyle = hg; g.fillRect(x + 12, y + 29, Math.round(246 * hp), 8);
+    const bx = W - 150, by = 14;
+    g.fillStyle = 'rgba(10,2,10,0.72)'; rr(bx, by, 136, 34, 8); g.fill();
+    g.strokeStyle = rgba(GOLD, 0.6 + 0.4 * st.bellT); g.lineWidth = 1.5; g.stroke();
+    const bs = 9 * (1 + 0.25 * st.bellT) / 11 * 16;
+    g.drawImage(bellSprite(), bx + 20 - bs, by + 17 - bs, bs * 2, bs * 2);
+    g.font = `800 15px ${FONT}`; g.fillStyle = '#ffe9a0';
+    g.fillText(`${ogStats.got} / ${ogStats.total}`, bx + 38, by + 18);
+  }
   function banner() {
     const T = songTime, gold = goldAt(T);
     if (scene === 'play' && typeof dragMode === 'function' && dragMode()) {
@@ -550,26 +599,11 @@
       }
     }
     if (scene === 'play' || scene === 'over' || scene === 'clear') {
-      // 相手の名前と体力
+      // 相手の名前と体力・ベルの数: 値が変わったときだけ絵に描き直し、毎コマはその絵を貼るだけ（文字を毎コマ描かない）
       const hp = st.defeat >= 0 && T >= st.defeat ? 0 : (st.awaken >= 0 && T >= st.awaken && T < st.awaken + 0.8 ? clamp01((T - st.awaken) / 0.8) : hpAt(T));
-      const x = 14, y = 14;
-      ctx.fillStyle = 'rgba(10,2,10,0.72)'; roundRect(x, y, 270, 46, 8); ctx.fill();
-      ctx.strokeStyle = gold ? rgba(GOLD, 0.8) : rgba(PINK, 0.7); ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.font = `800 15px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = gold ? '#ffe9a0' : '#ffd0e4'; ctx.fillText(gold ? 'こんじきニャン' : 'あかニャン', x + 12, y + 15);
-      ctx.font = `700 12px ${FONT}`; ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.fillText(gold ? 'Lv.1 ─ 怨撃・真' : 'Lv.60 ─ 火', x + (gold ? 132 : 108), y + 15);
-      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(x + 12, y + 29, 246, 8);
-      const hg = ctx.createLinearGradient(x + 12, 0, x + 258, 0);
-      if (gold) { hg.addColorStop(0, '#ffb02e'); hg.addColorStop(1, '#fff3a0'); } else { hg.addColorStop(0, '#ff2a4a'); hg.addColorStop(1, '#ff8ab8'); }
-      ctx.fillStyle = hg; ctx.fillRect(x + 12, y + 29, 246 * hp, 8);
-      // ベル
-      const bx = W - 150, by = 14;
-      ctx.fillStyle = 'rgba(10,2,10,0.72)'; roundRect(bx, by, 136, 34, 8); ctx.fill();
-      ctx.strokeStyle = rgba(GOLD, 0.6 + 0.4 * st.bellT); ctx.lineWidth = 1.5; ctx.stroke();
-      bellKind({ x: bx + 20, y: by + 17, r: 9 * (1 + 0.25 * st.bellT), delay: 0 }, 0, 0);
-      ctx.font = `800 15px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffe9a0';
-      ctx.fillText(`${ogStats.got} / ${ogStats.total}`, bx + 38, by + 18);
+      const key = `${gold}|${Math.round(246 * hp)}|${ogStats.got}/${ogStats.total}|${Math.round(st.bellT * 8)}|${renderScale}`;
+      if (!st.hud || st.hudKey !== key) { st.hudKey = key; drawHud(hp, gold); }
+      ctx.drawImage(st.hud, 0, 0, W, 64);
     }
     // WARNING（ブレイク）
     if (st.warn >= 0 && T >= st.warn && T < st.warn + 2.2) {

@@ -418,7 +418,7 @@
     if (!st.made) make();
     const nt = night();
     st.fc = (st.fc || 0) + 1;
-    refresh('skyC', 0, skyLayer, T, look);
+    refresh('skyC', 0, skyLayer, T, look, 8);                                // 空（星・オーロラ）はゆっくりなので 8 コマに 1 回
     // 背景の花火
     for (const f of st.fws) drawBgFirework(f);
     // 流れ星（冬）
