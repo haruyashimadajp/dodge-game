@@ -147,6 +147,17 @@
       st.crowd.push({ x: (i + 0.5 + (row ? 0.5 : 0) + (hs(i, row + 60) - 0.5) * 0.6) * (W / 26), row, s: 0.85 + 0.35 * hs(i, row + 61), ph: hs(i, row + 62) * TAU, arm: hs(i, row + 63) });
     }
   }
+  // 画面のふちが赤くなる絵（前もって描いておき、うすさを変えて貼る。毎コマ画面いっぱいのグラデーションを塗るより軽い）
+  const redEdges = {};
+  function redEdge(r0, r1) {
+    const key = r0 + ',' + r1;
+    if (redEdges[key]) return redEdges[key];
+    const c = document.createElement('canvas'); c.width = W / 2; c.height = H / 2;
+    const g = c.getContext('2d'), gr = g.createRadialGradient(W / 4, H / 4, H * r0 / 2, W / 4, H / 4, H * r1 / 2);
+    gr.addColorStop(0, 'rgba(255,0,20,0)'); gr.addColorStop(1, 'rgba(255,0,20,1)');
+    g.fillStyle = gr; g.fillRect(0, 0, W / 2, H / 2);
+    return (redEdges[key] = c);
+  }
   function beam(c) {
     c = c.map(v => Math.round(v / 24) * 24);                             // 色はまるめる（場面の色が移り変わる間に、毎コマ新しい絵を作って、たまり続けないように）
     const key = c.join(',');
@@ -349,9 +360,7 @@
       ctx.restore();
     }
     if (st.rage > 0.01) {                                                 // 叫びと重低音で、画面のふちが赤く脈打つ
-      const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
-      g.addColorStop(0, 'rgba(255,0,20,0)'); g.addColorStop(1, `rgba(255,0,20,${(0.35 * st.rage).toFixed(3)})`);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = clamp01(0.35 * st.rage); ctx.drawImage(redEdge(0.3, 0.75), 0, 0, W, H); ctx.globalAlpha = 1;
     }
     // サイレン: 上の両すみから回転灯の光がまわり、画面が赤く脈打ち、上下のふちに工事中のしま（だんだん強く）
     if (st.sirenU > 0.01) {
@@ -366,13 +375,13 @@
       }
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
       const wob = 0.5 + 0.5 * Math.sin(ph * (8 + 28 * u * u));
-      const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.8);
-      g.addColorStop(0, 'rgba(255,0,20,0)'); g.addColorStop(1, `rgba(255,0,20,${((0.1 + 0.4 * u * u) * wob).toFixed(3)})`);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = clamp01((0.1 + 0.4 * u * u) * wob); ctx.drawImage(redEdge(0.2, 0.8), 0, 0, W, H); ctx.globalAlpha = 1;
       ctx.save(); ctx.globalAlpha = clamp01(u * 1.3);
       for (const y of [8, H - 22]) {
         ctx.fillStyle = '#111'; ctx.fillRect(0, y, W, 14); ctx.fillStyle = '#ffd23f';
-        for (let x = ((ph * 200) % 28) - 28; x < W; x += 28) { ctx.beginPath(); ctx.moveTo(x, y + 14); ctx.lineTo(x + 14, y); ctx.lineTo(x + 24, y); ctx.lineTo(x + 10, y + 14); ctx.closePath(); ctx.fill(); }
+        ctx.beginPath();
+        for (let x = ((ph * 200) % 28) - 28; x < W; x += 28) { ctx.moveTo(x, y + 14); ctx.lineTo(x + 14, y); ctx.lineTo(x + 24, y); ctx.lineTo(x + 10, y + 14); ctx.closePath(); }
+        ctx.fill();
       }
       ctx.restore();
     }
@@ -570,8 +579,9 @@
         ctx.save(); ctx.globalAlpha = on ? 0.9 : 0.35;
         for (const ex of [x - w / 2, x + w / 2 - 6]) {
           ctx.fillStyle = '#111'; ctx.fillRect(ex, 0, 6, GROUND_Y);
-          ctx.fillStyle = '#ffd23f';
-          for (let y = (T * 120) % 24 - 24; y < GROUND_Y; y += 24) { ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + 6, y - 6); ctx.lineTo(ex + 6, y + 6); ctx.lineTo(ex, y + 12); ctx.closePath(); ctx.fill(); }
+          ctx.fillStyle = '#ffd23f'; ctx.beginPath();                     // しまは1回でまとめて塗る
+          for (let y = (T * 120) % 24 - 24; y < GROUND_Y; y += 24) { ctx.moveTo(ex, y); ctx.lineTo(ex + 6, y - 6); ctx.lineTo(ex + 6, y + 6); ctx.lineTo(ex, y + 12); ctx.closePath(); }
+          ctx.fill();
         }
         ctx.restore();
         const fall = GROUND_Y * (1 - p);                                    // 落ちてくる影
@@ -582,7 +592,7 @@
       const ww = w * (b.safe ? 0.4 + 0.6 * fade : 1 + 0.15 * clamp01(1 - b.age / 0.08));
       ctx.fillStyle = `rgba(0,0,0,${(0.7 * sc).toFixed(3)})`; ctx.fillRect(x - ww / 2 - 4, 0, ww + 8, GROUND_Y);
       ctx.fillStyle = rgba(c, 0.95 * sc); ctx.fillRect(x - ww / 2, 0, ww, GROUND_Y);
-      ctx.globalAlpha = 0.5 * sc; ctx.fillStyle = ctx.createPattern(st.grain, 'repeat'); ctx.fillRect(x - ww / 2, 0, ww, GROUND_Y); ctx.globalAlpha = 1;
+      ctx.globalAlpha = 0.5 * sc; ctx.fillStyle = st.grainPat || (st.grainPat = ctx.createPattern(st.grain, 'repeat'));   // 模様は1回だけ作る（毎コマ作ると、ブラウザによっては絵のコピーがたまって、どんどん重くなる） ctx.fillRect(x - ww / 2, 0, ww, GROUND_Y); ctx.globalAlpha = 1;
       if (!b.safe && b.age < 0.05 && !b.boomed) {
         b.boomed = true;
         sparks(x, GROUND_Y - 2, { n: 16, color: rgbHex(c), speed: 380, life: 0.45, size: 3, gravity: 900, dir: -Math.PI / 2, spread: 2.6 });
