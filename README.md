@@ -37,6 +37,14 @@ Open `index.html` in a web browser.
 - **Jump:** `↑` / `W` / `Space`
 - **Choose a song (title):** `←` `→` or the ◀ ▶ buttons
 
+## Ranks, grazes, achievements and skins
+
+- **Rank:** every clear gets a rank from the number of hits — **S** (no hits, shown as FULL DODGE), **A** (1–2), **B** (3–5) or **C**. The best rank of each song and difficulty is saved and shown on that difficulty button (the ★ of older clears stays until you clear again).
+- **Graze:** a bullet or beam that passes within 12 px of you without hitting counts as a graze (a white spark and a soft tick, counted in the HUD and on the result screen). The best graze count of each song and difficulty is shown under the difficulty buttons.
+- **Achievements:** 32 of them (plays, survival time, clears per difficulty, S ranks, grazes, and one for each of several songs). They unlock with a toast during or after a run and are listed on the result screen.
+- **Skins:** most achievements unlock a player skin — colours, head accessories (crown, halo, horns, mohawk, headphones, ribbon) and trails (sparks, rainbow, embers, bubbles, petals, stars). Choose one in **🏆 コレクション** on the title screen, which also lists every achievement with its progress.
+- Saved in `localStorage` (`dodge_rank_*`, `dodge_graze_*`, `dodge_progress`).
+
 ## Files
 
 | File | Description |
@@ -45,6 +53,7 @@ Open `index.html` in a web browser.
 | `game.js` | Game code — character, physics, collision, song select, and the bullet tools |
 | `songs/*.js` | One file per song: beat grid, sections (looks) and chart (bullets) |
 | `songs/*-env.js` | Per-band loudness of each song (generated), used by the audio-reactive visuals |
+| `progress.js` | Achievements, skins, play stats and the 🏆 コレクション screen |
 | `visuals.js` | Rendering & effects — beat-synced camera, particles, title animation, the neon theme, graphics quality |
 | `visuals-night.js` | The night / UFO theme used by Re:Unknown X |
 | `songs/emperror-classic.js`, `songs/unknown-classic.js`, `songs/extremeex-classic.js` | The original charts of the EmpErroR, Re:Unknown X and ExtremeEX, kept as 旧譜面 variants (`variantOf`) |

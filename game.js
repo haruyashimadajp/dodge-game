@@ -39,6 +39,9 @@ const resultBox = document.getElementById('resultBox');
 const resTime = document.getElementById('resTime');
 const resBest = document.getElementById('resBest');
 const resHits = document.getElementById('resHits');
+const resGraze = document.getElementById('resGraze');
+const grazeHud = document.getElementById('grazeHud');
+const rankBadge = document.getElementById('rankBadge');
 const titleBest = document.getElementById('titleBest');
 const toTitleBtn2 = document.getElementById('toTitleBtn2');
 
@@ -163,6 +166,8 @@ let running = false;
 let paused = false;
 let scene = 'title';       // 'title' | 'play' | 'over' | 'clear'  (what visuals.js draws)
 let hitsTaken = 0;
+let grazes = 0;               // かすった弾の数（当たらずに、すぐそばを通った）
+let runJumps = 0;             // この回にジャンプした数（実績用）
 let fxScale = 1;           // 画面演出 setting: scales shake / zoom / flash / glitch
 let gfx = 2;               // 画質 being drawn now: 2 = 高, 1 = 中, 0 = 低 (visuals.js reads it)
 let renderScale = 1;       // 低 draws the canvas at 70% resolution (fewer pixels to fill)
@@ -193,6 +198,8 @@ function reset() {
   flashT = 0;
   freezeUntil = -1;
   hitsTaken = 0;
+  grazes = 0; runJumps = 0; grazeT = 0;
+  updateGrazeHud();
   songTime = 0;
   drag.dx = 0; drag.id = null;
   stageReset();
@@ -255,6 +262,7 @@ function update(dt) {
     player.bufferT = 0;
     player.squash = 1;       // stretch on takeoff
     fxJump();
+    runJumps++;
   }
 
   // Integrate + collide (axis-separated)
@@ -338,10 +346,39 @@ function updateBullets(dt) {
       if (b.delay > 0 || b.safe) continue;  // warnings don't hit you
       if (b.hits ? b.hits(b) : circleHitsPlayer(b.x, b.y, b.r)) { hitPlayer(); return; }
     }
+    checkGraze();
   }
 
   // Reached the end of the song = clear (also works if the music is blocked)
   if (songTime >= SONG_END) winGame();
+}
+
+// ---- かすり（グレイズ）: 当たらずに、すぐそばを弾が通った -----------------------------------
+// プレイヤーの当たり判定を GRAZE だけ広げて、もう一度当たり判定をする。広げた時だけ当たる弾 = かすった。
+// （それぞれの弾が自分の当たり判定 hits() を持っていても、同じやり方で使える）。1つの弾は1回だけ数える
+const GRAZE = 12;
+let grazeT = 0;                                  // かすりの音を鳴らした時刻（鳴らしすぎないように）
+function checkGraze() {
+  const { x, y, w, h } = player;
+  player.x -= GRAZE; player.y -= GRAZE; player.w += GRAZE * 2; player.h += GRAZE * 2;
+  const near = [];
+  try {
+    for (const b of bullets) {
+      if (b.grazed || b.delay > 0 || b.safe) continue;
+      if (b.hits ? b.hits(b) : circleHitsPlayer(b.x, b.y, b.r)) near.push(b);
+    }
+  } finally { Object.assign(player, { x, y, w, h }); }
+  for (const b of near) { b.grazed = true; onGraze(b); }
+}
+function onGraze(b) {
+  grazes++;
+  updateGrazeHud();
+  if (typeof fxGraze === 'function') fxGraze(b);
+  if (elapsed - grazeT > 0.06) { grazeT = elapsed; beep(1650 + Math.min(grazes, 400), 0.05, 'sine', 0.35); }
+  if (typeof onProgressGraze === 'function') onProgressGraze(grazes);
+}
+function updateGrazeHud() {
+  if (grazeHud && grazeHud.textContent !== String(grazes)) grazeHud.textContent = grazes;
 }
 
 function circleHitsPlayer(x, y, r) {
@@ -575,6 +612,8 @@ function endRun(kind) {
   bgm.pause();
   pauseBtn.classList.add('hidden');
   updateTouchControls();
+  const rec = recordRun(kind);
+  const unlocked = (typeof onProgressRunEnd === 'function') ? onProgressRunEnd(kind, rec) : [];
   const newBest = elapsed > best;
   if (newBest) {
     best = elapsed;
@@ -589,13 +628,44 @@ function endRun(kind) {
     resTime.textContent = elapsed.toFixed(1) + 's';
     resBest.textContent = best.toFixed(1) + 's';
     resHits.textContent = hitsTaken;
+    resGraze.textContent = grazes + (rec.newGraze ? ' ↑' : '');
+    showRankBadge(rec, kind);
+    if (typeof showUnlocks === 'function') showUnlocks(unlocked);
     startBtn.textContent = 'RETRY';
     overlay.classList.remove('hidden');
   }, kind === 'clear' ? 1600 : 1000);
 }
 
+// ---- ランク（クリアした時だけ）: 当たった数で決まる。0 回 = S（FULL DODGE）--------------------------
+const RANKS = ['S', 'A', 'B', 'C'];
+function rankOf(hits) { return hits === 0 ? 'S' : hits <= 2 ? 'A' : hits <= 5 ? 'B' : 'C'; }
+const rankKey = (s, d) => 'dodge_rank_' + s.id + '_' + d;
+const grazeKey = (s, d) => 'dodge_graze_' + s.id + '_' + d;
+function bestRankOf(s, d) { const r = store.get(rankKey(s, d)); return RANKS.includes(r) ? r : null; }
+function bestGrazeOf(s, d) { return Number(store.get(grazeKey(s, d))) || 0; }
+// 記録してよい回か（残機が無限の練習などは、ランクや実績を記録しない）
+function runCounts() { return startLives !== Infinity; }
+// この回の結果を記録して、何が新しくなったかを返す
+function recordRun(kind) {
+  const out = { rank: kind === 'clear' ? rankOf(hitsTaken) : null, newRank: false, newGraze: false };
+  if (!runCounts()) return out;
+  if (out.rank) {
+    const old = bestRankOf(song, difficulty);
+    if (!old || RANKS.indexOf(out.rank) < RANKS.indexOf(old)) { store.set(rankKey(song, difficulty), out.rank); out.newRank = true; }
+  }
+  if (grazes > bestGrazeOf(song, difficulty)) { store.set(grazeKey(song, difficulty), String(grazes)); out.newGraze = grazes > 0; }
+  return out;
+}
+
 function gameOver() { fxDeath(); endRun('over'); }
 function winGame()  { recordClear(); fxClear(); endRun('clear'); }   // reached the end of the song
+
+function showRankBadge(rec, kind) {
+  rankBadge.className = 'rank-badge';
+  if (!rec.rank) { rankBadge.innerHTML = ''; return; }
+  rankBadge.classList.add('rank-' + rec.rank);
+  rankBadge.innerHTML = `<span class="rank-letter">${rec.rank}</span><span class="rank-sub">${rec.rank === 'S' ? 'FULL DODGE' : 'RANK'}${rec.newRank ? ' · NEW!' : ''}</span>`;
+}
 
 function setOverlayTitle(text) {
   ovTitle.textContent = text;
@@ -1000,10 +1070,14 @@ function updateDiffUI() {
   diffBtns.forEach(b => {
     b.classList.toggle('active', b.dataset.diff === difficulty);
     b.classList.toggle('cleared', c.includes(b.dataset.diff));
-    b.title = c.includes(b.dataset.diff) ? 'この難易度でクリアした' : '';
+    const r = bestRankOf(song, b.dataset.diff);
+    b.dataset.rank = r || '★';                    // クリアした難易度には、いちばん良いランク（前のクリアは ★）
+    b.classList.toggle('full-dodge', r === 'S');
+    b.title = c.includes(b.dataset.diff) ? 'この難易度でクリアした' + (r ? `（ベスト ${r}）` : '') : '';
   });
   diffNote.textContent = (difficulty === 'impossible' ? '残機 1（1 回当たったら終わり）' : `残機 ${d.lives} · 無敵時間 ${d.invuln} 秒`) +
-    (c.length ? `　★ クリア: ${DIFF_ORDER.filter(x => c.includes(x)).map(x => DIFFS[x].label).join(' / ')}` : '');
+    (c.length ? `　★ クリア: ${DIFF_ORDER.filter(x => c.includes(x)).map(x => DIFFS[x].label).join(' / ')}` : '') +
+    (bestGrazeOf(song, difficulty) ? `　かすり最高 ${bestGrazeOf(song, difficulty)}` : '');
 }
 function setDifficulty(d) {
   if (running || !DIFFS[d]) return;

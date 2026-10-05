@@ -1173,6 +1173,7 @@ function drawTitleOrbits(look, k, bp) {
 // ---- 主人公 ----------------------------------------------------------------
 function drawHero(look, k) {
   if (scene === 'over' && fx.deathT > 0.05) return;         // やられたら消える
+  const skin = typeof heroSkin === 'function' ? heroSkin() : HERO_DEFAULT;
 
   // 残像
   for (const g of fx.ghosts) {
@@ -1180,16 +1181,17 @@ function drawHero(look, k) {
     ctx.fillStyle = rgba(look.color, g.a * 0.45);
     ctx.fill();
   }
-  // やわらかい光
+  // やわらかい光（スキンの色）
   const p = playerXY();
   if (gfx > 0) {
     ctx.globalCompositeOperation = 'lighter';
     const G = 30 + 6 * k;
     ctx.globalAlpha = 0.45;
-    ctx.drawImage(glowSprite(rgb('#7fb4ff')), p.x - G, p.y - G, G * 2, G * 2);
+    ctx.drawImage(glowSprite(rgb(skin.glow)), p.x - G, p.y - G, G * 2, G * 2);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
   }
+  heroTrail(skin, p);
 
   // 無敵中は点滅
   if (invuln > 0 && Math.floor(invuln * 12) % 2 === 0) return;
@@ -1209,38 +1211,100 @@ function drawHero(look, k) {
   const w = player.w * sx, h = player.h * sy;
   const x = cx - w / 2, y = baseY - h;
 
-  ctx.save();
   if (player.onGround) {
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
     ctx.ellipse(cx, player.y + player.h + 2, w * 0.55, 4, 0, 0, TAU);
     ctx.fill();
   }
-  const f = player.facing;
-  const bodyTop = y + h * 0.45;
-  roundRect(x, bodyTop, w, h - (bodyTop - y), 5);
-  ctx.fillStyle = '#3b6cf0'; ctx.fill();
-  roundRect(x + w * 0.08, y + h * 0.06, w * 0.84, h * 0.46, 6);
-  ctx.fillStyle = '#f4c9a0'; ctx.fill();
-  roundRect(x + w * 0.02, y, w * 0.96, h * 0.20, 5);
-  ctx.fillStyle = '#e24b4a'; ctx.fill();
-  ctx.fillStyle = '#c43a39';
-  ctx.beginPath();
-  if (f >= 0) ctx.rect(x + w * 0.55, y + h * 0.16, w * 0.55, h * 0.06);
-  else        ctx.rect(x - w * 0.10, y + h * 0.16, w * 0.55, h * 0.06);
-  ctx.fill();
-  ctx.fillStyle = '#222a3a';
-  const eyeY = y + h * 0.30, eyeR = Math.max(1.6, w * 0.07), ex = cx + f * w * 0.10;
-  ctx.beginPath(); ctx.arc(ex - w * 0.12, eyeY, eyeR, 0, TAU); ctx.fill();
-  ctx.beginPath(); ctx.arc(ex + w * 0.12, eyeY, eyeR, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#5a3a22';
-  const footW = w * 0.34, footH = h * 0.10, footY = baseY - footH;
   const moving = player.onGround && Math.abs(player.vx) > 20;
-  const wob = moving ? Math.sin(elapsed * 18) * 2 : 0;
-  roundRect(x + w * 0.06, footY - wob, footW, footH, 3); ctx.fill();
-  roundRect(x + w * 0.60, footY + wob, footW, footH, 3); ctx.fill();
+  paintHero(ctx, x, y, w, h, player.facing, baseY, moving ? Math.sin(elapsed * 18) * 2 : 0, skin);
   ctx.restore();
-  ctx.restore();
+}
+
+// プレイヤーの絵（スキンの色・頭の飾り）。コレクションの画面の見本も、これで描く
+const HERO_DEFAULT = { body: '#3b6cf0', cap: '#e24b4a', brim: '#c43a39', skin: '#f4c9a0', shoe: '#5a3a22', glow: '#7fb4ff' };
+function paintHero(g, x, y, w, h, f, baseY, wob, sk) {
+  const rr = (X, Y, W2, H2, R) => { g.beginPath(); g.roundRect ? g.roundRect(X, Y, W2, H2, R) : g.rect(X, Y, W2, H2); };
+  const cx = x + w / 2;
+  g.save();
+  if (sk.alpha) g.globalAlpha *= sk.alpha;
+  const bodyTop = y + h * 0.45;
+  rr(x, bodyTop, w, h - (bodyTop - y), 5); g.fillStyle = sk.body; g.fill();
+  rr(x + w * 0.08, y + h * 0.06, w * 0.84, h * 0.46, 6); g.fillStyle = sk.skin; g.fill();
+  if (sk.acc === 'mohawk') {                                     // モヒカン（ぼうしのかわり）
+    g.fillStyle = sk.cap; g.beginPath(); g.moveTo(cx - w * 0.22, y + h * 0.1);
+    for (let i = 0; i <= 4; i++) g.lineTo(cx - w * 0.22 + i * w * 0.11 + w * 0.055, y - h * (i % 2 ? 0.05 : 0.22));
+    g.lineTo(cx + w * 0.3, y + h * 0.1); g.closePath(); g.fill();
+  } else {
+    rr(x + w * 0.02, y, w * 0.96, h * 0.20, 5); g.fillStyle = sk.cap; g.fill();
+    g.fillStyle = sk.brim; g.beginPath();
+    if (f >= 0) g.rect(x + w * 0.55, y + h * 0.16, w * 0.55, h * 0.06);
+    else        g.rect(x - w * 0.10, y + h * 0.16, w * 0.55, h * 0.06);
+    g.fill();
+  }
+  g.fillStyle = '#222a3a';
+  const eyeY = y + h * 0.30, eyeR = Math.max(1.6, w * 0.07), ex = cx + f * w * 0.10;
+  g.beginPath(); g.arc(ex - w * 0.12, eyeY, eyeR, 0, TAU); g.fill();
+  g.beginPath(); g.arc(ex + w * 0.12, eyeY, eyeR, 0, TAU); g.fill();
+  g.fillStyle = sk.shoe;
+  const footW = w * 0.34, footH = h * 0.10, footY = baseY - footH;
+  rr(x + w * 0.06, footY - wob, footW, footH, 3); g.fill();
+  rr(x + w * 0.60, footY + wob, footW, footH, 3); g.fill();
+  // 頭の飾り
+  if (sk.acc === 'crown') {
+    g.fillStyle = '#ffd23f'; g.strokeStyle = '#a67c10'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(cx - w * 0.3, y + 1); g.lineTo(cx - w * 0.3, y - h * 0.2); g.lineTo(cx - w * 0.15, y - h * 0.08);
+    g.lineTo(cx, y - h * 0.26); g.lineTo(cx + w * 0.15, y - h * 0.08); g.lineTo(cx + w * 0.3, y - h * 0.2); g.lineTo(cx + w * 0.3, y + 1); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#ff3b6b'; g.beginPath(); g.arc(cx, y - h * 0.06, Math.max(1.5, w * 0.06), 0, TAU); g.fill();
+  } else if (sk.acc === 'halo') {
+    g.strokeStyle = '#fff1a8'; g.lineWidth = 2.5; g.shadowColor = '#fff1a8'; g.shadowBlur = 0;
+    g.beginPath(); g.ellipse(cx, y - h * 0.16, w * 0.36, h * 0.07, 0, 0, TAU); g.stroke();
+  } else if (sk.acc === 'horns') {
+    g.fillStyle = '#2a0a10';
+    for (const sgn of [-1, 1]) { g.beginPath(); g.moveTo(cx + sgn * w * 0.18, y + 2); g.lineTo(cx + sgn * w * 0.42, y - h * 0.22); g.lineTo(cx + sgn * w * 0.34, y + 3); g.closePath(); g.fill(); }
+  } else if (sk.acc === 'phones') {
+    g.strokeStyle = '#e8e8f0'; g.lineWidth = 2.5;
+    g.beginPath(); g.arc(cx, y + h * 0.22, w * 0.52, Math.PI * 1.08, Math.PI * 1.92); g.stroke();
+    g.fillStyle = '#ff4fa3';
+    for (const sgn of [-1, 1]) { rr(cx + sgn * w * 0.5 - w * 0.1, y + h * 0.18, w * 0.2, h * 0.2, 3); g.fill(); }
+  } else if (sk.acc === 'ribbon') {
+    g.fillStyle = '#ff5c8a'; const rx = cx - f * w * 0.32, ry = y + h * 0.05, R = w * 0.16;
+    g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx - R * 1.6, ry - R); g.lineTo(rx - R * 1.6, ry + R); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx + R * 1.6, ry - R); g.lineTo(rx + R * 1.6, ry + R); g.closePath(); g.fill();
+    g.beginPath(); g.arc(rx, ry, R * 0.5, 0, TAU); g.fill();
+  }
+  g.restore();
+}
+
+// スキンの「動いた跡」: 動いている間（と空中）は細かく、止まっている時はたまに粒を出す
+const TRAIL_RAINBOW = ['#ff4d4d', '#ff9f43', '#ffe66d', '#5cff9d', '#4dd2ff', '#6c7bff', '#c77dff'];
+let trailT = 0, trailClock = 0;
+function heroTrail(sk, p) {
+  if (!sk.trail || gfx === 0 || (scene !== 'play' && scene !== 'title')) return;
+  const now = performance.now() / 1000, dt = Math.min(0.1, now - (trailClock || now)); trailClock = now;
+  const active = Math.abs(player.vx) > 20 || !player.onGround;
+  trailT += dt;
+  if (trailT < (active ? 0.035 : 0.22)) return;
+  trailT = 0;
+  const x = p.x - player.facing * player.w * 0.3 + (Math.random() - 0.5) * 8, y = p.y + (Math.random() - 0.3) * player.h * 0.6;
+  const o = {
+    spark:   { color: Math.random() < 0.5 ? '#ffe066' : '#ffffff', speed: 70, life: 0.35, size: 2.2, gravity: 260 },
+    rainbow: { color: TRAIL_RAINBOW[Math.floor(now * 10) % 7], speed: 18, life: 0.6, size: 4, gravity: 0 },
+    ember:   { color: Math.random() < 0.5 ? '#ff7a1a' : '#ffd23f', speed: 40, life: 0.6, size: 2.6, gravity: -140 },
+    bubble:  { color: '#9fe8ff', speed: 20, life: 0.8, size: 2.8, gravity: -90 },
+    petal:   { color: Math.random() < 0.6 ? '#ffb3cf' : '#ffffff', speed: 50, life: 0.9, size: 3, gravity: 50 },
+    star:    { color: '#fff4c0', speed: 30, life: 0.5, size: 2.4, gravity: 0 },
+  }[sk.trail];
+  if (o) sparks(x, y, { n: 1, ...o });
+}
+
+// かすった: プレイヤーの、弾がいる側のふちから白い火花
+function fxGraze(b) {
+  if (theme().graze && theme().graze(b) === true) return;
+  const p = playerXY(), bx = b.x != null && b.kind !== 'laser' ? b.x : p.x, by = b.y != null && b.kind !== 'laser' ? b.y : p.y - 20;
+  const a = Math.atan2(by - p.y, bx - p.x);
+  sparks(p.x + Math.cos(a) * 14, p.y + Math.sin(a) * 18, { n: 4, color: '#ffffff', speed: 150, life: 0.25, size: 2, gravity: 0, dir: a, spread: 1.4 });
 }
 
 // ---- 画面全体にかける演出（カメラの外）-------------------------------------

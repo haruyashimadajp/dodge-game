@@ -15,6 +15,7 @@
       <div class="stat"><span class="label">Time</span><span class="value" id="score">0.0s</span></div>
       <div class="stat"><span class="label">Best</span><span class="value" id="best">0.0s</span></div>
       <div class="stat"><span class="label">Lives</span><span class="value" id="livesHud">3</span></div>
+      <div class="stat"><span class="label">Graze</span><span class="value" id="grazeHud">0</span></div>
       <span class="hint">← → / A D &nbsp;·&nbsp; ↑ / W / Space jump &nbsp;·&nbsp; Esc pause</span>
     </div>
 
@@ -48,16 +49,20 @@
           </div>
           <div class="diff-note title-only" id="diffNote"></div>
           <p class="ov-sub" id="ovSub"></p>
+          <div class="unlock-list result-only" id="unlockList"></div>
 
+          <div class="rank-badge" id="rankBadge"></div>
           <div class="result-box" id="resultBox">
             <div class="res"><span>TIME</span><b id="resTime">0.0s</b></div>
             <div class="res"><span>BEST</span><b id="resBest">0.0s</b></div>
             <div class="res"><span>HITS</span><b id="resHits">0</b></div>
+            <div class="res"><span>GRAZE</span><b id="resGraze">0</b></div>
           </div>
 
           <button id="startBtn" class="start-btn">START</button>
           <div class="title-links">
             <button id="settingsToggle" class="link-btn">⚙ 設定</button>
+            <button id="collectionBtn" class="link-btn">🏆 コレクション <span id="collectionCount"></span></button>
             <button id="toTitleBtn2" class="link-btn result-only">タイトルへ</button>
             <span class="best-tag title-only">BEST <b id="titleBest">0.0s</b></span>
           </div>
@@ -104,6 +109,24 @@
       <div class="modal-foot"><button class="done-btn" id="settingsDone">閉じる</button></div>
     </div>
   </div>
+
+  <!-- コレクション: 実績とスキン（実績を解除すると、スキンが使えるようになる） -->
+  <div class="modal hidden" id="collectionModal" role="dialog" aria-label="コレクション">
+    <div class="modal-card collection-card">
+      <div class="modal-head">
+        <h2>コレクション</h2>
+        <button class="modal-x" id="collectionClose" aria-label="閉じる">✕</button>
+      </div>
+      <div class="col-tabs">
+        <button class="seg-btn active" data-tab="skins">スキン</button>
+        <button class="seg-btn" data-tab="achievements">実績</button>
+      </div>
+      <div class="modal-body" id="collectionBody"></div>
+    </div>
+  </div>
+
+  <!-- 実績を解除したときのお知らせ -->
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
   <!-- Single settings panel, moved between the title and pause screens -->
   <template id="settingsTemplate">
@@ -191,6 +214,7 @@
   <script src="songs/arm-env.js"></script>
   <script src="songs/arm-data.js"></script>
   <script src="game.js"></script>
+  <script src="progress.js"></script>
   <script src="songs/firststep.js"></script>
   <script src="songs/emperror.js"></script>
   <script src="songs/unknown.js"></script>
