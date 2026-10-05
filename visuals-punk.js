@@ -148,8 +148,10 @@
     }
   }
   function beam(c) {
+    c = c.map(v => Math.round(v / 24) * 24);                             // 色はまるめる（場面の色が移り変わる間に、毎コマ新しい絵を作って、たまり続けないように）
     const key = c.join(',');
     if (st.beams[key]) return st.beams[key];
+    if (Object.keys(st.beams).length > 96) st.beams = {};              // たまりすぎたら捨てる
     const cv = document.createElement('canvas'); cv.width = 120; cv.height = 400; const g = cv.getContext('2d');
     const gr = g.createLinearGradient(0, 0, 0, 400); gr.addColorStop(0, rgba(c, 0.55)); gr.addColorStop(1, rgba(c, 0));
     g.fillStyle = gr; g.beginPath(); g.moveTo(54, 0); g.lineTo(66, 0); g.lineTo(120, 400); g.lineTo(0, 400); g.closePath(); g.fill();

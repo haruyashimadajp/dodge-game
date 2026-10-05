@@ -57,9 +57,13 @@ const easeOut = k => 1 - Math.pow(1 - clamp01(k), 3);
 
 // 光のにじみ用の画像（色ごとに1回だけ作って使い回す）
 const glowCache = {};
+let glowCount = 0;
 function glowSprite(c) {
-  const key = c.map(v => v | 0).join(',');
+  // 色は少しまるめる。それでも色が移り変わる間は毎コマ新しい絵ができるので、たまりすぎたら捨てる（メモリがふくらんで重くならないように）
+  c = c.map(v => Math.round(v / 16) * 16);
+  const key = c.join(',');
   if (glowCache[key]) return glowCache[key];
+  if (++glowCount > 96) { for (const k in glowCache) delete glowCache[k]; glowCount = 1; }
   const s = document.createElement('canvas');
   s.width = s.height = 64;
   const g = s.getContext('2d');

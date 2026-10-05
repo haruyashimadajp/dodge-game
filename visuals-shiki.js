@@ -300,8 +300,10 @@
   }
   const auroraStrips = {};
   function auroraStrip(c) {
+    c = c.map(v => Math.round(v / 8) * 8);                               // 色は少しまるめる（移り変わる間に、毎コマ新しい絵を作って、たまり続けないように）
     const key = c.join(',');
     if (auroraStrips[key]) return auroraStrips[key];
+    if (Object.keys(auroraStrips).length > 48) for (const k in auroraStrips) delete auroraStrips[k];   // たまりすぎたら捨てる
     const s = document.createElement('canvas'); s.width = 1; s.height = 64;
     const g = s.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 64);
     gr.addColorStop(0, rgba(c, 0)); gr.addColorStop(0.3, rgba(c, 0.11)); gr.addColorStop(1, rgba(c, 0));
