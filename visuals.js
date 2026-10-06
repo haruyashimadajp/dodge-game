@@ -1268,6 +1268,11 @@ function paintHero(g, x, y, w, h, f, baseY, wob, sk) {
     g.beginPath(); g.arc(cx, y + h * 0.22, w * 0.52, Math.PI * 1.08, Math.PI * 1.92); g.stroke();
     g.fillStyle = '#ff4fa3';
     for (const sgn of [-1, 1]) { rr(cx + sgn * w * 0.5 - w * 0.1, y + h * 0.18, w * 0.2, h * 0.2, 3); g.fill(); }
+  } else if (sk.acc === 'ears') {                                 // ねこみみ
+    for (const sgn of [-1, 1]) {
+      g.fillStyle = sk.cap; g.beginPath(); g.moveTo(cx + sgn * w * 0.12, y + 2); g.lineTo(cx + sgn * w * 0.4, y - h * 0.2); g.lineTo(cx + sgn * w * 0.46, y + 3); g.closePath(); g.fill();
+      g.fillStyle = '#ffb3c4'; g.beginPath(); g.moveTo(cx + sgn * w * 0.22, y + 1); g.lineTo(cx + sgn * w * 0.39, y - h * 0.11); g.lineTo(cx + sgn * w * 0.41, y + 2); g.closePath(); g.fill();
+    }
   } else if (sk.acc === 'ribbon') {
     g.fillStyle = '#ff5c8a'; const rx = cx - f * w * 0.32, ry = y + h * 0.05, R = w * 0.16;
     g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx - R * 1.6, ry - R); g.lineTo(rx - R * 1.6, ry + R); g.closePath(); g.fill();

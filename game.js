@@ -168,6 +168,7 @@ let scene = 'title';       // 'title' | 'play' | 'over' | 'clear'  (what visuals
 let hitsTaken = 0;
 let grazes = 0;               // かすった弾の数（当たらずに、すぐそばを通った）
 let runJumps = 0;             // この回にジャンプした数（実績用）
+let runPauses = 0;            // この回にポーズした数（実績用）
 let fxScale = 1;           // 画面演出 setting: scales shake / zoom / flash / glitch
 let gfx = 2;               // 画質 being drawn now: 2 = 高, 1 = 中, 0 = 低 (visuals.js reads it)
 let renderScale = 1;       // 低 draws the canvas at 70% resolution (fewer pixels to fill)
@@ -198,7 +199,7 @@ function reset() {
   flashT = 0;
   freezeUntil = -1;
   hitsTaken = 0;
-  grazes = 0; runJumps = 0; grazeT = 0;
+  grazes = 0; runJumps = 0; runPauses = 0; grazeT = 0;
   updateGrazeHud();
   songTime = 0;
   drag.dx = 0; drag.id = null;
@@ -562,6 +563,7 @@ function start() {
 function pauseGame() {
   if (!running || paused) return;
   paused = true;
+  runPauses++;
   bgm.pause();                                   // freeze the music too
   releaseMove(); releaseJump();                  // don't keep running on resume
   pauseOverlay.classList.remove('hidden');

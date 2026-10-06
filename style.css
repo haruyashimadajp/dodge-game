@@ -1119,3 +1119,11 @@ body[data-theme="touhou"] .overlay.over .logo { color: #c4b5fd; font-family: "Hi
    まん中寄せを「上下の auto の余白」で行う（入りきらない時は上からならび、スクロールできる） */
 #overlay { justify-content: flex-start; }
 #overlay > .title-box { margin: auto 0; }
+
+/* 実績のなかま分けの見出しと、むずかしさの ★ */
+.ach-group { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 2px 6px; font-size: 13px; font-weight: 800; letter-spacing: 0.12em; color: #e9dcff; border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding-bottom: 4px; }
+.ach-group span { font-family: "Orbitron", system-ui, sans-serif; font-size: 11px; color: #ffe066; letter-spacing: 0.1em; }
+.ach-lv { font-style: normal; font-size: 10px; letter-spacing: 0.02em; margin-left: 6px; color: #ffe066; font-weight: 400; }
+.ach-lv.lv4 { color: #ff9f2e; }
+.ach-lv.lv5 { color: #ff3b6b; text-shadow: 0 0 6px rgba(255, 59, 107, 0.6); }
+.ach.secret { opacity: 0.6; }

@@ -41,8 +41,8 @@ Open `index.html` in a web browser.
 
 - **Rank:** every clear gets a rank from the number of hits — **S** (no hits, shown as FULL DODGE), **A** (1–2), **B** (3–5) or **C**. The best rank of each song and difficulty is saved and shown on that difficulty button (the ★ of older clears stays until you clear again).
 - **Graze:** a bullet or beam that passes within 12 px of you without hitting counts as a graze (a white spark and a soft tick, counted in the HUD and on the result screen). The best graze count of each song and difficulty is shown under the difficulty buttons.
-- **Achievements:** 32 of them (plays, survival time, clears per difficulty, S ranks, grazes, and one for each of several songs). They unlock with a toast during or after a run and are listed on the result screen.
-- **Skins:** most achievements unlock a player skin — colours, head accessories (crown, halo, horns, mohawk, headphones, ribbon) and trails (sparks, rainbow, embers, bubbles, petals, stars). Choose one in **🏆 コレクション** on the title screen, which also lists every achievement with its progress.
+- **Achievements:** 89 of them in 8 groups, each rated ★1–5 for difficulty — playing and coming back (plays, survival time, days in a row), clears (up to every song on IMPOSSIBLE), ranks (S ranks, A ranks, three S ranks in a row), grazes (up to 400 in one run and 30,000 in total), self-imposed limits (no jumping, no pausing a 3-minute song on HARD, an S rank in the default skin), one or more challenges for every song, a few secret ones that stay hidden until unlocked, and collecting skins (up to unlocking everything). They unlock with a toast during or after a run and are listed on the result screen.
+- **Skins:** 24 player skins, unlocked by achievements — colours, head accessories (crown, halo, horns, mohawk, headphones, ribbon, cat ears) and trails (sparks, rainbow, embers, bubbles, petals, stars). Choose one in **🏆 コレクション** on the title screen, which also lists every achievement with its progress.
 - Saved in `localStorage` (`dodge_rank_*`, `dodge_graze_*`, `dodge_progress`).
 
 ## Files
