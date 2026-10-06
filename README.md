@@ -45,6 +45,13 @@ Open `index.html` in a web browser.
 - **Skins:** 48 player skins, unlocked by achievements — colours, head accessories (crown, halo, horns, mohawk, headphones, ribbon, cat ears, flame hair, visor, ninja mask, headband, scarf), wings, capes, a katana on the back, a glowing aura, afterimages, a colour-cycling body, and trails (sparks, rainbow, embers, bubbles, petals, stars). The hardest challenges (★4–5) give the most elaborate ones. Choose one in **🏆 コレクション** on the title screen, which also lists every achievement with its progress.
 - Saved in `localStorage` (`dodge_rank_*`, `dodge_graze_*`, `dodge_progress`).
 
+## Coins, daily challenges and the parts gacha
+
+- **Coins 🪙** are not paid for just playing. A run pays only when you clear a song on a difficulty for the first time (EASY 30 / NORMAL 60 / HARD 120 / IMPOSSIBLE 250) or improve your best rank (S 150 / A 80 / B 40 / C 20, minus what the old rank was worth, ×1–3 by difficulty). Every achievement pays ★1 50 / ★2 100 / ★3 200 / ★4 500 / ★5 1,000, including ones unlocked before coins existed. First Step and infinite-lives runs pay nothing.
+- **Daily challenges 📅:** three a day, made from the date (the same all day): ★ a song on NORMAL; ★★ NORMAL with a twist; ★★★ HARD with a twist and a goal (≤ 2 hits, ≥ 60 grazes, or just clear). Twists: 1.2× speed (music and bullets), mirrored screen, one life, darkness (you only see around yourself) and a bigger hitbox. Each can be tried **once per day** — quitting counts as a failure. Rewards 150 / 300 / 600 coins, +300 for all three, +10% per day in a row (up to +50%). Daily runs don't change clears, ranks or best times.
+- **Parts gacha 🎰:** 54 skin parts in six slots — colour, head (hats, ears, crowns, flame hair…), face (glasses, shades, eyepatch, fox mask…), back (wings of four kinds, capes, guitar, jetpack, katana…), trail (snow, hearts, notes, leaves, lightning, pixels, comets…) and aura (glow, afterimages, rainbow). 1 pull = 100 coins, 10 pulls = 1,000 with an SR or better guaranteed; UR 1% / SR 9% / R 30% / N 60%, and the 100th pull since the last UR is always a UR. Duplicates become 💎 shards, which buy any part in the exchange. Parts are worn on top of the chosen skin (コレクション → パーツ).
+- Saved in `dodge_economy`.
+
 ## Files
 
 | File | Description |
@@ -54,6 +61,7 @@ Open `index.html` in a web browser.
 | `songs/*.js` | One file per song: beat grid, sections (looks) and chart (bullets) |
 | `songs/*-env.js` | Per-band loudness of each song (generated), used by the audio-reactive visuals |
 | `progress.js` | Achievements, skins, play stats and the 🏆 コレクション screen |
+| `economy.js` | Coins, daily challenges, the parts gacha / exchange and the パーツ tab |
 | `visuals.js` | Rendering & effects — beat-synced camera, particles, title animation, the neon theme, graphics quality |
 | `visuals-night.js` | The night / UFO theme used by Re:Unknown X |
 | `songs/emperror-classic.js`, `songs/unknown-classic.js`, `songs/extremeex-classic.js` | The original charts of the EmpErroR, Re:Unknown X and ExtremeEX, kept as 旧譜面 variants (`variantOf`) |

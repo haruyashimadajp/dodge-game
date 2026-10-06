@@ -169,6 +169,16 @@ let hitsTaken = 0;
 let grazes = 0;               // かすった弾の数（当たらずに、すぐそばを通った）
 let runJumps = 0;             // この回にジャンプした数（実績用）
 let runPauses = 0;            // この回にポーズした数（実績用）
+// この回だけの「ひねり」（デイリーチャレンジで使う）。ふつうに START した時は空にもどる
+//   speed: 曲も弾も速くなる倍率 / mirror: 画面が左右反転 / oneLife: 残機 1 / dark: 自分のまわりしか見えない
+//   big: 当たり判定が少し大きい / daily: デイリーチャレンジの回（ランク・クリア・ベストを記録しない）
+let runMods = {};
+let runNewClear = false;      // この回で、はじめてこの難易度をクリアした
+// ひねりを外す（デイリーで難易度を変えていたら、元の難易度にもどす）
+function clearRunMods() {
+  if (runMods.keepDiff && DIFFS[runMods.keepDiff]) difficulty = runMods.keepDiff;
+  runMods = {};
+}
 let fxScale = 1;           // 画面演出 setting: scales shake / zoom / flash / glitch
 let gfx = 2;               // 画質 being drawn now: 2 = 高, 1 = 中, 0 = 低 (visuals.js reads it)
 let renderScale = 1;       // 低 draws the canvas at 70% resolution (fewer pixels to fill)
@@ -212,7 +222,8 @@ function reset() {
 
 // ---- Update -------------------------------------------------------------
 function update(dt) {
-  elapsed += dt;
+  const wdt = dt * (runMods.speed || 1);         // 世界（曲・弾）の時間。プレイヤーの動きは、いつもの速さ
+  elapsed += wdt;
 
   // Horizontal input
   let dir = 0;
@@ -289,7 +300,7 @@ function update(dt) {
   player.squash *= Math.pow(0.0001, dt);
   if (Math.abs(player.squash) < 0.01) player.squash = 0;
 
-  updateBullets(dt);
+  updateBullets(wdt);
   const sc = elapsed.toFixed(1) + 's';                 // 文字が変わったときだけ書きかえる（毎コマ書きかえると、ページの描き直しが起きる）
   if (sc !== scoreEl.textContent) scoreEl.textContent = sc;
 }
@@ -343,10 +354,16 @@ function updateBullets(dt) {
   // Collision: bullet (circle) vs player (rect). A bullet with its own
   // hits(b) test (lasers) uses that instead; b.safe = just for show.
   if (invuln <= 0) {
-    for (const b of bullets) {
-      if (b.delay > 0 || b.safe) continue;  // warnings don't hit you
-      if (b.hits ? b.hits(b) : circleHitsPlayer(b.x, b.y, b.r)) { hitPlayer(); return; }
-    }
+    const grow = runMods.big ? 5 : 0, keep = { x: player.x, y: player.y, w: player.w, h: player.h };
+    if (grow) { player.x -= grow; player.y -= grow; player.w += grow * 2; player.h += grow * 2; }   // ひねり「当たり判定が大きい」
+    let hit = false;
+    try {
+      for (const b of bullets) {
+        if (b.delay > 0 || b.safe) continue;  // warnings don't hit you
+        if (b.hits ? b.hits(b) : circleHitsPlayer(b.x, b.y, b.r)) { hit = true; break; }
+      }
+    } finally { if (grow) Object.assign(player, keep); }
+    if (hit) { hitPlayer(); return; }
     checkGraze();
   }
 
@@ -541,7 +558,9 @@ function beep(freq, dur, type, vol) {
 function sfxHit()  { beep(140, 0.30, 'sawtooth', 1); }
 
 // ---- Game flow ----------------------------------------------------------
-function start() {
+function start(keepMods) {
+  if (keepMods !== true) clearRunMods();         // ボタンから呼ばれた時（引数はイベント）は、ふつうの回
+  runNewClear = false;
   reset();
   fxReset();
   running = true;
@@ -555,6 +574,7 @@ function start() {
   updateTouchControls();
   stopPreview();
   bgm.volume = masterVol;
+  bgm.playbackRate = runMods.speed || 1;
   bgm.currentTime = 0;
   clockSynced = false;
   bgm.play().catch(() => {});                    // play from the top (user gesture)
@@ -578,6 +598,8 @@ function resumeGame() {
 }
 
 function showTitle() {
+  clearRunMods();
+  bgm.playbackRate = 1;
   stageReset();
   echoReset();
   malwareReset();
@@ -616,7 +638,8 @@ function endRun(kind) {
   updateTouchControls();
   const rec = recordRun(kind);
   const unlocked = (typeof onProgressRunEnd === 'function') ? onProgressRunEnd(kind, rec) : [];
-  const newBest = elapsed > best;
+  const coins = (typeof onEconomyRunEnd === 'function') ? onEconomyRunEnd(kind, rec) : null;
+  const newBest = elapsed > best && !runMods.daily;
   if (newBest) {
     best = elapsed;
     store.set(song.bestKey, String(best));
@@ -633,6 +656,7 @@ function endRun(kind) {
     resGraze.textContent = grazes + (rec.newGraze ? ' ↑' : '');
     showRankBadge(rec, kind);
     if (typeof showUnlocks === 'function') showUnlocks(unlocked);
+    if (typeof showCoinGain === 'function') showCoinGain(coins);
     startBtn.textContent = 'RETRY';
     overlay.classList.remove('hidden');
   }, kind === 'clear' ? 1600 : 1000);
@@ -649,10 +673,10 @@ function bestGrazeOf(s, d) { return Number(store.get(grazeKey(s, d))) || 0; }
 function runCounts() { return startLives !== Infinity; }
 // この回の結果を記録して、何が新しくなったかを返す
 function recordRun(kind) {
-  const out = { rank: kind === 'clear' ? rankOf(hitsTaken) : null, newRank: false, newGraze: false };
-  if (!runCounts()) return out;
+  const out = { rank: kind === 'clear' ? rankOf(hitsTaken) : null, newRank: false, newGraze: false, oldRank: bestRankOf(song, difficulty), newClear: runNewClear };
+  if (!runCounts() || runMods.daily) return out;
   if (out.rank) {
-    const old = bestRankOf(song, difficulty);
+    const old = out.oldRank;
     if (!old || RANKS.indexOf(out.rank) < RANKS.indexOf(old)) { store.set(rankKey(song, difficulty), out.rank); out.newRank = true; }
   }
   if (grazes > bestGrazeOf(song, difficulty)) { store.set(grazeKey(song, difficulty), String(grazes)); out.newGraze = grazes > 0; }
@@ -1023,6 +1047,7 @@ function changeChart() {
 let previewTimer = 0, previewId = 0;
 function playPreview() {
   stopPreview();
+  bgm.playbackRate = 1;
   if (masterVol <= 0) return;
   const t0 = song.preview || 0;
   // 読みこみ前なら、読みこめた時にシークする。ただし、その前にゲームを始めていたら何もしない
@@ -1057,12 +1082,13 @@ const DIFFS = {
 };
 const DIFF_ORDER = ['easy', 'normal', 'hard', 'impossible'];
 let difficulty = DIFFS[store.get('dodge_diff')] ? store.get('dodge_diff') : 'normal';
-function livesForRun() { return DIFFS[difficulty].lives; }
+function livesForRun() { return runMods.oneLife ? 1 : DIFFS[difficulty].lives; }
 // クリアした難易度を曲（譜面）ごとに覚える: dodge_clear_<曲の id> = "easy,normal" のように
 const clearsOf = s => (store.get('dodge_clear_' + s.id) || '').split(',').filter(d => DIFFS[d]);
 function recordClear() {
+  if (runMods.daily) return;                     // デイリーチャレンジ（ひねりつき）の回は記録しない
   const c = clearsOf(song);
-  if (!c.includes(difficulty)) { c.push(difficulty); store.set('dodge_clear_' + song.id, c.join(',')); }
+  if (!c.includes(difficulty)) { c.push(difficulty); store.set('dodge_clear_' + song.id, c.join(',')); runNewClear = true; }
   updateDiffUI();
 }
 const diffBtns = document.querySelectorAll('.diff-btn');

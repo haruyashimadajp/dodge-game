@@ -224,10 +224,13 @@ const SKINS = [
 ];
 const achById = id => ACHIEVEMENTS.find(a => a.id === id);
 const skinUnlocked = s => !s.need || !!P.unlocked[s.need];
-function heroSkin() {
+// えらんだスキン（パーツを重ねる前）
+function baseSkin() {
   const s = SKINS.find(k => k.id === P.skin);
   return s && skinUnlocked(s) ? s : SKINS[0];
 }
+// 実際に描くスキン = えらんだスキン ＋ ガチャのパーツ（economy.js の composeSkin）
+function heroSkin() { return typeof composeSkin === 'function' ? composeSkin(baseSkin()) : baseSkin(); }
 
 // ---- 解除の判定 ----------------------------------------------------------------------------------
 function checkAchievements() {
@@ -322,8 +325,9 @@ function updateCollectionCount() {
 }
 function renderCollection() {
   collectionModal.querySelectorAll('.col-tabs .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === colTab));
+  if (colTab === 'parts') { renderParts(collectionBody); return; }
   if (colTab === 'skins') {
-    const cur = heroSkin().id;
+    const cur = baseSkin().id;
     collectionBody.innerHTML = `<div class="skin-grid">${SKINS.map(s => {
       const open = skinUnlocked(s), a = s.need && achById(s.need);
       return `<button class="skin-card${open ? '' : ' locked'}${s.id === cur ? ' equipped' : ''}" data-skin="${s.id}" ${open ? '' : 'disabled'}>

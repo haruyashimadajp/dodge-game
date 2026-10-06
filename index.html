@@ -50,6 +50,7 @@
           <div class="diff-note title-only" id="diffNote"></div>
           <p class="ov-sub" id="ovSub"></p>
           <div class="unlock-list result-only" id="unlockList"></div>
+          <div class="coin-gain result-only" id="coinGain"></div>
 
           <div class="rank-badge" id="rankBadge"></div>
           <div class="result-box" id="resultBox">
@@ -63,6 +64,9 @@
           <div class="title-links">
             <button id="settingsToggle" class="link-btn">⚙ 設定</button>
             <button id="collectionBtn" class="link-btn">🏆 コレクション <span id="collectionCount"></span></button>
+            <button id="dailyBtn" class="link-btn">📅 デイリー <span class="badge" id="dailyBadge" hidden>3</span></button>
+            <button id="gachaBtn" class="link-btn">🎰 ガチャ</button>
+            <span class="coin-tag">🪙 <b id="coinCount">0</b></span>
             <button id="toTitleBtn2" class="link-btn result-only">タイトルへ</button>
             <span class="best-tag title-only">BEST <b id="titleBest">0.0s</b></span>
           </div>
@@ -119,9 +123,36 @@
       </div>
       <div class="col-tabs">
         <button class="seg-btn active" data-tab="skins">スキン</button>
+        <button class="seg-btn" data-tab="parts">パーツ</button>
         <button class="seg-btn" data-tab="achievements">実績</button>
       </div>
       <div class="modal-body" id="collectionBody"></div>
+    </div>
+  </div>
+
+  <!-- デイリーチャレンジ（1 日 3 つ、それぞれ 1 回だけ） -->
+  <div class="modal hidden" id="dailyModal" role="dialog" aria-label="デイリーチャレンジ">
+    <div class="modal-card collection-card">
+      <div class="modal-head">
+        <h2>📅 デイリーチャレンジ</h2>
+        <button class="modal-x" id="dailyClose" aria-label="閉じる">✕</button>
+      </div>
+      <div class="modal-body" id="dailyBody"></div>
+    </div>
+  </div>
+
+  <!-- ガチャ（スキンパーツ）と交換所 -->
+  <div class="modal hidden" id="gachaModal" role="dialog" aria-label="ガチャ">
+    <div class="modal-card collection-card">
+      <div class="modal-head">
+        <h2>🎰 パーツガチャ</h2>
+        <button class="modal-x" id="gachaClose" aria-label="閉じる">✕</button>
+      </div>
+      <div class="col-tabs">
+        <button class="seg-btn active" data-tab="gacha">ガチャ</button>
+        <button class="seg-btn" data-tab="exchange">交換所</button>
+      </div>
+      <div class="modal-body" id="gachaBody"></div>
     </div>
   </div>
 
@@ -215,6 +246,7 @@
   <script src="songs/arm-data.js"></script>
   <script src="game.js"></script>
   <script src="progress.js"></script>
+  <script src="economy.js"></script>
   <script src="songs/firststep.js"></script>
   <script src="songs/emperror.js"></script>
   <script src="songs/unknown.js"></script>
