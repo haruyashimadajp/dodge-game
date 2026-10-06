@@ -1081,7 +1081,7 @@ body[data-theme="touhou"] .overlay.over .logo { color: #c4b5fd; font-family: "Hi
   background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.12); color: #fff; font: inherit;
 }
 /* ゲームの画面（canvas）用のスタイルを受けつがない */
-.skin-card canvas { width: 76px !important; height: 76px !important; max-width: none; border-radius: 0; background: none !important; box-shadow: none !important; }
+.skin-card canvas { width: 96px !important; height: 84px !important; max-width: none; border-radius: 0; background: none !important; box-shadow: none !important; }
 .skin-card.equipped { border-color: #ffe066; background: rgba(255, 210, 63, 0.12); box-shadow: 0 0 12px rgba(255, 210, 63, 0.3); }
 .skin-card.locked { cursor: default; opacity: 0.8; }
 .skin-name { font-size: 13px; font-weight: 800; }
@@ -1127,3 +1127,5 @@ body[data-theme="touhou"] .overlay.over .logo { color: #c4b5fd; font-family: "Hi
 .ach-lv.lv4 { color: #ff9f2e; }
 .ach-lv.lv5 { color: #ff3b6b; text-shadow: 0 0 6px rgba(255, 59, 107, 0.6); }
 .ach.secret { opacity: 0.6; }
+.ach-note { font-size: 11px; color: var(--text-dim, #b9b0d8); text-align: center; margin: -4px 0 6px; }
+.skin-card .ach-lv { margin: 0; }

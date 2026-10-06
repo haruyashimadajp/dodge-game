@@ -20,23 +20,26 @@ function saveProgress() { store.set('dodge_progress', JSON.stringify(P)); }
 
 // ---- 曲の記録を数えるための道具 ----------------------------------------------------------------
 const diffIdx = d => DIFF_ORDER.indexOf(d);
-const allBases = () => [...new Set(SONGS.map(songBase))];
+// First Step は練習用の曲なので、チャレンジ（実績）には一切数えない（遊んだ記録も、クリアも、ランクも）
+const NOT_COUNTED = new Set(['firststep']);
+const countedSongs = () => SONGS.filter(s => !NOT_COUNTED.has(songBase(s)));
+const allBases = () => [...new Set(countedSongs().map(songBase))];
 // minD 以上の難易度でクリアした曲（譜面がちがっても同じ曲は 1 曲と数える）
 function clearedBases(minD = 'easy') {
   const set = new Set();
-  for (const s of SONGS) if (clearsOf(s).some(d => diffIdx(d) >= diffIdx(minD))) set.add(songBase(s));
+  for (const s of countedSongs()) if (clearsOf(s).some(d => diffIdx(d) >= diffIdx(minD))) set.add(songBase(s));
   return set;
 }
 // minD 以上の難易度で、S ランク（ノーミス）を取った曲
 function fullDodgeBases(minD = 'easy') {
   const set = new Set();
-  for (const s of SONGS) for (const d of DIFF_ORDER) if (diffIdx(d) >= diffIdx(minD) && bestRankOf(s, d) === 'S') set.add(songBase(s));
+  for (const s of countedSongs()) for (const d of DIFF_ORDER) if (diffIdx(d) >= diffIdx(minD) && bestRankOf(s, d) === 'S') set.add(songBase(s));
   return set;
 }
 // A ランク以上を取った「曲×難易度」の数
 function rankACount() {
   let n = 0;
-  for (const s of SONGS) for (const d of DIFF_ORDER) { const r = bestRankOf(s, d); if (r === 'S' || r === 'A') n++; }
+  for (const s of countedSongs()) for (const d of DIFF_ORDER) { const r = bestRankOf(s, d); if (r === 'S' || r === 'A') n++; }
   return n;
 }
 const clearedSong = (id, minD = 'easy') => SONGS.some(s => (s.id === id || songBase(s) === id) && clearsOf(s).some(d => diffIdx(d) >= diffIdx(minD)));
@@ -48,7 +51,9 @@ function rankedSong(id, minD = 'easy', rank = 'S') {
 }
 // 1 回のプレイでの、そのときだけの条件（ジャンプせずにクリア など）は P.flags に覚えておく
 const flag = k => !!(P.flags && P.flags[k]);
-const skinsOpen = () => SKINS.filter(sk => skinUnlocked(sk)).length;
+// スキンの数（「全部集める」「コンプリート」のごほうびのスキンは、数に入れない）
+const collectable = () => SKINS.filter(sk => sk.need !== 'skins_all' && sk.need !== 'complete');
+const skinsOpen = () => collectable().filter(sk => skinUnlocked(sk)).length;
 
 // ---- 実績 -----------------------------------------------------------------------------------------
 //   test() が true になったら解除。progress() は「いまいくつ / いくつで解除」（数える実績だけ）
@@ -75,7 +80,7 @@ const ACH_GROUPS = [
   ['クリア', [
     { id: 'clear10',     lv: 2, name: 'コレクター',       desc: '10 曲クリアする',                            progress: () => [clearedBases().size, 10] },
     { id: 'clear_all',   lv: 3, name: '全曲制覇',         desc: 'すべての曲をクリアする',                     progress: () => [clearedBases().size, allBases().length] },
-    { id: 'charts_all',  lv: 4, name: '譜面マニア',       desc: 'すべての譜面（旧譜面・真もふくむ）をクリアする', progress: () => [SONGS.filter(s => clearsOf(s).length).length, SONGS.length] },
+    { id: 'charts_all',  lv: 4, name: '譜面マニア',       desc: 'すべての譜面（旧譜面・真もふくむ）をクリアする', progress: () => [countedSongs().filter(s => clearsOf(s).length).length, countedSongs().length] },
     { id: 'normal5',     lv: 2, name: '腕に覚えあり',     desc: 'NORMAL 以上で 5 曲クリアする',               progress: () => [clearedBases('normal').size, 5] },
     { id: 'normal_all',  lv: 3, name: '一人前',           desc: 'NORMAL 以上で全曲クリアする',                progress: () => [clearedBases('normal').size, allBases().length] },
     { id: 'hard1',       lv: 2, name: '本気モード',       desc: 'HARD 以上でクリアする',                      test: () => clearedBases('hard').size >= 1 },
@@ -85,7 +90,7 @@ const ACH_GROUPS = [
     { id: 'imp5',        lv: 5, name: '伝説',             desc: 'IMPOSSIBLE で 5 曲クリアする',               progress: () => [clearedBases('impossible').size, 5] },
     { id: 'imp10',       lv: 5, name: '神話',             desc: 'IMPOSSIBLE で 10 曲クリアする',              progress: () => [clearedBases('impossible').size, 10] },
     { id: 'imp_all',     lv: 5, name: '神',               desc: 'IMPOSSIBLE で全曲クリアする',                progress: () => [clearedBases('impossible').size, allBases().length] },
-    { id: 'four_diff',   lv: 4, name: 'フルコース',       desc: '1 つの譜面を、4 つの難易度すべてでクリアする', test: () => SONGS.some(s => clearsOf(s).length === 4) },
+    { id: 'four_diff',   lv: 4, name: 'フルコース',       desc: '1 つの譜面を、4 つの難易度すべてでクリアする', test: () => countedSongs().some(s => clearsOf(s).length === 4) },
     { id: 'clear_run10', lv: 3, name: '負け知らず',       desc: 'ゲームオーバーにならずに 10 回続けてクリアする', progress: () => [P.clearRun || 0, 10] },
     { id: 'last_life',   lv: 2, name: '首の皮一枚',       desc: '残機 1 でクリアする（EASY〜HARD）',          test: () => P.lastLife },
   ]],
@@ -118,7 +123,6 @@ const ACH_GROUPS = [
     { id: 'default_s',   lv: 3, name: '初心忘るべからず', desc: '「いつもの」スキンで、HARD 以上の S ランクを取る', test: () => flag('defaultS') },
   ]],
   ['曲ごと', [
-    { id: 'fs_s',        lv: 1, name: 'おさらい完了',     desc: 'First Step で S ランクを取る',               test: () => rankedSong('firststep') },
     { id: 'emperor',     lv: 3, name: '皇帝を倒せ',       desc: 'the EmpErroR を HARD 以上でクリアする',      test: () => clearedSong('emperror', 'hard') },
     { id: 'emp_ap',      lv: 4, name: 'ALL PERFECT',      desc: 'the EmpErroR で S ランクを取る',             test: () => rankedSong('emperror') },
     { id: 'unk_hard',    lv: 3, name: 'Spell Card Get!!', desc: 'Re:Unknown X を HARD 以上でクリアする',      test: () => clearedSong('unknown', 'hard') },
@@ -156,7 +160,7 @@ const ACH_GROUPS = [
   ]],
   ['コレクション', [
     { id: 'skins10',     lv: 3, name: 'おしゃれさん',     desc: 'スキンを 10 個使えるようにする',             progress: () => [skinsOpen(), 10] },
-    { id: 'skins_all',   lv: 5, name: 'クローゼット満杯', desc: 'スキンをすべて使えるようにする',             progress: () => [skinsOpen(), SKINS.length] },
+    { id: 'skins_all',   lv: 5, name: 'クローゼット満杯', desc: 'スキンをすべて使えるようにする',             progress: () => [skinsOpen(), collectable().length] },
     { id: 'complete',    lv: 5, name: 'コンプリート',     desc: 'ほかの実績をすべて解除する',                 progress: () => [ACHIEVEMENTS.filter(x => x.id !== 'complete' && P.unlocked[x.id]).length, ACHIEVEMENTS.length - 1] },
   ]],
 ];
@@ -177,7 +181,7 @@ const SKINS = [
   { id: 'neon',    name: 'ネオン',       body: '#ff3ea5', cap: '#22e6ff', brim: '#14b8cc', skin: '#ffe0f0', shoe: '#2a0f30', glow: '#ff7ad0', trail: 'rainbow', need: 'graze2000' },
   { id: 'ghost',   name: 'ゴースト',     body: '#e8eef8', cap: '#c8d4ea', brim: '#a8b8d4', skin: '#ffffff', shoe: '#b8c4dc', glow: '#ffffff', alpha: 0.75, need: 'fd1' },
   { id: 'angel',   name: '天使',         body: '#ffffff', cap: '#ffe9a8', brim: '#f0d080', skin: '#fde3cc', shoe: '#e8dcc0', glow: '#fff4c0', acc: 'halo', trail: 'star', need: 'fd5' },
-  { id: 'devil',   name: '悪魔',         body: '#7a0f1e', cap: '#2a0a10', brim: '#1a0508', skin: '#f2b8a0', shoe: '#1a0508', glow: '#ff3b5c', acc: 'horns', trail: 'ember', need: 'imp1' },
+  { id: 'devil',   name: '悪魔',         body: '#7a0f1e', cap: '#2a0a10', brim: '#1a0508', skin: '#f2b8a0', shoe: '#1a0508', glow: '#ff3b5c', hair: '#1a0508', acc: ['wings', 'horns'], wing: '#2a0a10', aura: '#ff3b5c', trail: 'ember', need: 'imp1' },
   { id: 'king',    name: 'キング',       body: '#d9a520', cap: '#b8282e', brim: '#8e1c22', skin: '#f4c9a0', shoe: '#5a3a10', glow: '#ffe28a', acc: 'crown', need: 'clear_all' },
   { id: 'emperor', name: 'エンペラー',   body: '#4a1a6a', cap: '#d9a520', brim: '#a67c10', skin: '#efc2a2', shoe: '#1e0a2a', glow: '#c77dff', acc: 'crown', need: 'emperor' },
   { id: 'dj',      name: 'DJ',           body: '#1c1c24', cap: '#ff4fa3', brim: '#cc2f80', skin: '#e8b890', shoe: '#ff4fa3', glow: '#ff7ad0', acc: 'phones', need: 'hard10' },
@@ -186,11 +190,36 @@ const SKINS = [
   { id: 'prism',   name: 'プリズム',     body: '#f4efe6', cap: '#9fb4ff', brim: '#7a90e0', skin: '#fde6d0', shoe: '#8a7aa0', glow: '#ffffff', trail: 'rainbow', need: 'prism' },
   { id: 'abyss',   name: '深海',         body: '#0f2a5a', cap: '#2fd0ff', brim: '#1a9cc4', skin: '#d8e8f4', shoe: '#08142a', glow: '#4dd2ff', trail: 'bubble', need: 'abyss' },
   { id: 'cat',     name: 'ねこ',         body: '#f2a65a', cap: '#f2a65a', brim: '#d98a3e', skin: '#fde3cc', shoe: '#8a5a2e', glow: '#ffd2a0', acc: 'ears', need: 'plays500' },
-  { id: 'flame',   name: 'ほのお',       body: '#d81e1e', cap: '#ff8a1a', brim: '#e06a00', skin: '#ffd0b0', shoe: '#3a0808', glow: '#ff6a1a', trail: 'ember', need: 'graze400' },
-  { id: 'ice',     name: 'こおり',       body: '#bfefff', cap: '#5cc8ff', brim: '#3aa8e0', skin: '#f0f8ff', shoe: '#6a9ac4', glow: '#d8f6ff', trail: 'star', alpha: 0.9, need: 'hard_all' },
-  { id: 'shadow',  name: '影',           body: '#0a0a12', cap: '#1a1a26', brim: '#000000', skin: '#2a2a3a', shoe: '#000000', glow: '#8a5cff', alpha: 0.85, need: 'fd_hard5' },
-  { id: 'galaxy',  name: '銀河',         body: '#1a1050', cap: '#c77dff', brim: '#8a4cd8', skin: '#e8dcff', shoe: '#0a0828', glow: '#9f8cff', acc: 'halo', trail: 'star', need: 'imp10' },
-  { id: 'legend',  name: 'レジェンド',   body: '#ffd23f', cap: '#ffffff', brim: '#e0e0e0', skin: '#fde6d0', shoe: '#c49a10', glow: '#ffffff', acc: 'crown', trail: 'rainbow', need: 'complete' },
+  { id: 'flame',   name: 'ほのお',       body: '#d81e1e', cap: '#ff8a1a', brim: '#e06a00', skin: '#ffd0b0', shoe: '#3a0808', glow: '#ff6a1a', acc: ['flamehair', 'scarf'], scarf: '#1a0505', aura: '#ff6a1a', trail: 'ember', need: 'graze400' },
+  { id: 'ice',     name: '氷の騎士',     body: '#bfefff', cap: '#e8faff', brim: '#3aa8e0', skin: '#f0f8ff', shoe: '#6a9ac4', glow: '#d8f6ff', acc: ['visor', 'cape'], visor: '#7fe3ff', cape: '#5cc8ff', aura: '#bfefff', trail: 'star', trailColor: '#d8f6ff', alpha: 0.92, need: 'hard_all' },
+  { id: 'shadow',  name: '影',           body: '#0a0a12', cap: '#1a1a26', brim: '#000000', skin: '#2a2a3a', shoe: '#000000', glow: '#8a5cff', hair: '#05050a', acc: ['visor', 'scarf'], visor: '#a48cff', scarf: '#2a1a4a', aura: '#8a5cff', fx: 'echo', alpha: 0.9, need: 'fd_hard5' },
+  { id: 'galaxy',  name: '銀河',         body: '#1a1050', cap: '#c77dff', brim: '#8a4cd8', skin: '#e8dcff', shoe: '#0a0828', glow: '#9f8cff', acc: ['wings', 'halo', 'cape'], wing: '#3a2a8a', cape: '#2a1a6a', haloColor: '#c77dff', aura: '#9f8cff', trail: 'star', trailColor: '#c7b8ff', need: 'imp10' },
+  { id: 'legend',  name: 'レジェンド',   body: '#ffd23f', cap: '#ffffff', brim: '#e0e0e0', skin: '#fde6d0', shoe: '#c49a10', glow: '#ffffff', acc: ['wings', 'crown', 'cape'], wing: '#ffffff', cape: '#c8102e', aura: '#ffe066', fx: 'rainbow', trail: 'rainbow', need: 'complete' },
+  // ---- むずかしいチャレンジ（★4〜5）のごほうび ----
+  { id: 'veteran', name: '歴戦',         body: '#4a5a32', skin: '#e8b890', shoe: '#2a2a1a', glow: '#b6d48a', hair: '#3a2a1a', acc: ['headband', 'scarf'], band: '#2a2a2a', scarf: '#6a5a3a', need: 'plays1000' },
+  { id: 'immortal', name: '不死身',      body: '#5a0a14', skin: '#f0c4a8', shoe: '#140306', glow: '#ff3b5c', hair: '#120306', acc: ['cape'], cape: '#140306', aura: '#ff3b5c', trail: 'ember', need: 'time10h' },
+  { id: 'sunrise', name: '日の出',       body: '#ff8a1a', cap: '#ffd23f', brim: '#e0a810', skin: '#ffe0c0', shoe: '#7a3a08', glow: '#ffd23f', acc: ['halo'], aura: '#ffd23f', trail: 'star', trailColor: '#ffe066', need: 'days30' },
+  { id: 'ninja',   name: '忍者',         body: '#1c1c2a', skin: '#e8c0a0', shoe: '#0a0a12', glow: '#8888ff', hair: '#0a0a12', acc: ['mask', 'headband', 'scarf', 'katana'], band: '#2a2a3a', scarf: '#d81e1e', need: 'fd10' },
+  { id: 'void',    name: '虚無',         body: '#06060a', skin: '#1a1a24', shoe: '#000000', glow: '#22e6ff', hair: '#06060a', acc: ['visor'], visor: '#22e6ff', aura: '#22e6ff', fx: 'echo', trail: 'spark', trailColor: '#22e6ff', need: 'fd_all' },
+  { id: 'knight',  name: '騎士',         body: '#9aa4b8', cap: '#c8d0de', brim: '#8a94a8', skin: '#e8c8b0', shoe: '#4a5468', glow: '#cfe0ff', acc: ['visor', 'cape'], visor: '#ffffff', cape: '#2c54c4', need: 'fd_hard' },
+  { id: 'captain', name: '隊長',         body: '#1e2e5a', cap: '#1e2e5a', brim: '#0a0a14', skin: '#f0c8a8', shoe: '#0a0a14', glow: '#ffd23f', acc: ['cape'], cape: '#ffd23f', need: 'rankA50' },
+  { id: 'triple',  name: '三冠王',       body: '#5a2a8a', cap: '#5a2a8a', brim: '#3a1a5a', skin: '#f0c8a8', shoe: '#2a0a3a', glow: '#c77dff', acc: ['crown', 'cape'], cape: '#c8102e', aura: '#ffd23f', need: 's_run3' },
+  { id: 'raijin',  name: '雷神',         body: '#ffd23f', skin: '#f4d0b0', shoe: '#2a2a2a', glow: '#4dd2ff', acc: ['flamehair', 'scarf'], flame: ['#2a6aff', '#bff4ff'], scarf: '#2a2a2a', aura: '#4dd2ff', trail: 'spark', trailColor: '#9fe8ff', need: 'graze30000' },
+  { id: 'kenbu',   name: '剣舞',         body: '#f4f4f4', skin: '#f4d0b8', shoe: '#2a2a2a', glow: '#ff4d6d', hair: '#111111', acc: ['headband', 'katana'], band: '#d81e1e', trail: 'petal', trailColor: '#ff4d6d', need: 'tight_hard' },
+  { id: 'golem',   name: '大地の守り人', body: '#6a6460', cap: '#4a4440', brim: '#3a3430', skin: '#a8a098', shoe: '#2a2420', glow: '#ff8a1a', acc: ['visor'], visor: '#ff8a1a', aura: '#ff8a1a', need: 'nojump_s' },
+  { id: 'ronin',   name: '浪人',         body: '#1a1420', skin: '#ecc4a4', shoe: '#0a0808', glow: '#ff4060', hair: '#111111', acc: ['katana', 'scarf'], scarf: '#c8102e', trail: 'petal', trailColor: '#ff6a8a', need: 'imp5' },
+  { id: 'deity',   name: '神',           body: '#fff8e0', cap: '#ffffff', brim: '#f0e0b0', skin: '#fff0e0', shoe: '#e0c070', glow: '#fff4c0', acc: ['wings', 'halo'], wing: '#ffffff', aura: '#ffe066', trail: 'star', trailColor: '#fff4c0', need: 'imp_all' },
+  { id: 'empap',   name: '皇帝の正装',   body: '#3a0a5a', cap: '#3a0a5a', brim: '#1a0428', skin: '#efc2a2', shoe: '#1a0428', glow: '#c77dff', acc: ['crown', 'cape'], cape: '#d9a520', aura: '#c77dff', need: 'emp_ap' },
+  { id: 'crystal', name: '水晶',         body: '#d8f4ff', cap: '#bfefff', brim: '#9fdcf4', skin: '#f4fcff', shoe: '#8ab8d4', glow: '#ffffff', aura: '#ffffff', trail: 'star', trailColor: '#e0f8ff', alpha: 0.78, need: 'seg_s' },
+  { id: 'overdrive', name: 'OVERDRIVE',  body: '#140608', cap: '#ff2a3a', brim: '#a8101c', skin: '#e8b8a0', shoe: '#ff2a3a', glow: '#ff2a3a', acc: ['visor', 'scarf'], visor: '#ff2a3a', scarf: '#ff2a3a', aura: '#ff2a3a', trail: 'ember', need: 'ex_imp' },
+  { id: 'leviathan', name: '海の王',     body: '#0a3a4a', skin: '#c8e0e8', shoe: '#04141a', glow: '#4dd2ff', hair: '#04141a', acc: ['horns', 'cape'], hornColor: '#2fd0ff', cape: '#08506a', aura: '#4dd2ff', trail: 'bubble', need: 'abyss_s' },
+  { id: 'spectrum', name: 'スペクトル',  body: '#ffffff', cap: '#ffffff', brim: '#d8d8e8', skin: '#fde6d0', shoe: '#6a5a8a', glow: '#ffffff', acc: ['visor'], visor: '#ffffff', fx: 'rainbow', aura: '#ffffff', trail: 'rainbow', need: 'prism_s' },
+  { id: 'maestro', name: 'マエストロ',   body: '#111111', skin: '#f0d0b8', shoe: '#000000', glow: '#ffe28a', hair: '#e8e8e8', acc: ['cape'], cape: '#7a0f1e', trail: 'star', trailColor: '#ffe28a', need: 'ov_s' },
+  { id: 'echo',    name: '残響',         body: '#4dd2ff', cap: '#1a5a8a', brim: '#0e3a5c', skin: '#e0f4ff', shoe: '#0e3a5c', glow: '#9fe8ff', fx: 'echo', aura: '#9fe8ff', need: 'echo_s' },
+  { id: 'konjiki', name: 'こんじき',     body: '#ffcf2e', cap: '#ffcf2e', brim: '#e0a810', skin: '#fff0d0', shoe: '#a67c10', glow: '#ffe066', acc: ['ears', 'crown'], aura: '#ffd23f', trail: 'star', trailColor: '#ffe066', need: 'shin_imp' },
+  { id: 'mosh',    name: 'モッシュ',     body: '#141414', skin: '#f0c4a0', shoe: '#ff2e3a', glow: '#ff5c66', acc: ['flamehair', 'scarf'], flame: ['#ff2e3a', '#ffd23f'], scarf: '#ff2e3a', aura: '#ff2e3a', trail: 'spark', trailColor: '#ff5c66', need: 'pit_imp' },
+  { id: 'truephoenix', name: '真・不死鳥', body: '#ff6a1a', skin: '#ffd8b0', shoe: '#7a2a08', glow: '#ffb05c', acc: ['wings', 'flamehair'], wing: '#ff9a2e', flame: ['#ff4a1a', '#ffe066'], aura: '#ffb05c', trail: 'ember', need: 'revive_imp' },
+  { id: 'prismatic', name: '虹色',       body: '#ffffff', cap: '#ffffff', brim: '#e0e0e0', skin: '#fde6d0', shoe: '#ffffff', glow: '#ffffff', acc: ['wings', 'crown'], wing: '#ffffff', fx: 'rainbow', aura: '#ffffff', trail: 'rainbow', need: 'skins_all' },
   { id: 'sakura',  name: 'さくら',       body: '#ff9fc4', cap: '#ffffff', brim: '#f0d8e0', skin: '#fde3d4', shoe: '#a0506a', glow: '#ffc4dc', acc: 'ribbon', trail: 'petal', need: 'shiki' },
 ];
 const achById = id => ACHIEVEMENTS.find(a => a.id === id);
@@ -219,8 +248,8 @@ const skinFor = a => SKINS.find(s => s.need === a.id);
 
 // 1 回終わるごと（game.js の endRun から）
 function onProgressRunEnd(kind, rec) {
-  if (!runCounts()) return [];
   const base = songBase(song);
+  if (!runCounts() || NOT_COUNTED.has(base)) return [];
   P.plays++;
   P.time += elapsed;
   P.grazeTotal += grazes;
@@ -257,7 +286,7 @@ function onProgressRunEnd(kind, rec) {
 }
 // かするたび（1 回のプレイでの数の実績は、その場で解除）
 function onProgressGraze(n) {
-  if (!runCounts() || (n !== 50 && n !== 200 && n !== 400)) return;
+  if (!runCounts() || NOT_COUNTED.has(songBase(song)) || (n !== 50 && n !== 200 && n !== 400)) return;
   if (n > P.bestGrazeRun) P.bestGrazeRun = n;
   for (const a of checkAchievements()) toast(a);
 }
@@ -298,8 +327,8 @@ function renderCollection() {
     collectionBody.innerHTML = `<div class="skin-grid">${SKINS.map(s => {
       const open = skinUnlocked(s), a = s.need && achById(s.need);
       return `<button class="skin-card${open ? '' : ' locked'}${s.id === cur ? ' equipped' : ''}" data-skin="${s.id}" ${open ? '' : 'disabled'}>
-        <canvas width="96" height="96"></canvas>
-        <span class="skin-name">${open ? s.name : '？？？'}</span>
+        <canvas width="128" height="112"></canvas>
+        <span class="skin-name">${open ? s.name : '？？？'}</span>${a ? `<i class="ach-lv lv${a.lv}">${'★'.repeat(a.lv)}</i>` : ''}
         <span class="skin-need">${s.id === cur ? '使用中' : open ? 'タップで着がえる' : '🔒 ' + a.name + '<br>' + a.desc}</span>
       </button>`;
     }).join('')}</div>`;
@@ -311,7 +340,7 @@ function renderCollection() {
   } else {
     const done = ACHIEVEMENTS.filter(a => P.unlocked[a.id]).length;
     let lastG = '';
-    collectionBody.innerHTML = `<div class="ach-summary">${done} / ${ACHIEVEMENTS.length} 解除</div>` + ACHIEVEMENTS.map(a => {
+    collectionBody.innerHTML = `<div class="ach-summary">${done} / ${ACHIEVEMENTS.length} 解除</div><div class="ach-note">First Step は練習用の曲なので、チャレンジには数えません</div>` + ACHIEVEMENTS.map(a => {
       const got = !!P.unlocked[a.id], sk = skinFor(a), hide = a.secret && !got;
       const head = a.g !== lastG ? `<div class="ach-group">${a.g}<span>${ACHIEVEMENTS.filter(x => x.g === a.g && P.unlocked[x.id]).length} / ${ACHIEVEMENTS.filter(x => x.g === a.g).length}</span></div>` : '';
       lastG = a.g;
@@ -334,7 +363,7 @@ function drawSkinPreview(cv, s, locked) {
   if (typeof paintHero !== 'function') return;
   g.save();
   if (locked) g.filter = 'brightness(0) opacity(0.35)';
-  paintHero(g, 48 - 24, 86 - 55, 48, 55, 1, 86, 0, s);
+  paintHero(g, 64 - 22, 100 - 50, 44, 50, 1, 100, 0, s);
   g.restore();
 }
 function openCollection() { checkAchievements(); colTab = 'skins'; renderCollection(); collectionModal.classList.remove('hidden'); collectionBody.scrollTop = 0; }
@@ -349,4 +378,18 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeCollection();
   e.stopPropagation();
 }, true);
-document.addEventListener('DOMContentLoaded', () => { checkAchievements(); updateCollectionCount(); });
+// 記録（クリア・ランク）から決まる実績は、First Step を数えなくなったので、1 回だけ確かめ直す
+// （First Step だけで解除されていたものは、もどす。プレイ回数などの合計の記録は、そのまま）
+const RECHECK = new Set(['クリア', 'ランク', '曲ごと', 'コレクション']), KEEP = new Set(['last_life', 'clear_run10', 's_run3']);
+function recheckOnce() {
+  if ((P.ver || 1) >= 2) return;
+  for (let pass = 0; pass < 2; pass++) for (const a of ACHIEVEMENTS) {
+    if (!P.unlocked[a.id] || !(RECHECK.has(a.g) || a.id === 'first_clear') || KEEP.has(a.id)) continue;
+    let ok = true;
+    try { ok = achDone(a); } catch (e) { ok = true; }
+    if (!ok) delete P.unlocked[a.id];
+  }
+  delete P.unlocked.fs_s;
+  P.ver = 2; saveProgress();
+}
+document.addEventListener('DOMContentLoaded', () => { recheckOnce(); checkAchievements(); updateCollectionCount(); });

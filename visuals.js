@@ -1171,6 +1171,7 @@ function drawTitleOrbits(look, k, bp) {
 }
 
 // ---- 主人公 ----------------------------------------------------------------
+const heroEcho = [];
 function drawHero(look, k) {
   if (scene === 'over' && fx.deathT > 0.05) return;         // やられたら消える
   const skin = typeof heroSkin === 'function' ? heroSkin() : HERO_DEFAULT;
@@ -1218,24 +1219,94 @@ function drawHero(look, k) {
     ctx.fill();
   }
   const moving = player.onGround && Math.abs(player.vx) > 20;
+  if (skin.fx === 'echo') {                                       // 残像のスキン: 少し前の位置に、うすい自分が 2 人ついてくる
+    heroEcho.push({ x, y, baseY, f: player.facing });
+    if (heroEcho.length > 12) heroEcho.shift();
+    for (const [i, a] of [[0, 0.18], [5, 0.32]]) {
+      const e = heroEcho[i];
+      if (!e || (Math.abs(e.x - x) < 2 && Math.abs(e.y - y) < 2)) continue;
+      ctx.save(); ctx.globalAlpha = a; paintHero(ctx, e.x, e.y, w, h, e.f, e.baseY, 0, skin); ctx.restore();
+    }
+  }
   paintHero(ctx, x, y, w, h, player.facing, baseY, moving ? Math.sin(elapsed * 18) * 2 : 0, skin);
   ctx.restore();
 }
 
-// プレイヤーの絵（スキンの色・頭の飾り）。コレクションの画面の見本も、これで描く
+// プレイヤーの絵（スキンの色・頭の飾り・うしろの飾り・光）。コレクションの画面の見本も、これで描く
+//   acc は 1 つでも配列でもよい。うしろに描くもの: wings 羽 / cape マント / katana 刀
+//   前に描くもの: crown halo horns mohawk phones ribbon ears / visor バイザー / mask 忍者の覆面 / scarf マフラー / headband はちまき / flamehair 燃える髪
+//   hair: ぼうしのかわりに髪（色）、aura: まわりに光るふち（色）、fx: 'rainbow' = 服の色が虹色に変わり続ける
 const HERO_DEFAULT = { body: '#3b6cf0', cap: '#e24b4a', brim: '#c43a39', skin: '#f4c9a0', shoe: '#5a3a22', glow: '#7fb4ff' };
 function paintHero(g, x, y, w, h, f, baseY, wob, sk) {
   const rr = (X, Y, W2, H2, R) => { g.beginPath(); g.roundRect ? g.roundRect(X, Y, W2, H2, R) : g.rect(X, Y, W2, H2); };
-  const cx = x + w / 2;
+  const acc = [].concat(sk.acc || []), has = k => acc.includes(k);
+  const t = performance.now() / 1000;
+  const cx = x + w / 2, bodyTop = y + h * 0.45;
+  const body = sk.fx === 'rainbow' ? `hsl(${(t * 90) % 360}, 85%, 62%)` : sk.body;
   g.save();
   if (sk.alpha) g.globalAlpha *= sk.alpha;
-  const bodyTop = y + h * 0.45;
-  rr(x, bodyTop, w, h - (bodyTop - y), 5); g.fillStyle = sk.body; g.fill();
+  // ---- うしろ ----
+  if (sk.aura) {                                                 // 光るふち（ゆっくり脈打つ）
+    const pulse = 0.55 + 0.45 * Math.sin(t * 4);
+    g.save(); g.globalCompositeOperation = 'lighter';
+    g.strokeStyle = sk.aura; g.globalAlpha *= 0.18 + 0.12 * pulse; g.lineWidth = 9;
+    rr(x - 3, y - 3, w + 6, baseY - y + 5, 9); g.stroke();
+    g.globalAlpha = (sk.alpha || 1) * (0.35 + 0.25 * pulse); g.lineWidth = 2.5; g.stroke();
+    g.restore();
+  }
+  if (has('wings')) {                                            // 羽（はばたく）
+    const flap = Math.sin(t * 7) * 0.25, wc = sk.wing || '#ffffff';
+    for (const sgn of [-1, 1]) {
+      g.save(); g.translate(cx + sgn * w * 0.3, bodyTop + h * 0.08); g.rotate(sgn * (-0.35 + flap)); g.scale(sgn, 1);
+      g.fillStyle = wc; g.beginPath(); g.moveTo(0, 0);
+      g.quadraticCurveTo(w * 0.9, -h * 0.55, w * 1.15, -h * 0.25);
+      g.quadraticCurveTo(w * 0.95, -h * 0.1, w * 1.05, h * 0.05);
+      g.quadraticCurveTo(w * 0.8, h * 0.05, w * 0.85, h * 0.25);
+      g.quadraticCurveTo(w * 0.5, h * 0.2, 0, h * 0.2); g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = 1;
+      for (const k of [0.45, 0.7]) { g.beginPath(); g.moveTo(w * 0.2, h * 0.05); g.lineTo(w * (0.5 + k * 0.5), -h * 0.25 * k + h * 0.08); g.stroke(); }
+      g.restore();
+    }
+  }
+  if (has('cape')) {                                             // マント（進む向きと反対へなびく）
+    const sway = Math.sin(t * 5) * w * 0.1, back = cx - f * w * 0.5;     // 背中側
+    g.fillStyle = sk.cape || '#c8102e'; g.beginPath();
+    g.moveTo(cx + f * w * 0.25, bodyTop - h * 0.02);
+    g.quadraticCurveTo(back - f * w * 0.35, bodyTop + h * 0.1, back - f * w * 0.7 + sway, baseY + 2);
+    g.lineTo(back - f * w * 0.1 + sway * 0.5, baseY + 4);
+    g.lineTo(cx + f * w * 0.1, baseY - h * 0.2);
+    g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(back, bodyTop + h * 0.1); g.lineTo(back - f * w * 0.4 + sway, baseY); g.stroke();
+  }
+  if (has('katana')) {                                           // 背中の刀
+    g.save(); g.translate(cx - f * w * 0.15, bodyTop + h * 0.25); g.rotate(-f * 0.85);
+    g.fillStyle = '#d8dde8'; g.fillRect(-1.5, -h * 1.05, 3, h * 0.78);
+    g.fillStyle = '#ffffff'; g.fillRect(-0.5, -h * 1.05, 1, h * 0.78);
+    g.fillStyle = '#d9a520'; g.fillRect(-4, -h * 0.29, 8, 2.5);
+    g.fillStyle = '#2a1018'; g.fillRect(-2, -h * 0.27, 4, h * 0.3);
+    g.restore();
+  }
+  // ---- 体 ----
+  rr(x, bodyTop, w, h - (bodyTop - y), 5); g.fillStyle = body; g.fill();
   rr(x + w * 0.08, y + h * 0.06, w * 0.84, h * 0.46, 6); g.fillStyle = sk.skin; g.fill();
-  if (sk.acc === 'mohawk') {                                     // モヒカン（ぼうしのかわり）
+  if (has('mohawk')) {                                           // モヒカン（ぼうしのかわり）
     g.fillStyle = sk.cap; g.beginPath(); g.moveTo(cx - w * 0.22, y + h * 0.1);
     for (let i = 0; i <= 4; i++) g.lineTo(cx - w * 0.22 + i * w * 0.11 + w * 0.055, y - h * (i % 2 ? 0.05 : 0.22));
     g.lineTo(cx + w * 0.3, y + h * 0.1); g.closePath(); g.fill();
+  } else if (has('flamehair')) {                                 // 燃える髪（ゆらゆら）
+    const [c1, c2] = sk.flame || ['#ff4a1a', '#ffe066'];
+    for (const [col, k] of [[c1, 1], [c2, 0.55]]) {
+      g.fillStyle = col; g.beginPath(); g.moveTo(x + w * 0.04, y + h * 0.16);
+      for (let i = 0; i <= 5; i++) {
+        const px = x + w * (0.04 + i * 0.184), tip = y - h * k * (0.18 + 0.12 * Math.sin(t * 13 + i * 1.7) + (i % 2 ? 0 : 0.08));
+        g.quadraticCurveTo(px - w * 0.05, y, px, tip);
+      }
+      g.lineTo(x + w * 0.96, y + h * 0.16); g.closePath(); g.fill();
+    }
+  } else if (sk.hair) {                                          // 髪（ぼうしなし）
+    rr(x + w * 0.04, y - 1, w * 0.92, h * 0.17, 6); g.fillStyle = sk.hair; g.fill();
+    g.beginPath(); g.rect(f >= 0 ? x + w * 0.04 : x + w * 0.66, y + h * 0.1, w * 0.3, h * 0.08); g.fill();
   } else {
     rr(x + w * 0.02, y, w * 0.96, h * 0.20, 5); g.fillStyle = sk.cap; g.fill();
     g.fillStyle = sk.brim; g.beginPath();
@@ -1243,37 +1314,65 @@ function paintHero(g, x, y, w, h, f, baseY, wob, sk) {
     else        g.rect(x - w * 0.10, y + h * 0.16, w * 0.55, h * 0.06);
     g.fill();
   }
-  g.fillStyle = '#222a3a';
   const eyeY = y + h * 0.30, eyeR = Math.max(1.6, w * 0.07), ex = cx + f * w * 0.10;
-  g.beginPath(); g.arc(ex - w * 0.12, eyeY, eyeR, 0, TAU); g.fill();
-  g.beginPath(); g.arc(ex + w * 0.12, eyeY, eyeR, 0, TAU); g.fill();
+  if (has('visor')) {                                            // 光るバイザー（目のかわり）
+    g.fillStyle = '#0c0c14'; rr(x + w * 0.06, eyeY - h * 0.07, w * 0.88, h * 0.13, 3); g.fill();
+    g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = sk.visor || '#22e6ff';
+    g.globalAlpha *= 0.75 + 0.25 * Math.sin(t * 6);
+    g.fillRect(x + w * 0.12, eyeY - h * 0.02, w * 0.76, Math.max(1.5, h * 0.04));
+    g.fillRect(ex - w * 0.06 + f * w * 0.12, eyeY - h * 0.035, w * 0.12, h * 0.07);
+    g.restore();
+  } else {
+    g.fillStyle = '#222a3a';
+    g.beginPath(); g.arc(ex - w * 0.12, eyeY, eyeR, 0, TAU); g.fill();
+    g.beginPath(); g.arc(ex + w * 0.12, eyeY, eyeR, 0, TAU); g.fill();
+  }
+  if (has('mask')) { g.fillStyle = sk.maskColor || '#14141e'; rr(x + w * 0.08, y + h * 0.37, w * 0.84, h * 0.15, 3); g.fill(); }
+  if (has('headband')) {                                         // はちまき（うしろに結び目のはし）
+    g.fillStyle = sk.band || '#d81e1e';
+    g.fillRect(x + w * 0.04, y + h * 0.15, w * 0.92, h * 0.06);
+    const bx = f >= 0 ? x + w * 0.04 : x + w * 0.96, wv = Math.sin(t * 9) * h * 0.04;
+    g.beginPath(); g.moveTo(bx, y + h * 0.16); g.lineTo(bx - f * w * 0.42, y + h * 0.12 + wv); g.lineTo(bx - f * w * 0.38, y + h * 0.2 + wv); g.closePath(); g.fill();
+  }
+  if (has('scarf')) {                                            // マフラー（うしろへなびく）
+    g.fillStyle = sk.scarf || '#d81e1e';
+    g.fillRect(x - 1, bodyTop - h * 0.02, w + 2, h * 0.09);
+    const sx2 = f >= 0 ? x : x + w, wv = Math.sin(t * 8) * h * 0.05;
+    g.beginPath(); g.moveTo(sx2, bodyTop); g.quadraticCurveTo(sx2 - f * w * 0.4, bodyTop + wv, sx2 - f * w * 0.75, bodyTop + h * 0.04 - wv);
+    g.lineTo(sx2 - f * w * 0.7, bodyTop + h * 0.12 - wv); g.quadraticCurveTo(sx2 - f * w * 0.35, bodyTop + h * 0.1 + wv, sx2, bodyTop + h * 0.08); g.closePath(); g.fill();
+  }
   g.fillStyle = sk.shoe;
   const footW = w * 0.34, footH = h * 0.10, footY = baseY - footH;
   rr(x + w * 0.06, footY - wob, footW, footH, 3); g.fill();
   rr(x + w * 0.60, footY + wob, footW, footH, 3); g.fill();
   // 頭の飾り
-  if (sk.acc === 'crown') {
+  if (has('crown')) {
     g.fillStyle = '#ffd23f'; g.strokeStyle = '#a67c10'; g.lineWidth = 1;
     g.beginPath(); g.moveTo(cx - w * 0.3, y + 1); g.lineTo(cx - w * 0.3, y - h * 0.2); g.lineTo(cx - w * 0.15, y - h * 0.08);
     g.lineTo(cx, y - h * 0.26); g.lineTo(cx + w * 0.15, y - h * 0.08); g.lineTo(cx + w * 0.3, y - h * 0.2); g.lineTo(cx + w * 0.3, y + 1); g.closePath(); g.fill(); g.stroke();
     g.fillStyle = '#ff3b6b'; g.beginPath(); g.arc(cx, y - h * 0.06, Math.max(1.5, w * 0.06), 0, TAU); g.fill();
-  } else if (sk.acc === 'halo') {
-    g.strokeStyle = '#fff1a8'; g.lineWidth = 2.5; g.shadowColor = '#fff1a8'; g.shadowBlur = 0;
-    g.beginPath(); g.ellipse(cx, y - h * 0.16, w * 0.36, h * 0.07, 0, 0, TAU); g.stroke();
-  } else if (sk.acc === 'horns') {
-    g.fillStyle = '#2a0a10';
+  }
+  if (has('halo')) {
+    g.strokeStyle = sk.haloColor || '#fff1a8'; g.lineWidth = 2.5;
+    g.beginPath(); g.ellipse(cx, y - h * (has('crown') ? 0.36 : 0.16), w * 0.36, h * 0.07, 0, 0, TAU); g.stroke();
+  }
+  if (has('horns')) {
+    g.fillStyle = sk.hornColor || '#2a0a10';
     for (const sgn of [-1, 1]) { g.beginPath(); g.moveTo(cx + sgn * w * 0.18, y + 2); g.lineTo(cx + sgn * w * 0.42, y - h * 0.22); g.lineTo(cx + sgn * w * 0.34, y + 3); g.closePath(); g.fill(); }
-  } else if (sk.acc === 'phones') {
+  }
+  if (has('phones')) {
     g.strokeStyle = '#e8e8f0'; g.lineWidth = 2.5;
     g.beginPath(); g.arc(cx, y + h * 0.22, w * 0.52, Math.PI * 1.08, Math.PI * 1.92); g.stroke();
     g.fillStyle = '#ff4fa3';
     for (const sgn of [-1, 1]) { rr(cx + sgn * w * 0.5 - w * 0.1, y + h * 0.18, w * 0.2, h * 0.2, 3); g.fill(); }
-  } else if (sk.acc === 'ears') {                                 // ねこみみ
+  }
+  if (has('ears')) {                                             // ねこみみ
     for (const sgn of [-1, 1]) {
       g.fillStyle = sk.cap; g.beginPath(); g.moveTo(cx + sgn * w * 0.12, y + 2); g.lineTo(cx + sgn * w * 0.4, y - h * 0.2); g.lineTo(cx + sgn * w * 0.46, y + 3); g.closePath(); g.fill();
       g.fillStyle = '#ffb3c4'; g.beginPath(); g.moveTo(cx + sgn * w * 0.22, y + 1); g.lineTo(cx + sgn * w * 0.39, y - h * 0.11); g.lineTo(cx + sgn * w * 0.41, y + 2); g.closePath(); g.fill();
     }
-  } else if (sk.acc === 'ribbon') {
+  }
+  if (has('ribbon')) {
     g.fillStyle = '#ff5c8a'; const rx = cx - f * w * 0.32, ry = y + h * 0.05, R = w * 0.16;
     g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx - R * 1.6, ry - R); g.lineTo(rx - R * 1.6, ry + R); g.closePath(); g.fill();
     g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx + R * 1.6, ry - R); g.lineTo(rx + R * 1.6, ry + R); g.closePath(); g.fill();
@@ -1301,6 +1400,7 @@ function heroTrail(sk, p) {
     petal:   { color: Math.random() < 0.6 ? '#ffb3cf' : '#ffffff', speed: 50, life: 0.9, size: 3, gravity: 50 },
     star:    { color: '#fff4c0', speed: 30, life: 0.5, size: 2.4, gravity: 0 },
   }[sk.trail];
+  if (o && sk.trailColor && sk.trail !== 'rainbow') o.color = Math.random() < 0.7 ? sk.trailColor : '#ffffff';
   if (o) sparks(x, y, { n: 1, ...o });
 }
 
