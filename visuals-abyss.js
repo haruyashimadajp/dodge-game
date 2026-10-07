@@ -436,4 +436,6 @@
     kinds: { jelly, leviathan },
     reset, update, background, floor, platform, bullet, world, flash, banner, title,
   };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.abyss.release = () => { freeArt(st); st.kelp = null; };
 })();

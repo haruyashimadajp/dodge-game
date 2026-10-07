@@ -275,4 +275,6 @@
     clearColors: ['#ff4d6d', '#5cf2a4', '#4cc9f0', '#fff3c4', '#c4b5fd'],
     reset, update, background, floor, platform, bullet, laser, fire, flash, banner, title,
   };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.touhou.release = () => { freeArt(st); st.mtn = null; };
 })();

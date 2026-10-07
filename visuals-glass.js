@@ -411,4 +411,6 @@
     clearColors: ['#ff8fa3', '#ffd27a', '#9cffb0', '#7fd8ff', '#b69cff', '#ffffff'],
     reset, update, background, floor, platform, bullet, flash, banner, title, shatter, keyHit,
   };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.glass.release = () => { freeArt({ beams }); beams = null; freeArt(st); };
 })();

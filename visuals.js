@@ -55,26 +55,42 @@ const clamp01 = v => Math.max(0, Math.min(1, v));
 const lerp = (a, b, k) => a + (b - a) * k;
 const easeOut = k => 1 - Math.pow(1 - clamp01(k), 3);
 
-// 光のにじみ用の画像（色ごとに1回だけ作って使い回す）
-const glowCache = {};
-let glowCount = 0;
-function glowSprite(c) {
-  // 色は少しまるめる。それでも色が移り変わる間は毎コマ新しい絵ができるので、たまりすぎたら捨てる（メモリがふくらんで重くならないように）
-  c = c.map(v => Math.round(v / 16) * 16);
-  const key = c.join(',');
-  if (glowCache[key]) return glowCache[key];
-  if (++glowCount > 96) { for (const k in glowCache) delete glowCache[k]; glowCount = 1; }
-  const s = document.createElement('canvas');
-  s.width = s.height = 64;
-  const g = s.getContext('2d');
+// 色ごとの小さな絵を覚えておく入れ物。max 枚を超えたら、いちばん古い絵を「描き直して」使い回す。
+// （キャンバスを作っては捨てるのをくり返すと、スマホではメモリがすぐに返されず、
+//   曲をやるたびに重さが積み重なってしまう。開き直すまで治らない）
+function spritePool(max, w, h, draw) {
+  const m = new Map();
+  const get = c => {
+    const key = c.join(',');
+    let s = m.get(key);
+    if (s) return s;
+    if (m.size >= max) {
+      const [old, cv] = m.entries().next().value;
+      m.delete(old);
+      s = cv;
+      s.getContext('2d').clearRect(0, 0, w, h);
+    } else {
+      s = document.createElement('canvas');
+      s.width = w; s.height = h;
+    }
+    draw(s.getContext('2d'), c);
+    m.set(key, s);
+    return s;
+  };
+  get.clear = () => { for (const s of m.values()) releaseCanvas(s); m.clear(); };   // 全部手放す
+  return get;
+}
+
+// 光のにじみ用の画像（色ごとに1回だけ作って使い回す。色は少しまるめる）
+const glowPool = spritePool(96, 64, 64, (g, c) => {
   const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
   gr.addColorStop(0, rgba(c, 0.9));
   gr.addColorStop(0.35, rgba(c, 0.35));
   gr.addColorStop(1, rgba(c, 0));
   g.fillStyle = gr;
   g.fillRect(0, 0, 64, 64);
-  return (glowCache[key] = s);
-}
+});
+const glowSprite = c => glowPool(c.map(v => Math.round(v / 16) * 16));
 
 // ---- 見た目のセット -------------------------------------------------------
 // THEMES.名前 = { background, floor, platform, title, bullet, laser, flash, banner, update, reset, clearColors }
@@ -356,7 +372,7 @@ const layerCaches = {};
 let layerFrame = 0;
 function cachedLayer(name, every, phase, draw) {
   let c = layerCaches[name];
-  if (!c || c.width !== cv.width || c.height !== cv.height) { c = layerCaches[name] = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.dirty = true; }
+  if (!c || c.width !== cv.width || c.height !== cv.height) { releaseCanvas(c); c = layerCaches[name] = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.dirty = true; }
   if (c.dirty || layerFrame % every === phase) {
     const g = c.getContext('2d');
     g.setTransform(renderScale, 0, 0, renderScale, 0, 0);
@@ -368,16 +384,42 @@ function cachedLayer(name, every, phase, draw) {
   return c;
 }
 function dirtyLayers() { for (const k in layerCaches) layerCaches[k].dirty = true; }
+// キャンバスの大きさを 0 にすると、中の絵のメモリがすぐに返される（ただ捨てるだけだと、スマホではなかなか返されない）
+function releaseCanvas(c) { if (c) c.width = c.height = 0; }
+function releaseLayers() { for (const k in layerCaches) { releaseCanvas(layerCaches[k]); delete layerCaches[k]; } }
+// 見た目のセットが持っている絵（st の中のキャンバスと模様）を手放す。st の欄は null にもどすので、次に使うときに作り直される
+function freeArt(st) {
+  const free = (v, d) => {
+    if (v instanceof HTMLCanvasElement) { releaseCanvas(v); return true; }
+    if (v instanceof CanvasPattern) return true;
+    let had = false;
+    const plain = v && (Array.isArray(v) || Object.getPrototypeOf(v) === Object.prototype);   // ふつうの配列・オブジェクトの中だけ見る
+    if (d < 3 && plain) for (const k in v) if (free(v[k], d + 1)) had = true;
+    return had;
+  };
+  for (const k in st) if (free(st[k], 0)) st[k] = null;
+}
+// 曲（見た目のセット）が変わったら、ほかの見た目のセットの絵と、画面の大きさの層を全部手放す。
+// 残しておくと、曲をやるたびにメモリがふくらんで、だんだん重くなる（開き直すまで治らない）
+let artOwner = null;
+function releaseOtherArt() {
+  const now = song && song.theme;
+  if (now === artOwner) return;
+  artOwner = now;
+  releaseLayers();
+  for (const k in THEMES) if (k !== now && THEMES[k].release) THEMES[k].release();
+}
 // たての2色グラデーション: 1px 幅の細い絵に描いてから横にのばす（画面いっぱいをグラデーションで塗るより、ずっと軽い。見た目は同じ）
 const vgStrip = document.createElement('canvas'); vgStrip.width = 1; vgStrip.height = H;
 //   vGradient(上の色, 下の色) か、vGradient([[0, 色], [0.65, 色], [1, 色]], グラデーションが終わる高さ)
-function vGradient(top, bot) {
+//   to = 描く先（書かなければ画面）
+function vGradient(top, bot, to = ctx) {
   const stops = Array.isArray(top) ? top : [[0, top], [1, bot]], gh = Array.isArray(top) ? (bot || H) : H;
   const g = vgStrip.getContext('2d');
   const gr = g.createLinearGradient(0, 0, 0, gh);
   for (const [p, c] of stops) gr.addColorStop(p, c);
   g.fillStyle = gr; g.fillRect(0, 0, 1, H);
-  ctx.drawImage(vgStrip, 0, 0, W, H);
+  to.drawImage(vgStrip, 0, 0, W, H);
 }
 
 // 周辺減光と走査線は毎コマ同じなので、1枚の絵にしておいて貼るだけにする（グラデーションや模様で塗るより、ずっと軽い）
@@ -395,6 +437,7 @@ function screenOverlay(withScan) {
 
 function drawScene() {
   if (!vignette) makeStatic();
+  releaseOtherArt();
   layerFrame++;
   const th = theme();
   const T = scene === 'title' ? titleClock() : songTime;
@@ -516,16 +559,16 @@ function drawBackground(T, look, k, bk, bp) {
 }
 
 // 星（プレイヤーと逆向きに少しずれる = 奥行き）。n = 描く数
-function drawStars(T, n) {
+function drawStars(T, n, to = ctx) {           // to = 描く先（書かなければ画面）
   const par = (playerXY().x - W / 2) * -0.05;
   const hi = scene === 'title' ? 0.3 : songEnv(6, T);
   const stars = fx.stars || [];
   for (let i = 0; i < Math.min(n, stars.length); i++) {
     const s = stars[i];
     const a = 0.15 + 0.55 * s.z * (0.6 + 0.4 * Math.sin(s.tw + T * 3)) + hi * 0.3 * s.z;
-    ctx.fillStyle = `rgba(220,230,255,${Math.min(1, a).toFixed(3)})`;
+    to.fillStyle = `rgba(220,230,255,${Math.min(1, a).toFixed(3)})`;
     const sz = 0.6 + s.z * 1.6;
-    ctx.fillRect(((s.x + par * s.z) % W + W) % W, s.y, sz, sz);
+    to.fillRect(((s.x + par * s.z) % W + W) % W, s.y, sz, sz);
   }
 }
 

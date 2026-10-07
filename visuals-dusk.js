@@ -507,4 +507,9 @@
     clearColors: ['#ffd27a', '#ff9f6b', '#ff7aa8', '#fff1d6', '#c9b6ff'],
     reset, update, background, floor, platform, bullet, flash, banner, title,
   };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.dusk.release = () => {
+    freeArt({ a: [wall, gears, shafts, floorArt, glassMul, glassLit, tracery] }); freeArt(st);
+    wall = gears = shafts = floorArt = glassMul = glassLit = tracery = null;
+  };
 })();

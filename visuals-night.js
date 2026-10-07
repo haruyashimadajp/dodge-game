@@ -156,36 +156,38 @@
     // 空: 盛り上がるほど明るく。最高潮では拍ごとに三色に染まる
     let top = mixC(look.skyTop, look.color, 0.04 * tier * (0.6 + 0.4 * k));
     if (tier > 4) top = mixC(top, UFO_COLS[Math.floor(bp) % 3], 0.18 * (tier - 4) * k);
-    vGradient([[0, rgba(top, 1)], [1, rgba(look.skyBot, 1)]], GROUND_Y);
+    // 空・星・月・雲はゆっくりしか変わらないので、2コマに1回だけ描き直した絵を貼る（毎コマ全部描くと重い）
+    ctx.drawImage(cachedLayer('nightSky', 2, 0, g => {
+      vGradient([[0, rgba(top, 1)], [1, rgba(look.skyBot, 1)]], GROUND_Y, g);
+      g.globalCompositeOperation = 'lighter';
+      drawStars(T, [40, 90, 140][gfx], g);
 
-    ctx.globalCompositeOperation = 'lighter';
-    drawStars(T, [40, 90, 140][gfx]);
-
-    // 月 ＋ にじみ（サビでは拍で光る）＋ 小節ごとの光の輪
-    const pulse = tier >= 2 ? 0.25 * k * clamp01(tier - 1.5) : 0;
-    const halo = MOON.r * (3.2 + 0.4 * bk * clamp01(tier - 2) + pulse);
-    if (gfx > 0) {
-      ctx.globalAlpha = 0.35 + 0.1 * tier / 5 + pulse;
-      ctx.drawImage(glowSprite(mixC([255, 244, 214], look.color, 0.1 * tier)), MOON.x - halo, MOON.y - halo, halo * 2, halo * 2);
-      ctx.globalAlpha = 1;
-    }
-    ctx.lineWidth = 2;
-    for (const r of st.moonRings) {
-      ctx.strokeStyle = rgba(mixC([255, 244, 214], look.color, 0.5), r.a * 0.6);
-      ctx.beginPath(); ctx.arc(MOON.x, MOON.y, r.r, 0, TAU); ctx.stroke();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(moonImg, MOON.x - MOON.r - 2, MOON.y - MOON.r - 2);
-
-    // 雲（画質「低」では無し・「中」では奥の層だけ）
-    if (gfx > 0) {
-      for (const c of st.clouds || []) {
-        if (gfx === 1 && c.layer) continue;
-        ctx.globalAlpha = c.layer ? 0.16 : 0.10;
-        ctx.drawImage(cloudImgs[c.img], c.x, c.y, c.layer ? 380 : 300, c.layer ? 130 : 100);
+      // 月 ＋ にじみ（サビでは拍で光る）＋ 小節ごとの光の輪
+      const pulse = tier >= 2 ? 0.25 * k * clamp01(tier - 1.5) : 0;
+      const halo = MOON.r * (3.2 + 0.4 * bk * clamp01(tier - 2) + pulse);
+      if (gfx > 0) {
+        g.globalAlpha = 0.35 + 0.1 * tier / 5 + pulse;
+        g.drawImage(glowSprite(mixC([255, 244, 214], look.color, 0.1 * tier)), MOON.x - halo, MOON.y - halo, halo * 2, halo * 2);
+        g.globalAlpha = 1;
       }
-      ctx.globalAlpha = 1;
-    }
+      g.lineWidth = 2;
+      for (const r of st.moonRings) {
+        g.strokeStyle = rgba(mixC([255, 244, 214], look.color, 0.5), r.a * 0.6);
+        g.beginPath(); g.arc(MOON.x, MOON.y, r.r, 0, TAU); g.stroke();
+      }
+      g.globalCompositeOperation = 'source-over';
+      g.drawImage(moonImg, MOON.x - MOON.r - 2, MOON.y - MOON.r - 2);
+
+      // 雲（画質「低」では無し・「中」では奥の層だけ）
+      if (gfx > 0) {
+        for (const c of st.clouds || []) {
+          if (gfx === 1 && c.layer) continue;
+          g.globalAlpha = c.layer ? 0.16 : 0.10;
+          g.drawImage(cloudImgs[c.img], c.x, c.y, c.layer ? 380 : 300, c.layer ? 130 : 100);
+        }
+        g.globalAlpha = 1;
+      }
+    }), 0, 0, W, H);
 
     // UFO の編隊（町より奥）。奥にいるものから描く
     const a = ufoAlpha(tier);
@@ -378,5 +380,10 @@
     noTrails: true, noScanlines: true, glow: 1.8,
     clearColors: ['#ff4d6d', '#5cf2a4', '#4cc9f0', '#fff3c4', '#c4b5fd'],
     reset, update, background, floor, platform, bullet, laser, flash, banner, title,
+  };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.night.release = () => {
+    freeArt({ a: [moonImg, cloudImgs, skyline] });
+    moonImg = cloudImgs = skyline = wavePat = null;
   };
 })();

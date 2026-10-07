@@ -469,4 +469,6 @@
     kinds: { rvEcho: echoKind, rvRipple: rippleKind, rvBell: bellKind },
     reset, update, background, floor, platform, bullet, fire, flash, banner, title,
   };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.cave.release = () => { freeArt(st); st.made = false; };
 })();

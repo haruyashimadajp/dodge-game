@@ -298,18 +298,12 @@
     }
     ctx.drawImage(c, 0, 0, W, H);
   }
-  const auroraStrips = {};
-  function auroraStrip(c) {
-    c = c.map(v => Math.round(v / 8) * 8);                               // 色は少しまるめる（移り変わる間に、毎コマ新しい絵を作って、たまり続けないように）
-    const key = c.join(',');
-    if (auroraStrips[key]) return auroraStrips[key];
-    if (Object.keys(auroraStrips).length > 48) for (const k in auroraStrips) delete auroraStrips[k];   // たまりすぎたら捨てる
-    const s = document.createElement('canvas'); s.width = 1; s.height = 64;
-    const g = s.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 64);
+  const auroraPool = spritePool(48, 1, 64, (g, c) => {
+    const gr = g.createLinearGradient(0, 0, 0, 64);
     gr.addColorStop(0, rgba(c, 0)); gr.addColorStop(0.3, rgba(c, 0.11)); gr.addColorStop(1, rgba(c, 0));
     g.fillStyle = gr; g.fillRect(0, 0, 1, 64);
-    return (auroraStrips[key] = s);
-  }
+  });
+  const auroraStrip = c => auroraPool(c.map(v => Math.round(v / 8) * 8));   // 色は少しまるめる
   function skyLayer(ctx, T, look) {
     const nt = night();
     const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
@@ -1011,4 +1005,6 @@
     kinds: { ink, shell, icicle: icicleK, aurora: auroraK, koi: koiK, wave: waveK },
     reset, update, background, floor, platform, bullet, laser, fire, world, flash, hint, banner, title,
   };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.shiki.release = () => { freeArt(st); st.made = false; auroraPool.clear(); };
 })();

@@ -445,4 +445,6 @@
     kinds: { armSheet: sheetKind, armBell: bellKind, armGliss: glissKind },
     reset, update, background, floor, platform, bullet, flash, banner, title, walls,
   };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.revive.release = () => { freeArt(st); st.made = false; };
 })();

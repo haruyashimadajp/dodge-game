@@ -694,4 +694,12 @@
     kinds: { bell: bellKind, ognote: noteKind, glove: gloveKind, ogmeteor: meteorKind, imomushi: wormKind },
     reset, update, background, floor, platform, bullet, fire, world, flash, banner, title,
   };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.ongeki.release = () => {
+    freeArt(st); st.made = false;
+    for (const k in catCache) { releaseCanvas(catCache[k].cv); delete catCache[k]; }
+    for (const c of spriteCache.values()) freeArt({ c });
+    spriteCache.clear();
+    releaseCanvas(bellImg); bellImg = null;
+  };
 })();

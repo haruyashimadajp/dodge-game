@@ -420,4 +420,6 @@
     clearColors: ['#ff2a3a', '#ffd23f', '#ffffff', '#ff6bd5', '#c86bff'],
     reset, update, background, floor, platform, bullet, flash, banner, title,
   };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.ex.release = () => { releaseCanvas(comb); comb = null; freeArt(st); };
 })();

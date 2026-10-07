@@ -134,8 +134,6 @@
       q.fillStyle = '#4a4a4a'; q.beginPath(); q.ellipse(x, y - 3, r, r * 0.45, 0, 0, TAU); q.fill();
     }
     st.stage = sc;
-    // 照明の光の柱（色ごとに1枚）
-    st.beams = {};
     // コピー機のざらざら（小さな絵をしきつめる）
     const gn = mk(128, 128), gq = gn.getContext('2d'), id = gq.createImageData(128, 128);
     for (let i = 0; i < id.data.length; i += 4) { const v = Math.random() < 0.5 ? 0 : 255; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = Math.random() < 0.12 ? 40 : 0; }
@@ -158,16 +156,11 @@
     g.fillStyle = gr; g.fillRect(0, 0, W / 2, H / 2);
     return (redEdges[key] = c);
   }
-  function beam(c) {
-    c = c.map(v => Math.round(v / 24) * 24);                             // 色はまるめる（場面の色が移り変わる間に、毎コマ新しい絵を作って、たまり続けないように）
-    const key = c.join(',');
-    if (st.beams[key]) return st.beams[key];
-    if (Object.keys(st.beams).length > 96) st.beams = {};              // たまりすぎたら捨てる
-    const cv = document.createElement('canvas'); cv.width = 120; cv.height = 400; const g = cv.getContext('2d');
+  const beamPool = spritePool(24, 120, 400, (g, c) => {
     const gr = g.createLinearGradient(0, 0, 0, 400); gr.addColorStop(0, rgba(c, 0.55)); gr.addColorStop(1, rgba(c, 0));
     g.fillStyle = gr; g.beginPath(); g.moveTo(54, 0); g.lineTo(66, 0); g.lineTo(120, 400); g.lineTo(0, 400); g.closePath(); g.fill();
-    return (st.beams[key] = cv);
-  }
+  });
+  const beam = c => beamPool(c.map(v => Math.round(v / 24) * 24));     // 色はまるめる（場面の色が移り変わる間も、絵がふえすぎないように）
 
   function reset() {
     Object.assign(st, { kick: 0, snare: 0, bang: 0, crash: 0, china: 0, nod: 0, cheer: 0, fists: 0, strobe: 0, inv: 0, dark: 0, papers: [], pops: [], stamps: [], scratches: [], dust: [], cracks: [], amp: [0, 0], fbUntil: -1, mode: '', quake: 0, rage: 0, screams: [], siren: null, sirenU: 0 });
@@ -713,4 +706,6 @@
     kinds: { hcLetter: letterKind, hcDiver: diverKind, hcPit: pitKind, hcStick: stickKind },
     reset, update, background, floor, platform, bullet, laser, fire, flash, banner, hint, title, camera,
   };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.punk.release = () => { freeArt(st); st.made = false; beamPool.clear(); };
 })();

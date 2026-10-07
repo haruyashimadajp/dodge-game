@@ -612,4 +612,6 @@
     clearColors: ['#39ff6a', '#ff2bd6', '#4dfcff', '#ffffff', '#ffe14d'],
     reset, update, background, floor, platform, ceiling, infect, bullet, worm, popup, world, flash, banner, title,
   };
+  // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
+  THEMES.virus.release = () => { freeArt(st); };
 })();
