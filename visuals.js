@@ -1637,10 +1637,8 @@ function paintEyes(g, sk, ex, eyeY, eyeR, w, cx, t) {
       g.fillStyle = sk.eyeColor || '#4a6aff'; g.beginPath(); g.ellipse(sx, eyeY + eyeR * 0.35, eyeR * 0.8, eyeR * 0.95, 0, 0, TAU); g.fill();
       g.fillStyle = '#ffffff'; g.beginPath(); g.arc(sx + eyeR * 0.35, eyeY - eyeR * 0.55, eyeR * 0.45, 0, TAU); g.fill();
       g.beginPath(); g.arc(sx - eyeR * 0.4, eyeY + eyeR * 0.6, eyeR * 0.22, 0, TAU); g.fill();
-      g.strokeStyle = '#1a1424'; g.lineWidth = Math.max(1, eyeR * 0.45); g.lineCap = 'round';
-      const out = sx < cx ? -1 : 1;
-      g.beginPath(); g.moveTo(sx - eyeR * 1.2, eyeY - eyeR * 1.3); g.quadraticCurveTo(sx, eyeY - eyeR * 1.9, sx + eyeR * 1.2, eyeY - eyeR * 1.3); g.lineTo(sx + out * eyeR * 1.7, eyeY - eyeR * 1.7); g.stroke();
-      g.lineCap = 'butt';
+      const out = sx < cx ? -1 : 1;                                // ほっぺ（目の外側の下）
+      g.fillStyle = 'rgba(255,110,150,0.5)'; g.beginPath(); g.ellipse(sx + out * eyeR * 1.1, eyeY + eyeR * 2.1, eyeR * 1.1, eyeR * 0.5, 0, 0, TAU); g.fill();
     } else {
       g.save(); g.translate(sx, eyeY); g.rotate(sx < cx ? 0.28 : -0.28);
       g.fillStyle = '#0a0a10'; g.fillRect(-eyeR * 1.35, -eyeR * 0.55, eyeR * 2.7, eyeR * 1.1);
