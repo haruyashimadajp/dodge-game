@@ -51,6 +51,8 @@ function rankedSong(id, minD = 'easy', rank = 'S') {
 }
 // 1 回のプレイでの、そのときだけの条件（ジャンプせずにクリア など）は P.flags に覚えておく
 const flag = k => !!(P.flags && P.flags[k]);
+// コイン・デイリー・ガチャの記録（economy.js の E）
+const eco = k => (typeof E !== 'undefined' ? E[k] || 0 : 0);
 // スキンの数（「全部集める」「コンプリート」のごほうびのスキンは、数に入れない）
 const collectable = () => SKINS.filter(sk => !sk.gacha && sk.need !== 'skins_all' && sk.need !== 'complete');   // ガチャ限定のスキンも数えない
 const skinsOpen = () => collectable().filter(sk => skinUnlocked(sk)).length;
@@ -66,6 +68,7 @@ const ACH_GROUPS = [
     { id: 'plays200',    lv: 2, name: 'ここに住んでいる',  desc: '200 回プレイする',                          progress: () => [P.plays, 200] },
     { id: 'plays500',    lv: 3, name: '家主',             desc: '500 回プレイする',                          progress: () => [P.plays, 500] },
     { id: 'plays1000',   lv: 4, name: '千本ノック',       desc: '1000 回プレイする',                         progress: () => [P.plays, 1000] },
+    { id: 'plays2000',   lv: 5, name: '二千回の夜',       desc: '2000 回プレイする',                         progress: () => [P.plays, 2000] },
     { id: 'time1h',      lv: 2, name: 'サバイバー',       desc: '合計 1 時間生きのびる',                      progress: () => [Math.floor(P.time / 60), 60], unit: '分' },
     { id: 'time3h',      lv: 3, name: 'タフガイ',         desc: '合計 3 時間生きのびる',                      progress: () => [Math.floor(P.time / 60), 180], unit: '分' },
     { id: 'time10h',     lv: 4, name: '不死身',           desc: '合計 10 時間生きのびる',                     progress: () => [Math.floor(P.time / 60), 600], unit: '分' },
@@ -103,6 +106,7 @@ const ACH_GROUPS = [
     { id: 'fd_hard5',    lv: 5, name: '影',               desc: 'HARD 以上で 5 曲 S ランクを取る',            progress: () => [fullDodgeBases('hard').size, 5] },
     { id: 'rankA20',     lv: 3, name: '優等生',           desc: 'A ランク以上を 20 個取る（曲×難易度）',      progress: () => [rankACount(), 20] },
     { id: 'rankA50',     lv: 4, name: '首席',             desc: 'A ランク以上を 50 個取る（曲×難易度）',      progress: () => [rankACount(), 50] },
+    { id: 'fd_imp',      lv: 5, name: '無敵',             desc: 'IMPOSSIBLE で S ランクを取る',               test: () => fullDodgeBases('impossible').size >= 1 },
     { id: 's_run3',      lv: 4, name: '三連続 S',         desc: '3 回続けて S ランクでクリアする',            progress: () => [P.sRun || 0, 3] },
   ]],
   ['かすり', [
@@ -112,6 +116,7 @@ const ACH_GROUPS = [
     { id: 'graze2000',   lv: 2, name: 'かすりの達人',     desc: '合計 2000 回かする',                         progress: () => [P.grazeTotal, 2000] },
     { id: 'graze10000',  lv: 3, name: 'かすりの鬼',       desc: '合計 10000 回かする',                        progress: () => [P.grazeTotal, 10000] },
     { id: 'graze30000',  lv: 4, name: 'かすりの神',       desc: '合計 30000 回かする',                        progress: () => [P.grazeTotal, 30000] },
+    { id: 'graze100k',   lv: 5, name: 'かすりの極み',     desc: '合計 100000 回かする',                       progress: () => [P.grazeTotal, 100000] },
     { id: 'tightrope',   lv: 3, name: '綱渡り',           desc: '100 回以上かすって、S ランクでクリアする',    test: () => !!P.tightrope },
     { id: 'tight_hard',  lv: 5, name: '刃の上で踊る',     desc: 'HARD 以上で、150 回以上かすって S ランクでクリアする', test: () => flag('tightHard') },
   ]],
@@ -141,6 +146,13 @@ const ACH_GROUPS = [
     { id: 'shiki_hard',  lv: 3, name: '一期一会',         desc: 'Shiki を HARD 以上でクリアする',             test: () => clearedSong('shiki', 'hard') },
     { id: 'candy_hard',  lv: 3, name: '甘くない',         desc: 'Candy Pop Parade を HARD 以上でクリアする',  test: () => clearedSong('candy', 'hard') },
     { id: 'tect_hard',   lv: 3, name: '震度 7',           desc: 'TECTONIC を HARD 以上でクリアする',          test: () => clearedSong('tectonic', 'hard') },
+    { id: 'unk_s',       lv: 4, name: 'ノーミスでスペルブレイク', desc: 'Re:Unknown X で S ランクを取る',     test: () => rankedSong('unknown') },
+    { id: 'mora_s',      lv: 4, name: '止まった時の中で', desc: 'モラトリウムで S ランクを取る',             test: () => rankedSong('moratorium') },
+    { id: 'vert_s',      lv: 4, name: '無重力',           desc: 'Vertigo で S ランクを取る',                  test: () => rankedSong('vertigo') },
+    { id: 'mal_s',       lv: 4, name: 'ファイアウォール', desc: 'Malware で S ランクを取る',                  test: () => rankedSong('malware') },
+    { id: 'ward_s',      lv: 4, name: '悪夢の向こう',     desc: 'Ward 13 で S ランクを取る',                  test: () => rankedSong('ward13') },
+    { id: 'candy_s',     lv: 4, name: 'シュガーラッシュ', desc: 'Candy Pop Parade で S ランクを取る',         test: () => rankedSong('candy') },
+    { id: 'tect_s',      lv: 4, name: '地殻変動',         desc: 'TECTONIC で S ランクを取る',                 test: () => rankedSong('tectonic') },
     { id: 'ov_s',        lv: 4, name: 'スタンディングオベーション', desc: 'Grand Overture で S ランクを取る', test: () => rankedSong('overture') },
     { id: 'ongeki_hard', lv: 3, name: 'ボコボコにされない', desc: '怨撃を HARD 以上でクリアする',             test: () => clearedSong('ongeki', 'hard') },
     { id: 'onshin',      lv: 3, name: '真・怨撃',         desc: '怨撃の「真」の譜面をクリアする',             test: () => clearedSong('ongeki-shin') },
@@ -150,6 +162,13 @@ const ACH_GROUPS = [
     { id: 'pit_imp',     lv: 5, name: 'サークルの中心で', desc: 'Circle Pit を IMPOSSIBLE でクリアする',      test: () => clearedSong('circlepit', 'impossible') },
     { id: 'phoenix',     lv: 3, name: '不死鳥',           desc: 'And Revive The Melody を HARD 以上でクリアする', test: () => clearedSong('revive', 'hard') },
     { id: 'revive_imp',  lv: 5, name: '旋律よ、よみがえれ', desc: 'And Revive The Melody を IMPOSSIBLE でクリアする', test: () => clearedSong('revive', 'impossible') },
+  ]],
+  ['デイリー・ガチャ', [
+    { id: 'quest10',     lv: 2, name: 'がんばり屋',       desc: '今日のミッションを合計 10 個達成する',       progress: () => [eco('questTotal'), 10] },
+    { id: 'quest50',     lv: 4, name: 'ミッションマスター', desc: '今日のミッションを合計 50 個達成する',     progress: () => [eco('questTotal'), 50] },
+    { id: 'daily10',     lv: 3, name: '挑戦者',           desc: 'デイリーチャレンジを合計 10 回成功する',     progress: () => [eco('dailyWins'), 10] },
+    { id: 'daily_streak7', lv: 4, name: '毎日が挑戦',     desc: 'デイリーチャレンジを 7 日続けて成功する',    progress: () => [eco('dailyStreak'), 7], unit: '日' },
+    { id: 'gacha100',    lv: 2, name: 'ガチャ好き',       desc: 'ガチャを合計 100 回引く',                    progress: () => [eco('pulls'), 100] },
   ]],
   ['ひみつ', [
     { id: 'night',       lv: 1, secret: true, name: '夜ふかし',     desc: '夜中の 0〜4 時に遊ぶ',                     test: () => P.night },
@@ -221,6 +240,46 @@ const SKINS = [
   { id: 'truephoenix', name: '真・不死鳥', body: '#ff6a1a', skin: '#ffd8b0', shoe: '#7a2a08', glow: '#ffb05c', acc: ['wings', 'flamehair'], wing: '#ff9a2e', flame: ['#ff4a1a', '#ffe066'], aura: '#ffb05c', trail: 'ember', need: 'revive_imp' },
   { id: 'prismatic', name: '虹色',       body: '#ffffff', cap: '#ffffff', brim: '#e0e0e0', skin: '#fde6d0', shoe: '#ffffff', glow: '#ffffff', acc: ['wings', 'crown'], wing: '#ffffff', fx: 'rainbow', aura: '#ffffff', trail: 'rainbow', need: 'skins_all' },
   { id: 'sakura',  name: 'さくら',       body: '#ff9fc4', cap: '#ffffff', brim: '#f0d8e0', skin: '#fde3d4', shoe: '#a0506a', glow: '#ffc4dc', acc: 'ribbon', trail: 'petal', need: 'shiki' },
+  // ---- 曲のスキン（その曲の実績で手に入る）----
+  { id: 'spell',    name: 'スペルカード', body: '#2a1a4a', skin: '#fde6da', shoe: '#141418', glow: '#ffe066', hair: '#ffe066', hairStyle: 'long', eyes: 'cute', eyeColor: '#d9a520', dress: '#141418', frill: '#ffffff', bow: '#d81e1e', acc: ['witch'], hat: '#141418', orbs: ['#ffe066', '#ff5c8a', '#4dd2ff'], trail: 'star', need: 'unk_hard' },
+  { id: 'chrono',   name: '時の番人',     body: '#3a4a7a', skin: '#f0dcd0', shoe: '#1e2e5a', glow: '#9fdcff', hair: '#c8d0e8', hairStyle: 'pony', tie: '#4dd2ff', eyes: 'sharp', eyeColor: '#4dd2ff', sleeves: '#1e2e5a', sleeveTrim: '#c8d0e8', obi: '#4dd2ff', fx: 'echo', trail: 'star', trailColor: '#9fdcff', need: 'mora_hard' },
+  { id: 'vertigo',  name: 'めまい',       body: '#7a2aff', cap: '#ff3ea5', brim: '#c21a74', skin: '#f4d0c0', shoe: '#3a0a7a', glow: '#ff7ad0', acc: ['propeller'], hat: '#7a2aff', eyes: 'cute', eyeColor: '#7a2aff', magicCircle: '#ff3ea5', trail: 'galaxy', need: 'vert_hard' },
+  { id: 'extreme',  name: 'エクストリーム', body: '#c8102e', skin: '#f0c8a8', shoe: '#141418', glow: '#ff2a3a', hair: '#141418', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#ffd23f', acc: ['scarf'], scarf: '#ffd23f', aura: '#ff2a3a', trail: 'bolt', need: 'ex' },
+  { id: 'hacker',   name: 'ハッカー',     body: '#0a140a', skin: '#d8c8b8', shoe: '#0a140a', glow: '#5cff9d', hair: '#5cff9d', hairStyle: 'spiky', acc: ['visor'], visor: '#5cff9d', armor: '#142814', trim: '#5cff9d', trail: 'pixel', need: 'mal_hard' },
+  { id: 'survivor', name: '生還者',       body: '#e8e4d8', skin: '#e0d0c8', shoe: '#3a2a20', glow: '#ff3b3b', hair: '#3a2a20', hairStyle: 'long', eyes: 'sharp', eyeColor: '#ff3b3b', acc: ['scarf'], scarf: '#8a0f1e', trail: 'ember', trailColor: '#8a0f1e', need: 'ward_hard' },
+  { id: 'momiji',   name: '紅葉',         body: '#c8401e', skin: '#fde6da', shoe: '#7a1a10', glow: '#ff8a3a', hair: '#141018', hairStyle: 'long', eyes: 'cute', eyeColor: '#c8401e', sleeves: '#ff8a3a', sleeveTrim: '#ffe066', obi: '#7a1a10', dress: '#7a1a10', frill: '#ffe066', bow: '#ffe066', trail: 'leaf', need: 'shiki_hard' },
+  { id: 'candy',    name: 'キャンディ',   body: '#ff9fd0', skin: '#fde6da', shoe: '#ffffff', glow: '#ffb3e6', hair: '#7fe8c8', hairStyle: 'twin', tie: '#ff5c8a', eyes: 'cute', eyeColor: '#ff3ea5', dress: '#ff9fd0', frill: '#ffffff', bow: '#7fe8c8', acc: ['bigbow'], bigbow: '#ff5c8a', trail: 'heart', need: 'candy_hard' },
+  { id: 'magma',    name: 'マグマ',       body: '#3a2418', skin: '#e8b890', shoe: '#1a0a05', glow: '#ff6a1a', hair: '#ff6a1a', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#ff8a1a', armor: '#5a4030', trim: '#ff6a1a', acc: ['horns'], hornColor: '#2a1a10', aura: '#ff6a1a', trail: 'ember', need: 'tect_hard' },
+  { id: 'akanyan',  name: 'あかニャン',   body: '#d81e1e', cap: '#d81e1e', brim: '#a01010', skin: '#ffe0d0', shoe: '#5a0a0a', glow: '#ff5c5c', acc: ['ears'], eyes: 'cute', eyeColor: '#d9a520', trail: 'heart', trailColor: '#ff5c5c', need: 'ongeki_hard' },
+  { id: 'archmage', name: '大魔法使い',   body: '#141418', skin: '#fde6da', shoe: '#141418', glow: '#ffe066', hair: '#ffe066', hairStyle: 'long', eyes: 'cute', eyeColor: '#d9a520', gown: '#141418', gownTrim: '#ffe066', acc: ['witch'], hat: '#141418', magicCircle: '#ffe066', orbs: ['#ffe066', '#ff5c8a', '#4dd2ff', '#5cff9d'], sparkle: '#ffe066', trail: 'star', need: 'unk_s' },
+  { id: 'timelord', name: '時の支配者',   body: '#1e2e5a', skin: '#f0dcd0', shoe: '#0a0e28', glow: '#4dd2ff', hair: '#e8f0ff', hairStyle: 'long', eyes: 'sharp', eyeColor: '#4dd2ff', gown: '#1e2e5a', gownTrim: '#c8d0e8', acc: ['cape', 'tiara'], tiaraColor: '#c8d0e8', cape: '#0a0e28', magicCircle: '#4dd2ff', fx: 'echo', trail: 'galaxy', need: 'mora_s' },
+  { id: 'zerog',    name: '無重力',       body: '#ffffff', skin: '#fde6da', shoe: '#c77dff', glow: '#e0c8ff', hair: '#c77dff', hairStyle: 'twin', tie: '#ffffff', eyes: 'cute', eyeColor: '#7a2aff', dress: '#e0c8ff', frill: '#ffffff', bow: '#7a2aff', acc: ['wings'], wingStyle: 'light', wing: '#c77dff', orbs: ['#c77dff', '#ff7ad0'], sparkle: '#ffffff', trail: 'galaxy', need: 'vert_s' },
+  { id: 'firewall', name: 'ファイアウォール', body: '#0a140a', skin: '#d8c8b8', shoe: '#5cff9d', glow: '#5cff9d', hair: '#5cff9d', hairStyle: 'spiky', acc: ['visor', 'wings'], visor: '#5cff9d', wingStyle: 'crystal', wing: '#5cff9d', armor: '#142814', trim: '#5cff9d', aura: '#5cff9d', trail: 'pixel', need: 'mal_s' },
+  { id: 'nightmare', name: 'ナイトメア',  body: '#1a0a0a', skin: '#e8d8d8', shoe: '#0a0202', glow: '#ff3b3b', hair: '#e8e4d8', hairStyle: 'long', eyes: 'sharp', eyeColor: '#ff3b3b', gown: '#2a0a0a', gownTrim: '#8a0f1e', acc: ['wings'], wingStyle: 'bat', wing: '#2a0505', fx: 'echo', aura: '#ff3b3b', trail: 'ember', trailColor: '#8a0f1e', need: 'ward_s' },
+  { id: 'sugar',    name: 'シュガープリンセス', body: '#ff9fd0', skin: '#fde6da', shoe: '#ffffff', glow: '#ffb3e6', hair: '#ffb3e6', hairStyle: 'drill', eyes: 'cute', eyeColor: '#ff3ea5', gown: '#ff9fd0', gownTrim: '#ffffff', acc: ['tiara', 'bigbow'], bigbow: '#7fe8c8', orbs: ['#7fe8c8', '#ffe066', '#ffffff'], sparkle: '#ffffff', trail: 'heart', need: 'candy_s' },
+  { id: 'earthking', name: '大地の王',    body: '#3a2418', skin: '#e8b890', shoe: '#1a0a05', glow: '#ff6a1a', hair: '#ff6a1a', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#ffd23f', armor: '#6a5040', trim: '#ffd23f', acc: ['horns', 'wings', 'crown'], hornColor: '#2a1a10', wingStyle: 'flame', magicCircle: '#ff6a1a', aura: '#ff6a1a', trail: 'ember', need: 'tect_s' },
+  // ---- 実績のスキン（追加）----
+  { id: 'adventurer', name: '冒険者',     body: '#6a4a2a', skin: '#f0c49a', shoe: '#3a2418', glow: '#b6ff8a', hair: '#8a5a2e', hairStyle: 'pony', tie: '#2f6a3a', acc: ['cape', 'backpack'], cape: '#2f6a3a', pack: '#a0602a', trail: 'leaf', need: 'time3h' },
+  { id: 'kamaitachi', name: 'かまいたち', body: '#e8f8f0', skin: '#f4e0d0', shoe: '#2a5a4a', glow: '#9fffe0', hair: '#5ac8a0', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#5cff9d', acc: ['scarf'], scarf: '#5ac8a0', fx: 'echo', trail: 'leaf', trailColor: '#9fffe0', need: 'graze10000' },
+  { id: 'bunny',    name: 'うさぎ',       body: '#ffffff', cap: '#ffffff', brim: '#f0e0e8', skin: '#fde6da', shoe: '#ffb3c4', glow: '#ffd0e0', acc: ['bunny'], hat: '#ffffff', eyes: 'cute', eyeColor: '#ff5c8a', trail: 'heart', need: 'jumps10k' },
+  { id: 'chick',    name: 'ひよこ',       body: '#ffe066', cap: '#ffcf2e', brim: '#ff9a1a', skin: '#fff0c0', shoe: '#ff9a1a', glow: '#fff4a0', eyes: 'cute', eyeColor: '#3a2418', trail: 'gold', need: 'days7' },
+  { id: 'honor',    name: '優等生',       body: '#1e2e5a', skin: '#f4d0b8', shoe: '#141418', glow: '#9fb4ff', hair: '#3a2418', hairStyle: 'pony', tie: '#d81e1e', eyes: 'cute', eyeColor: '#3a2418', acc: ['glasses'], dress: '#1e2e5a', frill: '#ffffff', bow: '#d81e1e', need: 'rankA20' },
+  { id: 'acrobat',  name: '綱渡り師',     body: '#c8102e', skin: '#f4c9a0', shoe: '#141418', glow: '#ffd23f', acc: ['tophat', 'cape'], hat: '#ffd23f', cape: '#141418', trail: 'star', need: 'tightrope' },
+  { id: 'focus',    name: '集中',         body: '#f4f4f4', skin: '#f0c8a8', shoe: '#141418', glow: '#4d8aff', hair: '#141418', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#4d8aff', acc: ['headband'], band: '#3b6cf0', need: 'nopause' },
+  { id: 'champion', name: 'チャンピオン', body: '#c8102e', skin: '#f4c9a0', shoe: '#5a0610', glow: '#ffd23f', armor: '#ffd23f', trim: '#ffffff', acc: ['cape', 'crown'], cape: '#c8102e', aura: '#ffd23f', trail: 'gold', need: 'clear_run10' },
+  { id: 'chef',     name: 'シェフ',       body: '#ffffff', cap: '#ffffff', brim: '#e0e0e0', skin: '#f4c9a0', shoe: '#141418', glow: '#ffe0a0', acc: ['chef', 'scarf'], scarf: '#d81e1e', need: 'four_diff' },
+  { id: 'otaku',    name: '譜面マニア',   body: '#2a2a3a', cap: '#3b6cf0', brim: '#2c54c4', skin: '#f4d0b8', shoe: '#141418', glow: '#9fb4ff', acc: ['glasses', 'phones'], trail: 'note', need: 'charts_all' },
+  { id: 'pajama',   name: 'パジャマ',     body: '#6c7bff', cap: '#6c7bff', brim: '#4a5ad8', skin: '#fde6da', shoe: '#ffffff', glow: '#c8d0ff', acc: ['knit', 'blush'], hat: '#ffe066', trail: 'star', need: 'night' },
+  { id: 'clover',   name: 'クローバー',   body: '#2fa04a', cap: '#ffffff', brim: '#e0e0e0', skin: '#f4d0b8', shoe: '#1a5a2a', glow: '#9fff9f', acc: ['party'], hat: '#5cff9d', trail: 'leaf', need: 'lucky7' },
+  { id: 'fan',      name: 'ファン',       body: '#ff4fa3', skin: '#fde6da', shoe: '#ffffff', glow: '#ff9fd0', hair: '#ffe066', hairStyle: 'twin', tie: '#ff4fa3', eyes: 'cute', eyeColor: '#ff4fa3', acc: ['phones'], trail: 'note', need: 'favorite' },
+  { id: 'kishin',   name: '鬼神',         body: '#7a0f1e', skin: '#f0c4a8', shoe: '#140306', glow: '#ff3b5c', acc: ['horns', 'flamehair'], flame: ['#d81e1e', '#ff8a1a'], hornColor: '#ffe0a0', eyes: 'sharp', eyeColor: '#ff3b3b', armor: '#2a0a10', trim: '#ff3b5c', aura: '#ff3b5c', trail: 'ember', need: 'plays2000' },
+  { id: 'fujin',    name: '風神',         body: '#e0fff4', skin: '#f4e8e0', shoe: '#2a5a4a', glow: '#9fffe0', hair: '#9fffe0', hairStyle: 'long', eyes: 'sharp', eyeColor: '#5cff9d', acc: ['wings', 'scarf'], wing: '#ffffff', scarf: '#5ac8a0', sparkle: '#9fffe0', aura: '#9fffe0', trail: 'feather', need: 'graze100k' },
+  { id: 'invincible', name: '無敵',       body: '#ffffff', cap: '#ffffff', brim: '#e0e0e0', skin: '#fff4ec', shoe: '#ffffff', glow: '#ffffff', eyes: 'sharp', eyeColor: '#ffd23f', acc: ['wings', 'halo'], wingStyle: 'crystal', wing: '#ffffff', haloColor: '#ffe066', fx: 'rainbow', aura: '#ffffff', sparkle: '#ffffff', trail: 'rainbow', need: 'fd_imp' },
+  { id: 'hardworker', name: 'がんばり屋', body: '#ff8a1a', skin: '#f4c9a0', shoe: '#3a2418', glow: '#ffd23f', hair: '#3a2418', hairStyle: 'pony', tie: '#ffffff', eyes: 'cute', eyeColor: '#3a2418', acc: ['headband'], band: '#ffffff', trail: 'gold', need: 'quest10' },
+  { id: 'missionmaster', name: '司令官',  body: '#2a3a2a', cap: '#2a3a2a', brim: '#141a14', skin: '#f0c8a8', shoe: '#141414', glow: '#ffd23f', eyes: 'sharp', eyeColor: '#ffd23f', armor: '#3a4a3a', trim: '#ffd23f', acc: ['cape'], cape: '#141a14', need: 'quest50' },
+  { id: 'challenger', name: '挑戦者',     body: '#3b6cf0', skin: '#f4c9a0', shoe: '#141a3a', glow: '#9fb4ff', hair: '#ffffff', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#4dd2ff', armor: '#2c54c4', trim: '#ffffff', acc: ['scarf'], scarf: '#ffd23f', trail: 'bolt', need: 'daily10' },
+  { id: 'sunbeam',  name: '日々の光',     body: '#ffd23f', skin: '#fff0d8', shoe: '#c49a10', glow: '#ffe066', hair: '#ffe8a0', hairStyle: 'long', eyes: 'cute', eyeColor: '#d09010', dress: '#ffffff', frill: '#ffd23f', bow: '#ff8a1a', acc: ['halo'], sparkle: '#ffe066', aura: '#ffe066', trail: 'gold', need: 'daily_streak7' },
+  { id: 'luckystar', name: 'ラッキースター', body: '#ffd23f', cap: '#ff5c8a', brim: '#c21a74', skin: '#fde6da', shoe: '#c49a10', glow: '#ffe066', eyes: 'cute', eyeColor: '#ff5c8a', orbs: ['#ffe066', '#ff5c8a', '#4dd2ff'], sparkle: '#ffe066', trail: 'gold', need: 'gacha100' },
   // ---- ガチャ限定（economy.js のガチャからだけ出る。実績では手に入らない）----
   //   hairStyle: long 長い髪 / twin ツインテール / pony ポニーテール / spiky つんつん   eyes: cute 大きな目 / sharp するどい光る目
   //   dress スカート / armor よろい / sparkle まわりできらきら

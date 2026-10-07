@@ -264,7 +264,7 @@ START の上の 4 つのボタン（または 1〜4 キー）で選びます。�
   その日の記録は `E.daily.stats`、達成は `E.daily.quest`。達成した回の結果画面でコインがもらえます。
 - **ガチャ**: 1 回 `PULL_COST`（100）、11 連 `MULTI_COST`（1,000、SR 以上が 1 つ必ず）。
   `PARTS`（92 個。場所 `slot` = color / head / face / outfit / back / trail / aura、レア度 `r` = N / R / SR / UR）。確率は `RARITY`、100 回目は必ず UR。
-  まれに（`SKIN_RATE` = 2%、`SKIN_PITY` = 120 回目までに必ず）**ガチャ限定スキン**（progress.js の `SKINS` で `gacha: true` のもの。実績では手に入らない）。
+  まれに（`SKIN_RATE` = 1%、`SKIN_PITY` = 200 回目までに必ず）**ガチャ限定スキン**（progress.js の `SKINS` で `gacha: true` のもの。実績では手に入らない）。
   だぶったらかけら（交換所で好きなパーツ・スキンと交換）。パーツはスキンの上に重ねて着ます（`composeWith()`）。新しい飾りの絵は visuals.js の `paintHat()` / `paintFace()` / `paintWing()`。
   ガチャ限定スキンの髪・目・服は `paintHairBack()` / `paintHairFront()` / `paintEyes()` / `paintOutfit()`
   （`hairStyle` long / twin / pony / spiky / drill、`eyes` cute / sharp、`dress`・`frill`・`bow`、`gown` ロングドレス、`sleeves` 着物の袖、`armor`・`trim`、`sparkle`）。

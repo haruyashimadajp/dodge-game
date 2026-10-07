@@ -8,7 +8,7 @@
        2) 実績を解除した時（★1 = 50 〜 ★5 = 1000。前に解除した実績も、あとから受けとれる）
        3) デイリーチャレンジ（1 日 3 つ、それぞれ 1 回だけ挑戦できる）と、今日のミッション（「3 回クリア」など。達成したらその場でもらえる）
      First Step と、残機が無限の回はもらえない（実績と同じ）
-   ・ガチャ: 1 回 100 / 11 連 1,000 コイン。スキンパーツ（色・頭・顔・背中・跡・光）と、まれにガチャ限定スキン（2%）が出る。
+   ・ガチャ: 1 回 100 / 11 連 1,000 コイン。スキンパーツ（色・頭・顔・背中・跡・光）と、まれにガチャ限定スキン（1%）が出る。
      だぶったら「かけら」になり、交換所で好きなパーツ・スキンと交換できる
    ・パーツは、いま選んでいるスキンの上に重ねて着る（コレクションの「パーツ」）
    ・保存: dodge_economy
@@ -29,7 +29,7 @@ const RARITY = {
   UR: { w: 1,  dup: 30, cost: 300, name: 'UR' },
 };
 const RARITY_ORDER = ['UR', 'SR', 'R', 'N'];
-const SKIN_RATE = 2, SKIN_PITY = 120, SKIN_DUP = 100, SKIN_COST = 600;   // ガチャ限定スキン: 2%、120 回目までに必ず 1 つ、だぶりは 💎100、交換は 💎600
+const SKIN_RATE = 1, SKIN_PITY = 200, SKIN_DUP = 100, SKIN_COST = 600;   // ガチャ限定スキン: 1%、200 回目までに必ず 1 つ、だぶりは 💎100、交換は 💎600
 const PULL_COST = 100, MULTI_COST = 1000, MULTI_N = 11;
 const SLOTS = [['color', '色'], ['head', '頭'], ['face', '顔'], ['outfit', '服'], ['back', '背中'], ['trail', '跡'], ['aura', '光']];
 // 頭・顔・背中のパーツを着ると、スキンにもともとついている同じ場所の飾りは外れる
@@ -205,6 +205,7 @@ function onEconomyRunEnd(kind, rec) {
     add(grazeCoin(grazes), `かすり ${grazes} 回`);
   }
   questProgress(kind, add);
+  for (const a of checkAchievements()) toast(a);              // ミッション・デイリーの数で解除する実績
   const ach = payAchievements();
   if (ach.gain) { gain += ach.gain; lines.push(`実績 ${ach.names.length} 個 <b>+${fmt(ach.gain)}</b>`); }
   E.coins += gain - ach.gain;
@@ -289,6 +290,7 @@ function dailyFinish(kind, add) {
   const D = dailyToday(), c = dailyList()[dailyNow.i], g = c.goal;
   const win = kind === 'clear' && (g.type !== 'hits' || hitsTaken <= g.n) && (g.type !== 'graze' || grazes >= g.n);
   D.result[dailyNow.i] = win ? 'win' : 'lose';
+  if (win && add) E.dailyWins = (E.dailyWins || 0) + 1;
   if (win && add) {
     const today = todayKey(), yest = localDay(new Date(Date.now() - 864e5));
     if (E.dailyLast !== today) { E.dailyStreak = E.dailyLast === yest ? E.dailyStreak + 1 : 1; E.dailyLast = today; }
@@ -374,7 +376,7 @@ function questProgress(kind, add) {
   }
   for (const q of questList()) {
     if (D.quest[q.id] || questVal(q, st) < q.n) continue;
-    D.quest[q.id] = 1; add(q.reward, `ミッション「${q.text}」達成`);
+    D.quest[q.id] = 1; E.questTotal = (E.questTotal || 0) + 1; add(q.reward, `ミッション「${q.text}」達成`);
   }
 }
 function renderQuests() {
@@ -423,6 +425,7 @@ function pull(n) {
   const res = [];
   for (let i = 0; i < n; i++) res.push(pullOne(n === MULTI_N && i === n - 1 && !res.some(x => x.sk || x.p.r === 'SR' || x.p.r === 'UR') ? 'SR' : null));
   saveEco();
+  for (const a of checkAchievements()) toast(a);              // 「ガチャを 100 回引く」
   lastPull = res;
   const m = gachaBody.querySelector('.machine');
   if (m) { m.classList.remove('spin'); void m.offsetWidth; m.classList.add('spin'); }
