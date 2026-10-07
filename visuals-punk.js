@@ -707,5 +707,5 @@
     reset, update, background, floor, platform, bullet, laser, fire, flash, banner, hint, title, camera,
   };
   // 曲が変わったら、この見た目のセットの絵を手放す（次に使うときに作り直す。メモリがふくらんで重くならないように）
-  THEMES.punk.release = () => { freeArt(st); st.made = false; beamPool.clear(); };
+  THEMES.punk.release = () => { freeArt(st); st.made = false; beamPool.clear(); freeArt(redEdges); };
 })();
