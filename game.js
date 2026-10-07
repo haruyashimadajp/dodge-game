@@ -552,6 +552,7 @@ function beep(freq, dur, type, vol) {
     g.gain.setValueAtTime(masterVol * (vol || 1) * 0.18, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(audioCtx.destination);
+    o.onended = () => { o.disconnect(); g.disconnect(); };   // 鳴り終わったら外す（つないだままだと、効果音のたびに残っていく端末がある）
     o.start(t); o.stop(t + dur);
   } catch (e) { /* ignore audio errors */ }
 }
@@ -607,6 +608,7 @@ function showTitle() {
   paused = false;
   scene = 'title';
   clearTimeout(resultTimer);
+  if (typeof releaseAllArt === 'function') releaseAllArt();
   stopPreview();
   bgm.pause(); bgm.currentTime = 0;
   bullets = [];
@@ -1006,6 +1008,7 @@ function selectSong(i) {
   SECTIONS = song.sections;
   if (bgm.dataset.src !== song.file) {        // load the new track (keeps the old one if same)
     bgm.dataset.src = song.file;
+    bgm.pause(); bgm.removeAttribute('src'); bgm.load();   // 前の曲の音のデータを先に手放す（そのまま差しかえると、端末によっては残ってたまる）
     bgm.src = encodeURI(song.file);
   }
   best = parseFloat(store.get(song.bestKey) || '0') || 0;

@@ -409,6 +409,12 @@ function releaseOtherArt() {
   releaseLayers();
   for (const k in THEMES) if (k !== now && THEMES[k].release) THEMES[k].release();
 }
+// タイトルにもどったら、今の曲の絵も含めて全部手放す（次に描くときに作り直す）。曲の途中で作った絵が残らないように
+function releaseAllArt() {
+  artOwner = null;
+  releaseLayers(); glowPool.clear();
+  for (const k in THEMES) if (THEMES[k].release) THEMES[k].release();
+}
 // たての2色グラデーション: 1px 幅の細い絵に描いてから横にのばす（画面いっぱいをグラデーションで塗るより、ずっと軽い。見た目は同じ）
 const vgStrip = document.createElement('canvas'); vgStrip.width = 1; vgStrip.height = H;
 //   vGradient(上の色, 下の色) か、vGradient([[0, 色], [0.65, 色], [1, 色]], グラデーションが終わる高さ)
