@@ -1216,5 +1216,5 @@ body[data-theme="touhou"] .overlay.over .logo { color: #c4b5fd; font-family: "Hi
 .parts-preview { width: 120px !important; height: 105px !important; max-width: none; flex: none; border-radius: 12px; background: rgba(255, 255, 255, 0.05) !important; box-shadow: none !important; }
 .parts-info { font-size: 12px; color: var(--text-dim, #b9b0d8); line-height: 1.6; }
 .parts-info .link-btn { display: block; margin-top: 6px; font-size: 12px; padding: 5px 12px; }
-.slot-tabs { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
-.slot-tabs .seg-btn { flex: 1; min-width: 48px; font-size: 12px; padding: 6px 4px; }
+.slot-tabs { display: flex; gap: 3px; margin-bottom: 8px; flex-wrap: wrap; }
+.slot-tabs .seg-btn { flex: 1; min-width: 40px; font-size: 12px; padding: 6px 2px; }

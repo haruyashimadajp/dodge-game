@@ -3,12 +3,12 @@
 /* =========================================================================
    コイン・デイリーチャレンジ・ガチャ（スキンパーツ）
    ・コインがもらえるのは:
-       0) 曲をクリアするたび（難易度・ランク・かすりの数で少しだけ。1 回 10〜80 くらい）
+       0) 曲をクリアするたび（難易度・ランク ＋ かすりの数 ÷ 10）
        1) はじめてその難易度をクリアした時 / いちばん良いランクを更新した時
        2) 実績を解除した時（★1 = 50 〜 ★5 = 1000。前に解除した実績も、あとから受けとれる）
        3) デイリーチャレンジ（1 日 3 つ、それぞれ 1 回だけ挑戦できる）と、今日のミッション（「3 回クリア」など。達成したらその場でもらえる）
      First Step と、残機が無限の回はもらえない（実績と同じ）
-   ・ガチャ: 1 回 300 / 11 連 3,000 コイン。スキンパーツ（色・頭・顔・背中・跡・光）と、まれにガチャ限定スキン（2%）が出る。
+   ・ガチャ: 1 回 100 / 11 連 1,000 コイン。スキンパーツ（色・頭・顔・背中・跡・光）と、まれにガチャ限定スキン（2%）が出る。
      だぶったら「かけら」になり、交換所で好きなパーツ・スキンと交換できる
    ・パーツは、いま選んでいるスキンの上に重ねて着る（コレクションの「パーツ」）
    ・保存: dodge_economy
@@ -30,13 +30,13 @@ const RARITY = {
 };
 const RARITY_ORDER = ['UR', 'SR', 'R', 'N'];
 const SKIN_RATE = 2, SKIN_PITY = 120, SKIN_DUP = 100, SKIN_COST = 600;   // ガチャ限定スキン: 2%、120 回目までに必ず 1 つ、だぶりは 💎100、交換は 💎600
-const PULL_COST = 300, MULTI_COST = 3000, MULTI_N = 11;
-const SLOTS = [['color', '色'], ['head', '頭'], ['face', '顔'], ['back', '背中'], ['trail', '跡'], ['aura', '光']];
+const PULL_COST = 100, MULTI_COST = 1000, MULTI_N = 11;
+const SLOTS = [['color', '色'], ['head', '頭'], ['face', '顔'], ['outfit', '服'], ['back', '背中'], ['trail', '跡'], ['aura', '光']];
 // 頭・顔・背中のパーツを着ると、スキンにもともとついている同じ場所の飾りは外れる
 const SLOT_ACC = {
-  head: ['crown', 'halo', 'horns', 'mohawk', 'phones', 'ribbon', 'ears', 'flamehair', 'headband', 'knit', 'party', 'tophat', 'bunny', 'antenna', 'chef', 'propeller', 'witch'],
+  head: ['crown', 'halo', 'horns', 'mohawk', 'phones', 'ribbon', 'ears', 'flamehair', 'headband', 'knit', 'party', 'tophat', 'bunny', 'antenna', 'chef', 'propeller', 'witch', 'tiara'],
   face: ['visor', 'mask', 'glasses', 'blush', 'shades', 'eyepatch', 'monocle', 'foxmask'],
-  back: ['wings', 'cape', 'katana', 'scarf', 'backpack', 'guitar', 'jetpack'],
+  back: ['wings', 'cape', 'katana', 'scarf', 'backpack', 'guitar', 'jetpack', 'tails', 'bigbow'],
 };
 const PARTS = [
   // 色（服・ぼうし・くつ・光の色）
@@ -51,7 +51,20 @@ const PARTS = [
   { id: 'c_gold',     slot: 'color', r: 'SR', name: 'ゴールド',     set: { body: '#ffcf2e', cap: '#fff0b8', brim: '#c49a10', shoe: '#8a6a10', glow: '#ffe066' } },
   { id: 'c_neon',     slot: 'color', r: 'SR', name: 'ネオン',       set: { body: '#ff3ea5', cap: '#111111', brim: '#000000', shoe: '#22e6ff', glow: '#ff7ad0' } },
   { id: 'c_aurora',   slot: 'color', r: 'UR', name: 'オーロラ',     set: { fx: 'rainbow', cap: '#ffffff', brim: '#e0e0e0', shoe: '#ffffff', glow: '#ffffff' } },
+  { id: 'c_sakura',   slot: 'color', r: 'N',  name: 'さくら色',     set: { body: '#ffb3cf', cap: '#ffffff', brim: '#f0d8e0', shoe: '#a0506a', glow: '#ffc4dc' } },
+  { id: 'c_snow',     slot: 'color', r: 'R',  name: '白銀',         set: { body: '#e8eef8', cap: '#c8d4ea', brim: '#a8b8d4', shoe: '#6a7a9a', glow: '#ffffff' } },
+  { id: 'c_jet',      slot: 'color', r: 'R',  name: '漆黒',         set: { body: '#0a0a12', cap: '#c8102e', brim: '#8e0c20', shoe: '#000000', glow: '#ff3b5c' } },
+  { id: 'c_ruby',     slot: 'color', r: 'SR', name: 'ルビー',       set: { body: '#c8102e', cap: '#ffd23f', brim: '#c49a10', shoe: '#5a0610', glow: '#ff5c7a', aura: '#ff3b5c' } },
+  { id: 'c_sapphire', slot: 'color', r: 'SR', name: 'サファイア',   set: { body: '#1a3aa8', cap: '#e8eef8', brim: '#a8b8d4', shoe: '#0a1a5a', glow: '#6c9bff', aura: '#4d8aff' } },
+  { id: 'c_platinum', slot: 'color', r: 'UR', name: 'プラチナ',     set: { body: '#e8ecf4', cap: '#ffd23f', brim: '#c49a10', shoe: '#b8c0d0', glow: '#ffffff', aura: '#ffffff', sparkle: '#ffffff' } },
   // 頭
+  { id: 'h_pony',     slot: 'head', r: 'N',  name: 'ポニーテール',   set: { hairStyle: 'pony', hair: '#3a2418', tie: '#e24b4a' } },
+  { id: 'h_long',     slot: 'head', r: 'R',  name: 'ロングヘア',     set: { hairStyle: 'long', hair: '#6a3a20' } },
+  { id: 'h_twin',     slot: 'head', r: 'R',  name: 'ツインテール',   set: { hairStyle: 'twin', hair: '#ffe066', tie: '#ff5c8a' } },
+  { id: 'h_spiky',    slot: 'head', r: 'R',  name: 'つんつん頭',     set: { hairStyle: 'spiky', hair: '#ffe066' } },
+  { id: 'h_drill',    slot: 'head', r: 'SR', name: '縦ロール',       set: { hairStyle: 'drill', hair: '#ffd23f' } },
+  { id: 'h_tiara',    slot: 'head', r: 'SR', name: 'ティアラ',       set: { acc: 'tiara' } },
+  { id: 'h_silverlong', slot: 'head', r: 'UR', name: '月光の長い髪', set: { hairStyle: 'long', hair: '#e8f0ff', acc: 'tiara', tiaraColor: '#bfefff' } },
   { id: 'h_knit',     slot: 'head', r: 'N',  name: 'ニット帽',       set: { acc: 'knit', hat: '#d81e1e' } },
   { id: 'h_party',    slot: 'head', r: 'N',  name: 'パーティ帽',     set: { acc: 'party', hat: '#4dd2ff' } },
   { id: 'h_band',     slot: 'head', r: 'N',  name: '白いはちまき',   set: { acc: 'headband', band: '#ffffff' } },
@@ -73,7 +86,23 @@ const PARTS = [
   { id: 'f_ninja',    slot: 'face', r: 'R',  name: '覆面',           set: { acc: 'mask', maskColor: '#2a2a3a' } },
   { id: 'f_cyber',    slot: 'face', r: 'SR', name: 'サイバーバイザー', set: { acc: 'visor', visor: '#5cff9d' } },
   { id: 'f_fox',      slot: 'face', r: 'SR', name: 'きつねのお面',   set: { acc: 'foxmask' } },
+  { id: 'f_cute',     slot: 'face', r: 'R',  name: 'きらきらの目',   set: { eyes: 'cute', eyeColor: '#3b6cf0' } },
+  { id: 'f_sharp',    slot: 'face', r: 'SR', name: '光る目',         set: { eyes: 'sharp', eyeColor: '#ff3b3b' } },
+  // 服（体の上に着る）
+  { id: 'o_skirt',    slot: 'outfit', r: 'N',  name: 'スカート',     set: { dress: '#3b6cf0', frill: '#ffffff', bow: '#e24b4a' } },
+  { id: 'o_frill',    slot: 'outfit', r: 'R',  name: 'フリルドレス', set: { dress: '#ff9fc4', frill: '#ffffff', bow: '#ff5c8a' } },
+  { id: 'o_kimono',   slot: 'outfit', r: 'R',  name: '着物の袖',     set: { sleeves: '#d81e1e', sleeveTrim: '#ffffff', obi: '#ffd23f' } },
+  { id: 'o_armor',    slot: 'outfit', r: 'SR', name: '鋼のよろい',   set: { armor: '#8a94a8', trim: '#ffd23f' } },
+  { id: 'o_gown',     slot: 'outfit', r: 'SR', name: '夜会のドレス', set: { gown: '#7a1a4a', gownTrim: '#ffd23f' } },
+  { id: 'o_royal',    slot: 'outfit', r: 'UR', name: '王家の正装',   set: { gown: '#ffffff', gownTrim: '#ffd23f', sleeves: '#ffffff', sleeveTrim: '#ffd23f', obi: '#ffd23f' } },
+  { id: 'o_holy',     slot: 'outfit', r: 'UR', name: '聖騎士のよろい', set: { armor: '#f4f4fa', trim: '#ffd23f' } },
   // 背中
+  { id: 'b_bow',      slot: 'back', r: 'R',  name: '大きなリボン',   set: { acc: 'bigbow', bigbow: '#ff5c8a' } },
+  { id: 'b_fox',      slot: 'back', r: 'SR', name: 'きつねのしっぽ', set: { acc: 'tails', tails: 3, tailColor: '#f2a65a', tailTip: '#ffffff' } },
+  { id: 'b_crystal',  slot: 'back', r: 'SR', name: '水晶の翼',       set: { acc: 'wings', wingStyle: 'crystal', wing: '#9fe8ff' } },
+  { id: 'b_flame',    slot: 'back', r: 'SR', name: '炎の翼',         set: { acc: 'wings', wingStyle: 'flame' } },
+  { id: 'b_seraph',   slot: 'back', r: 'UR', name: '熾天使の翼',     set: { acc: 'wings', wingStyle: 'seraph', wing: '#ffffff' } },
+  { id: 'b_kyubi',    slot: 'back', r: 'UR', name: '九本のしっぽ',   set: { acc: 'tails', tails: 9, tailColor: '#fff4e0', tailTip: '#9fe8ff' } },
   { id: 'b_pack',     slot: 'back', r: 'N',  name: 'リュック',       set: { acc: 'backpack', pack: '#e0a030' } },
   { id: 'b_scarf',    slot: 'back', r: 'N',  name: '青いマフラー',   set: { acc: 'scarf', scarf: '#3b6cf0' } },
   { id: 'b_guitar',   slot: 'back', r: 'R',  name: 'ギター',         set: { acc: 'guitar', guitar: '#d81e1e' } },
@@ -93,7 +122,17 @@ const PARTS = [
   { id: 't_bolt',     slot: 'trail', r: 'SR', name: '稲妻',          set: { trail: 'bolt' } },
   { id: 't_pixel',    slot: 'trail', r: 'SR', name: 'ピクセル',      set: { trail: 'pixel' } },
   { id: 't_comet',    slot: 'trail', r: 'UR', name: '流れ星',        set: { trail: 'comet' } },
+  { id: 't_firefly',  slot: 'trail', r: 'N',  name: 'ほたる',        set: { trail: 'firefly' } },
+  { id: 't_feather',  slot: 'trail', r: 'R',  name: '羽根',          set: { trail: 'feather' } },
+  { id: 't_gold',     slot: 'trail', r: 'R',  name: '金の粉',        set: { trail: 'gold' } },
+  { id: 't_gem',      slot: 'trail', r: 'SR', name: '宝石',          set: { trail: 'gem' } },
+  { id: 't_galaxy',   slot: 'trail', r: 'UR', name: '銀河',          set: { trail: 'galaxy' } },
   // 光（まわりの光るふち・残像）
+  { id: 'a_sparkle',  slot: 'aura', r: 'R',  name: 'きらきら',       set: { sparkle: '#ffffff' } },
+  { id: 'a_orbs',     slot: 'aura', r: 'SR', name: '光の玉',         set: { orbs: ['#4dd2ff', '#ff7ad0', '#ffe066'] } },
+  { id: 'a_foxfire',  slot: 'aura', r: 'SR', name: '狐火',           set: { orbs: ['#4d8aff', '#9fe8ff', '#4d8aff'], aura: '#9fe8ff' } },
+  { id: 'a_circle',   slot: 'aura', r: 'UR', name: '魔法陣',         set: { magicCircle: '#c77dff', sparkle: '#c77dff' } },
+  { id: 'a_goldcircle', slot: 'aura', r: 'UR', name: '黄金の魔法陣', set: { magicCircle: '#ffd23f', orbs: ['#ffd23f', '#ffffff', '#ffd23f'] } },
   { id: 'a_blue',     slot: 'aura', r: 'R',  name: '青いオーラ',     set: { aura: '#4dd2ff' } },
   { id: 'a_pink',     slot: 'aura', r: 'R',  name: 'ピンクのオーラ', set: { aura: '#ff7ad0' } },
   { id: 'a_gold',     slot: 'aura', r: 'SR', name: '金のオーラ',     set: { aura: '#ffd23f' } },
@@ -116,6 +155,7 @@ function composeWith(base, equip) {
     }
     if (slot === 'color' && s.hair && set.cap) s.hair = set.cap;      // 髪のスキンは、ぼうしの色を髪の色に
     if (slot === 'trail') delete s.trailColor;
+    if (slot === 'outfit') for (const k of ['dress', 'gown', 'armor', 'sleeves', 'frill', 'bow', 'trim', 'gownTrim', 'sleeveTrim', 'obi']) delete s[k];
     Object.assign(s, set);
   }
   return s;
@@ -134,7 +174,7 @@ const RANK_MULT = { easy: 1, normal: 1.5, hard: 2, impossible: 3 };
 const ACH_COIN = [0, 50, 100, 200, 500, 1000];
 const PLAY_COIN = { easy: 8, normal: 15, hard: 25, impossible: 40 };            // クリアするたび（ランクで × S 2 / A 1.5 / B 1.2 / C 1）
 const PLAY_RANK = { S: 2, A: 1.5, B: 1.2, C: 1 };
-const grazeCoin = n => Math.min(20, Math.floor(n / 25));                       // かすり 25 回ごとに +1（最大 +20）                                  // 実績の ★ ごと
+const grazeCoin = n => Math.floor(n / 10);                                      // かすり 10 回ごとに +1                                  // 実績の ★ ごと
 const fmt = n => n.toLocaleString('ja-JP');
 const counted = () => !NOT_COUNTED.has(songBase(song));
 

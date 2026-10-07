@@ -254,7 +254,7 @@ START の上の 4 つのボタン（または 1〜4 キー）で選びます。�
   スキンの見た目（色・頭の飾り `acc`・動いた跡 `trail`）は visuals.js の `paintHero()` / `heroTrail()` が描きます。
 
 ### コイン・デイリーチャレンジ・ガチャ（`economy.js`）
-- **コイン**: 曲をクリアするたびに少しもらえます（`PLAY_COIN[難易度] × PLAY_RANK[ランク]` ＋ かすり 25 回ごとに 1、最大 20 の `grazeCoin()`）。
+- **コイン**: 曲をクリアするたびにもらえます（`PLAY_COIN[難易度] × PLAY_RANK[ランク]` ＋ かすりの数 ÷ 10 の `grazeCoin()`）。
   ほかに「はじめてその難易度をクリア」（`CLEAR_COIN`）、「ランクを更新」（`RANK_COIN` の差 × `RANK_MULT`）、
   実績の解除（`ACH_COIN`、★ ごと。前に解除した分も、あとから受けとれる）、デイリーチャレンジ、今日のミッション。First Step と残機無限の回はもらえません。
 - **デイリーチャレンジ**: `dailyList()` が日付から 3 つ作ります（同じ日はいつも同じ）。それぞれ 1 回だけ（始めた時点で使ったことになる）。
@@ -262,12 +262,13 @@ START の上の 4 つのボタン（または 1〜4 キー）で選びます。�
   デイリーの回は、クリア・ランク・ベストを記録しません（`runMods.daily`）。始める確かめはページの中に出します（Claude アプリでは `confirm()` / `alert()` が使えないため）。
 - **今日のミッション**: `QUESTS`（`tier` 0 / 1 / 2 から 1 つずつ、日付で決まる）。「3 回クリア」「ちがう曲を 3 曲」「かすり合計 500」など。
   その日の記録は `E.daily.stats`、達成は `E.daily.quest`。達成した回の結果画面でコインがもらえます。
-- **ガチャ**: 1 回 `PULL_COST`（300）、11 連 `MULTI_COST`（3,000、SR 以上が 1 つ必ず）。
-  `PARTS`（54 個。場所 `slot` = color / head / face / back / trail / aura、レア度 `r` = N / R / SR / UR）。確率は `RARITY`、100 回目は必ず UR。
+- **ガチャ**: 1 回 `PULL_COST`（100）、11 連 `MULTI_COST`（1,000、SR 以上が 1 つ必ず）。
+  `PARTS`（92 個。場所 `slot` = color / head / face / outfit / back / trail / aura、レア度 `r` = N / R / SR / UR）。確率は `RARITY`、100 回目は必ず UR。
   まれに（`SKIN_RATE` = 2%、`SKIN_PITY` = 120 回目までに必ず）**ガチャ限定スキン**（progress.js の `SKINS` で `gacha: true` のもの。実績では手に入らない）。
   だぶったらかけら（交換所で好きなパーツ・スキンと交換）。パーツはスキンの上に重ねて着ます（`composeWith()`）。新しい飾りの絵は visuals.js の `paintHat()` / `paintFace()` / `paintWing()`。
   ガチャ限定スキンの髪・目・服は `paintHairBack()` / `paintHairFront()` / `paintEyes()` / `paintOutfit()`
-  （`hairStyle` long / twin / pony / spiky、`eyes` cute / sharp、`dress`・`frill`・`bow`、`armor`・`trim`、`sparkle`）。
+  （`hairStyle` long / twin / pony / spiky / drill、`eyes` cute / sharp、`dress`・`frill`・`bow`、`gown` ロングドレス、`sleeves` 着物の袖、`armor`・`trim`、`sparkle`）。
+  ほかの豪華な飾り: `magicCircle` 魔法陣 / `orbs` 回る光の玉 / acc `tails`（`tails` 本数）・`bigbow`・`tiara` / `wingStyle` seraph・crystal・flame / 跡 gem・feather・galaxy・gold・firefly。
 
 ### 移動の仕方（コードで切りかえ）＝ 滑る / 滑らない
 game.js の `slideMove`（`true` = 滑る、`false` = 滑らない）で、主人公の左右移動のクセが決まります。
