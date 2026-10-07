@@ -156,7 +156,9 @@
     // 空: 盛り上がるほど明るく。最高潮では拍ごとに三色に染まる
     let top = mixC(look.skyTop, look.color, 0.04 * tier * (0.6 + 0.4 * k));
     if (tier > 4) top = mixC(top, UFO_COLS[Math.floor(bp) % 3], 0.18 * (tier - 4) * k);
-    // 空・星・月・雲はゆっくりしか変わらないので、2コマに1回だけ描き直した絵を貼る（毎コマ全部描くと重い）
+    const a = ufoAlpha(tier);
+    const us = [0, 1, 2].map(i => ({ i, ...ufoAt(i, bp, tier) })).sort((p, q) => p.front - q.front);
+    // 空・星・月・雲・探照灯・町・霧はゆっくりしか変わらないので、2コマに1回だけ描き直した絵を貼る（毎コマ全部描くと重い）
     ctx.drawImage(cachedLayer('nightSky', 2, 0, g => {
       vGradient([[0, rgba(top, 1)], [1, rgba(look.skyBot, 1)]], GROUND_Y, g);
       g.globalCompositeOperation = 'lighter';
@@ -187,39 +189,38 @@
         }
         g.globalAlpha = 1;
       }
-    }), 0, 0, W, H);
 
-    // UFO の編隊（町より奥）。奥にいるものから描く
-    const a = ufoAlpha(tier);
-    if (a > 0.01) {
-      const us = [0, 1, 2].map(i => ({ i, ...ufoAt(i, bp, tier) })).sort((p, q) => p.front - q.front);
-      // サビから: 探照灯が地面を照らして首をふる
-      if (tier > 2.6 && gfx > 0) {
-        ctx.globalCompositeOperation = 'lighter';
+      // サビから: UFO の探照灯が地面を照らして首をふる（町より奥）
+      if (a > 0.01 && tier > 2.6 && gfx > 0) {
+        g.globalCompositeOperation = 'lighter';
         for (const u of us) {
           const gx = u.x + Math.sin(bp * Math.PI / 8 + u.i * 2.1) * 230, w = 60 + 10 * tier;
-          const gr = ctx.createLinearGradient(u.x, u.y, gx, GROUND_Y);
+          const gr = g.createLinearGradient(u.x, u.y, gx, GROUND_Y);
           gr.addColorStop(0, rgba(UFO_COLS[u.i], 0.20 * clamp01(tier - 2.6) * (0.7 + 0.3 * k)));
           gr.addColorStop(1, rgba(UFO_COLS[u.i], 0.02));
-          ctx.fillStyle = gr;
-          ctx.beginPath(); ctx.moveTo(u.x - 6, u.y); ctx.lineTo(u.x + 6, u.y); ctx.lineTo(gx + w, GROUND_Y); ctx.lineTo(gx - w, GROUND_Y); ctx.closePath(); ctx.fill();
+          g.fillStyle = gr;
+          g.beginPath(); g.moveTo(u.x - 6, u.y); g.lineTo(u.x + 6, u.y); g.lineTo(gx + w, GROUND_Y); g.lineTo(gx - w, GROUND_Y); g.closePath(); g.fill();
         }
-        ctx.globalCompositeOperation = 'source-over';
+        g.globalCompositeOperation = 'source-over';
       }
+
+      // 町の影（プレイヤーと逆に少しずれる）＋ 手前の霧
+      const par = (playerXY().x - W / 2) * -0.04;
+      g.drawImage(skyline, -100 + par, GROUND_Y - 178);
+      const fog = g.createLinearGradient(0, GROUND_Y - 120, 0, GROUND_Y);
+      fog.addColorStop(0, rgba(mixC(look.skyBot, look.color, 0.15), 0));
+      fog.addColorStop(1, rgba(mixC(look.skyBot, look.color, 0.25), 0.55 - 0.05 * tier));
+      g.fillStyle = fog;
+      g.fillRect(0, GROUND_Y - 120, W, 120);
+    }), 0, 0, W, H);
+
+    // UFO の編隊。奥にいるものから描く（UFO は町より上を飛ぶので、町のあとに描いても見た目は同じ）
+    if (a > 0.01) {
       for (const u of us) {
         const s = ufoSize(tier) * (0.85 + 0.15 * (u.front + 1) / 2);
         drawUfo(u.x, u.y, s, UFO_COLS[u.i], a * (0.55 + 0.45 * (u.front + 1) / 2), T, k, tier > 3.5 && Math.floor(bp) % 3 === u.i ? k : 0);
       }
     }
-
-    // 町の影（プレイヤーと逆に少しずれる）＋ 手前の霧
-    const par = (playerXY().x - W / 2) * -0.04;
-    ctx.drawImage(skyline, -100 + par, GROUND_Y - 178);
-    const fog = ctx.createLinearGradient(0, GROUND_Y - 120, 0, GROUND_Y);
-    fog.addColorStop(0, rgba(mixC(look.skyBot, look.color, 0.15), 0));
-    fog.addColorStop(1, rgba(mixC(look.skyBot, look.color, 0.25), 0.55 - 0.05 * tier));
-    ctx.fillStyle = fog;
-    ctx.fillRect(0, GROUND_Y - 120, W, 120);
 
     // ホタルのような光
     ctx.globalCompositeOperation = 'lighter';
