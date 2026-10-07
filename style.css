@@ -1194,6 +1194,22 @@ body[data-theme="touhou"] .overlay.over .logo { color: #c4b5fd; font-family: "Hi
 .p-dup, .p-have { font-size: 10px; color: #9fe8ff; }
 .p-buy { margin-top: 3px; padding: 3px 10px; border-radius: 8px; border: 1px solid #9fe8ff; background: rgba(159, 232, 255, 0.12); color: #fff; font-size: 11px; cursor: pointer; }
 .p-buy:disabled { opacity: 0.4; cursor: default; }
+.part-card.r-SKIN { border: 1px solid transparent; background: linear-gradient(#1a1030, #1a1030) padding-box, linear-gradient(135deg, #ff4d9d, #ffe066, #5cff9d, #4dd2ff, #c77dff) border-box; box-shadow: 0 0 16px rgba(255, 120, 220, 0.45); cursor: default; }
+.part-card.r-SKIN .p-r { background: linear-gradient(90deg, #ff4d9d, #ffe066, #4dd2ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.part-card.r-SKIN.reveal { animation: p-reveal 0.45s cubic-bezier(.2, 1.5, .4, 1) both, skin-glow 1.4s ease-in-out infinite alternate; }
+.part-card.r-SKIN.unowned canvas { opacity: 0.45; filter: saturate(0.6); }
+@keyframes skin-glow { to { box-shadow: 0 0 26px rgba(255, 224, 102, 0.75); } }
+.skin-card.gacha:not(.locked) { border-color: rgba(255, 120, 220, 0.6); }
+.g-tag { font-style: normal; font-size: 10px; font-weight: 900; color: #ff9fd0; }
+.d-ask { margin-top: 4px; font-size: 13px; font-weight: 700; color: #ffe066; text-align: center; }
+.d-ask-btns { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
+.d-ask-btns button { padding: 8px 18px; border-radius: 10px; font-weight: 800; border: none; cursor: pointer; color: #fff; background: rgba(255, 255, 255, 0.14); }
+.d-ask-btns .d-yes { background: linear-gradient(90deg, #ff3ea5, #ff9f43); }
+.q-head { margin-top: 14px; }
+.quest { padding: 9px 12px; border-radius: 11px; margin-bottom: 7px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.12); font-size: 13px; }
+.quest.done { border-color: rgba(92, 255, 157, 0.5); background: rgba(92, 255, 157, 0.07); }
+.quest small { font-size: 11px; color: var(--text-dim, #b9b0d8); }
+.q-top { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; margin-bottom: 4px; }
 .part-card.reveal { animation: p-reveal 0.45s cubic-bezier(.2, 1.5, .4, 1) both; }
 @keyframes p-reveal { from { transform: scale(0.3) rotateY(90deg); opacity: 0; } to { transform: none; opacity: 1; } }
 .parts-top { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }

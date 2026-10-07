@@ -143,7 +143,7 @@ dodge-game/
 | `game.js` 下半分（弾幕の道具） | `spawn` / `ring` / `laser` など**弾を出す道具** | 新しい形態を作るとき |
 | `songs/曲.js` | その曲の**拍・場面（SECTIONS）・譜面** | ★ここをメインで書く★ |
 | `progress.js` | 実績・スキン・プレイの記録・コレクションの画面 | 実績やスキンを増やすとき |
-| `economy.js` | コイン・デイリーチャレンジ・ガチャ（スキンパーツ） | パーツやデイリーを増やすとき |
+| `economy.js` | コイン・デイリーチャレンジ・今日のミッション・ガチャ（スキンパーツ・限定スキン） | パーツやデイリーを増やすとき |
 | `visuals.js` | 見た目だけ（当たり判定には影響しない） | 見た目を変えたいとき |
 
 `game.js` の弾の道具は、検索（⌘F）で `弾幕（だんまく）` を探すと見つかります。
@@ -253,14 +253,21 @@ START の上の 4 つのボタン（または 1〜4 キー）で選びます。�
   タイトルの「🏆 コレクション」で、スキンを選んだり、実績の進みぐあいを見たりできます。プレイの記録（回数・時間・かすり・ジャンプ…）は `dodge_progress`。
   スキンの見た目（色・頭の飾り `acc`・動いた跡 `trail`）は visuals.js の `paintHero()` / `heroTrail()` が描きます。
 
-### コイン・デイリーチャレンジ・パーツガチャ（`economy.js`）
-- **コイン**: ふつうに遊ぶだけではもらえません。もらえるのは「はじめてその難易度をクリア」（`CLEAR_COIN`）、「ランクを更新」（`RANK_COIN` の差 × `RANK_MULT`）、
-  実績の解除（`ACH_COIN`、★ ごと。前に解除した分も、あとから受けとれる）、デイリーチャレンジ。First Step と残機無限の回はもらえません。
+### コイン・デイリーチャレンジ・ガチャ（`economy.js`）
+- **コイン**: 曲をクリアするたびに少しもらえます（`PLAY_COIN[難易度] × PLAY_RANK[ランク]` ＋ かすり 25 回ごとに 1、最大 20 の `grazeCoin()`）。
+  ほかに「はじめてその難易度をクリア」（`CLEAR_COIN`）、「ランクを更新」（`RANK_COIN` の差 × `RANK_MULT`）、
+  実績の解除（`ACH_COIN`、★ ごと。前に解除した分も、あとから受けとれる）、デイリーチャレンジ、今日のミッション。First Step と残機無限の回はもらえません。
 - **デイリーチャレンジ**: `dailyList()` が日付から 3 つ作ります（同じ日はいつも同じ）。それぞれ 1 回だけ（始めた時点で使ったことになる）。
   「ひねり」は `TWISTS`（game.js の `runMods`: `speed` 曲と弾が速い / `mirror` 画面の左右反転 / `oneLife` 残機 1 / `dark` 暗やみ / `big` 当たり判定が大きい）。
-  デイリーの回は、クリア・ランク・ベストを記録しません（`runMods.daily`）。
-- **ガチャ**: `PARTS`（54 個。場所 `slot` = color / head / face / back / trail / aura、レア度 `r` = N / R / SR / UR）。確率は `RARITY`、100 回目は必ず UR。
-  だぶったらかけら（交換所で好きなパーツと交換）。パーツはスキンの上に重ねて着ます（`composeWith()`）。新しい飾りの絵は visuals.js の `paintHat()` / `paintFace()` / `paintWing()`。
+  デイリーの回は、クリア・ランク・ベストを記録しません（`runMods.daily`）。始める確かめはページの中に出します（Claude アプリでは `confirm()` / `alert()` が使えないため）。
+- **今日のミッション**: `QUESTS`（`tier` 0 / 1 / 2 から 1 つずつ、日付で決まる）。「3 回クリア」「ちがう曲を 3 曲」「かすり合計 500」など。
+  その日の記録は `E.daily.stats`、達成は `E.daily.quest`。達成した回の結果画面でコインがもらえます。
+- **ガチャ**: 1 回 `PULL_COST`（300）、11 連 `MULTI_COST`（3,000、SR 以上が 1 つ必ず）。
+  `PARTS`（54 個。場所 `slot` = color / head / face / back / trail / aura、レア度 `r` = N / R / SR / UR）。確率は `RARITY`、100 回目は必ず UR。
+  まれに（`SKIN_RATE` = 2%、`SKIN_PITY` = 120 回目までに必ず）**ガチャ限定スキン**（progress.js の `SKINS` で `gacha: true` のもの。実績では手に入らない）。
+  だぶったらかけら（交換所で好きなパーツ・スキンと交換）。パーツはスキンの上に重ねて着ます（`composeWith()`）。新しい飾りの絵は visuals.js の `paintHat()` / `paintFace()` / `paintWing()`。
+  ガチャ限定スキンの髪・目・服は `paintHairBack()` / `paintHairFront()` / `paintEyes()` / `paintOutfit()`
+  （`hairStyle` long / twin / pony / spiky、`eyes` cute / sharp、`dress`・`frill`・`bow`、`armor`・`trim`、`sparkle`）。
 
 ### 移動の仕方（コードで切りかえ）＝ 滑る / 滑らない
 game.js の `slideMove`（`true` = 滑る、`false` = 滑らない）で、主人公の左右移動のクセが決まります。

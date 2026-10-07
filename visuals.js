@@ -1386,8 +1386,10 @@ function paintHero(g, x, y, w, h, f, baseY, wob, sk) {
     g.fillStyle = '#2a1018'; g.fillRect(-2, -h * 0.27, 4, h * 0.3);
     g.restore();
   }
+  if (sk.hairStyle) paintHairBack(g, x, y, w, h, f, cx, sk, t);
   // ---- 体 ----
   rr(x, bodyTop, w, h - (bodyTop - y), 5); g.fillStyle = body; g.fill();
+  if (sk.dress || sk.armor) paintOutfit(g, x, y, w, h, f, cx, bodyTop, baseY, sk, t);
   rr(x + w * 0.08, y + h * 0.06, w * 0.84, h * 0.46, 6); g.fillStyle = sk.skin; g.fill();
   if (has('mohawk')) {                                           // モヒカン（ぼうしのかわり）
     g.fillStyle = sk.cap; g.beginPath(); g.moveTo(cx - w * 0.22, y + h * 0.1);
@@ -1403,6 +1405,8 @@ function paintHero(g, x, y, w, h, f, baseY, wob, sk) {
       }
       g.lineTo(x + w * 0.96, y + h * 0.16); g.closePath(); g.fill();
     }
+  } else if (sk.hairStyle) {                                     // ガチャ限定スキンの髪（前髪・横の髪）
+    paintHairFront(g, x, y, w, h, f, cx, sk);
   } else if (sk.hair) {                                          // 髪（ぼうしなし）
     rr(x + w * 0.04, y - 1, w * 0.92, h * 0.17, 6); g.fillStyle = sk.hair; g.fill();
     g.beginPath(); g.rect(f >= 0 ? x + w * 0.04 : x + w * 0.66, y + h * 0.1, w * 0.3, h * 0.08); g.fill();
@@ -1421,6 +1425,8 @@ function paintHero(g, x, y, w, h, f, baseY, wob, sk) {
     g.fillRect(x + w * 0.12, eyeY - h * 0.02, w * 0.76, Math.max(1.5, h * 0.04));
     g.fillRect(ex - w * 0.06 + f * w * 0.12, eyeY - h * 0.035, w * 0.12, h * 0.07);
     g.restore();
+  } else if (sk.eyes) {
+    paintEyes(g, sk, ex, eyeY, eyeR, w, cx, t);
   } else {
     g.fillStyle = '#222a3a';
     g.beginPath(); g.arc(ex - w * 0.12, eyeY, eyeR, 0, TAU); g.fill();
@@ -1474,12 +1480,114 @@ function paintHero(g, x, y, w, h, f, baseY, wob, sk) {
     }
   }
   if (has('ribbon')) {
-    g.fillStyle = '#ff5c8a'; const rx = cx - f * w * 0.32, ry = y + h * 0.05, R = w * 0.16;
+    g.fillStyle = sk.ribbonColor || '#ff5c8a'; const rx = cx - f * w * 0.32, ry = y + h * 0.05, R = w * 0.16;
     g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx - R * 1.6, ry - R); g.lineTo(rx - R * 1.6, ry + R); g.closePath(); g.fill();
     g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx + R * 1.6, ry - R); g.lineTo(rx + R * 1.6, ry + R); g.closePath(); g.fill();
     g.beginPath(); g.arc(rx, ry, R * 0.5, 0, TAU); g.fill();
   }
+  if (sk.sparkle) {                                              // まわりを回る、きらきらの星
+    g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = sk.sparkle;
+    for (let i = 0; i < 4; i++) {
+      const a = t * 1.3 + i * TAU / 4, px = cx + Math.cos(a) * w * 0.85, py = y + h * 0.45 + Math.sin(a) * h * 0.6;
+      const r = w * 0.13 * (0.35 + 0.65 * Math.abs(Math.sin(t * 4 + i * 1.9)));
+      g.beginPath(); g.moveTo(px, py - r); g.quadraticCurveTo(px, py, px + r, py); g.quadraticCurveTo(px, py, px, py + r);
+      g.quadraticCurveTo(px, py, px - r, py); g.quadraticCurveTo(px, py, px, py - r); g.fill();
+    }
+    g.restore();
+  }
   g.restore();
+}
+
+// ---- ガチャ限定スキンの髪・目・服 ----
+// うしろの髪（体より先に描く）: long 長い髪 / twin ツインテール / pony ポニーテール
+function paintHairBack(g, x, y, w, h, f, cx, sk, t) {
+  const st = sk.hairStyle, sw = Math.sin(t * 5) * w * 0.06;
+  g.fillStyle = sk.hair;
+  if (st === 'long') {
+    const bot = y + h * 0.8;
+    g.beginPath(); g.moveTo(x - w * 0.02, y + h * 0.08);
+    g.quadraticCurveTo(x - w * 0.14, y + h * 0.45, x - w * 0.1 + sw, bot);
+    for (let i = 1; i <= 4; i++) g.quadraticCurveTo(x - w * 0.1 + w * 1.2 * (i - 0.5) / 4 + sw, bot + h * 0.07, x - w * 0.1 + w * 1.2 * i / 4 + sw, bot);
+    g.quadraticCurveTo(x + w * 1.14, y + h * 0.45, x + w * 1.02, y + h * 0.08); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(0,0,0,0.14)'; g.fillRect(x - w * 0.06, y + h * 0.5, w * 1.12, h * 0.05);
+  } else if (st === 'twin' || st === 'pony') {
+    const tails = st === 'twin' ? [[-1, cx - w * 0.5], [1, cx + w * 0.5]] : [[-(f || 1), cx - f * w * 0.42]];
+    for (const [sgn, tx] of tails) {
+      g.save(); g.translate(tx, y + h * (st === 'pony' ? 0.04 : 0.12)); g.scale(sgn, 1); g.rotate(0.2 + Math.sin(t * 6 + sgn) * 0.14);
+      g.fillStyle = sk.hair; g.beginPath(); g.moveTo(-w * 0.06, 0);
+      g.quadraticCurveTo(w * 0.5, h * 0.2, w * 0.16, h * 0.74); g.quadraticCurveTo(w * 0.02, h * 0.4, -w * 0.06, 0); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.22)'; g.beginPath(); g.moveTo(w * 0.04, h * 0.06); g.quadraticCurveTo(w * 0.3, h * 0.22, w * 0.14, h * 0.55); g.quadraticCurveTo(w * 0.12, h * 0.3, w * 0.04, h * 0.06); g.fill();
+      g.fillStyle = sk.tie || '#ff5c8a'; g.beginPath(); g.arc(0, 0, w * 0.1, 0, TAU); g.fill();
+      g.restore();
+    }
+  }
+}
+// 前髪・横の髪（顔の上に描く）。spiky は、つんつんの髪
+function paintHairFront(g, x, y, w, h, f, cx, sk) {
+  g.fillStyle = sk.hair;
+  if (sk.hairStyle === 'spiky') {
+    g.beginPath(); g.moveTo(x - w * 0.06, y + h * 0.22);
+    const pts = [[-0.1, -0.06], [0.08, -0.2], [0.22, -0.02], [0.4, -0.26], [0.55, -0.04], [0.72, -0.22], [0.86, -0.02], [1.1, -0.1]];
+    for (const [px, py] of pts) g.lineTo(x + w * (f >= 0 ? px : 1 - px), y + h * py);
+    g.lineTo(x + w * 1.06, y + h * 0.22);
+    for (const k of [0.84, 0.62, 0.4, 0.18]) { g.lineTo(x + w * (k + 0.06), y + h * 0.14); g.lineTo(x + w * k, y + h * 0.25); }
+    g.closePath(); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.25)'; g.beginPath(); g.moveTo(x + w * 0.3, y + h * 0.02); g.lineTo(x + w * 0.4, y - h * 0.2); g.lineTo(x + w * 0.46, y + h * 0.04); g.fill();
+    return;
+  }
+  rr0(g, x + w * 0.02, y - 1, w * 0.96, h * 0.18, 7); g.fill();
+  g.beginPath(); g.moveTo(x + w * 0.04, y + h * 0.12);                    // 前髪（ぎざぎざ）
+  for (let i = 0; i <= 5; i++) { const px = x + w * (0.04 + i * 0.184); g.lineTo(px - w * 0.09, y + h * (i % 2 ? 0.25 : 0.21)); g.lineTo(px, y + h * 0.13); }
+  g.closePath(); g.fill();
+  for (const sx of [x + w * 0.0, x + w * 0.86]) { rr0(g, sx, y + h * 0.08, w * 0.14, h * 0.4, 4); g.fill(); }   // 横の髪
+  g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.ellipse(cx - w * 0.15, y + h * 0.06, w * 0.18, h * 0.025, -0.15, 0, TAU); g.fill();   // つや
+}
+function rr0(g, X, Y, W, H, R) { g.beginPath(); g.roundRect ? g.roundRect(X, Y, W, H, R) : g.rect(X, Y, W, H); }
+// 目: cute 大きくてきらきら / sharp するどく光る
+function paintEyes(g, sk, ex, eyeY, eyeR, w, cx, t) {
+  for (const sx of [ex - w * 0.12, ex + w * 0.12]) {
+    if (sk.eyes === 'cute') {
+      g.fillStyle = '#1a1424'; g.beginPath(); g.ellipse(sx, eyeY, eyeR * 1.1, eyeR * 1.5, 0, 0, TAU); g.fill();
+      g.fillStyle = sk.eyeColor || '#4a6aff'; g.beginPath(); g.ellipse(sx, eyeY + eyeR * 0.35, eyeR * 0.8, eyeR * 0.95, 0, 0, TAU); g.fill();
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(sx + eyeR * 0.35, eyeY - eyeR * 0.55, eyeR * 0.45, 0, TAU); g.fill();
+      g.beginPath(); g.arc(sx - eyeR * 0.4, eyeY + eyeR * 0.6, eyeR * 0.22, 0, TAU); g.fill();
+      g.strokeStyle = '#1a1424'; g.lineWidth = Math.max(1, eyeR * 0.45); g.lineCap = 'round';
+      const out = sx < cx ? -1 : 1;
+      g.beginPath(); g.moveTo(sx - eyeR * 1.2, eyeY - eyeR * 1.3); g.quadraticCurveTo(sx, eyeY - eyeR * 1.9, sx + eyeR * 1.2, eyeY - eyeR * 1.3); g.lineTo(sx + out * eyeR * 1.7, eyeY - eyeR * 1.7); g.stroke();
+      g.lineCap = 'butt';
+    } else {
+      g.save(); g.translate(sx, eyeY); g.rotate(sx < cx ? 0.28 : -0.28);
+      g.fillStyle = '#0a0a10'; g.fillRect(-eyeR * 1.35, -eyeR * 0.55, eyeR * 2.7, eyeR * 1.1);
+      g.globalCompositeOperation = 'lighter'; g.fillStyle = sk.eyeColor || '#ff3b3b'; g.globalAlpha *= 0.8 + 0.2 * Math.sin(t * 6);
+      g.fillRect(-eyeR * 1.1, -eyeR * 0.3, eyeR * 2.2, eyeR * 0.6);
+      g.globalAlpha *= 0.35; g.fillRect(-eyeR * 1.8, -eyeR * 0.7, eyeR * 3.6, eyeR * 1.4);
+      g.restore();
+    }
+  }
+}
+// 服: dress スカート（フリルとむねのリボン） / armor よろい（かたとむね、光る紋章）
+function paintOutfit(g, x, y, w, h, f, cx, bodyTop, baseY, sk, t) {
+  if (sk.dress) {
+    const yS = bodyTop + (baseY - bodyTop) * 0.36, yB = baseY - h * 0.1;
+    g.fillStyle = sk.dress; g.beginPath(); g.moveTo(x + w * 0.04, yS); g.lineTo(x + w * 0.96, yS); g.lineTo(x + w * 1.14, yB); g.lineTo(x - w * 0.14, yB); g.closePath(); g.fill();
+    g.fillStyle = sk.frill || '#ffffff';
+    for (let i = 0; i < 6; i++) { g.beginPath(); g.arc(x - w * 0.14 + w * 1.28 * (i + 0.5) / 6, yB, w * 1.28 / 12, 0, Math.PI); g.fill(); }
+    g.fillRect(x + w * 0.04, yS - h * 0.02, w * 0.92, h * 0.035);
+    g.fillStyle = sk.bow || '#ff5c8a'; const by = bodyTop + h * 0.07, R = w * 0.13;
+    g.beginPath(); g.moveTo(cx, by); g.lineTo(cx - R * 1.5, by - R); g.lineTo(cx - R * 1.5, by + R); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(cx, by); g.lineTo(cx + R * 1.5, by - R); g.lineTo(cx + R * 1.5, by + R); g.closePath(); g.fill();
+    g.beginPath(); g.arc(cx, by, R * 0.45, 0, TAU); g.fill();
+  }
+  if (sk.armor) {
+    g.fillStyle = sk.armor; g.strokeStyle = sk.trim || '#d9a520'; g.lineWidth = 1.3;
+    rr0(g, x + w * 0.14, bodyTop + h * 0.03, w * 0.72, h * 0.24, 4); g.fill(); g.stroke();
+    for (const sgn of [-1, 1]) { rr0(g, cx + sgn * w * 0.5 - w * 0.21, bodyTop - h * 0.05, w * 0.42, h * 0.13, 5); g.fill(); g.stroke(); }
+    g.fillStyle = sk.trim || '#d9a520'; g.fillRect(x, bodyTop + h * 0.3, w, h * 0.04);
+    g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = sk.glow; g.globalAlpha *= 0.7 + 0.3 * Math.sin(t * 4);
+    const ey = bodyTop + h * 0.15, r = w * 0.09;
+    g.beginPath(); g.moveTo(cx, ey - r * 1.4); g.lineTo(cx + r, ey); g.lineTo(cx, ey + r * 1.4); g.lineTo(cx - r, ey); g.closePath(); g.fill();
+    g.restore();
+  }
 }
 
 // 羽のいろいろな形（feather 以外）。原点 = 肩、右へ広がる向きで描く

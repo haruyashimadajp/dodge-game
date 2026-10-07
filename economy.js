@@ -3,11 +3,13 @@
 /* =========================================================================
    コイン・デイリーチャレンジ・ガチャ（スキンパーツ）
    ・コインがもらえるのは:
-       1) はじめてその難易度をクリアした時 / いちばん良いランクを更新した時（ふつうに遊ぶだけではもらえない）
+       0) 曲をクリアするたび（難易度・ランク・かすりの数で少しだけ。1 回 10〜80 くらい）
+       1) はじめてその難易度をクリアした時 / いちばん良いランクを更新した時
        2) 実績を解除した時（★1 = 50 〜 ★5 = 1000。前に解除した実績も、あとから受けとれる）
-       3) デイリーチャレンジ（1 日 3 つ、それぞれ 1 回だけ挑戦できる）
+       3) デイリーチャレンジ（1 日 3 つ、それぞれ 1 回だけ挑戦できる）と、今日のミッション（「3 回クリア」など。達成したらその場でもらえる）
      First Step と、残機が無限の回はもらえない（実績と同じ）
-   ・ガチャ: コインでスキンパーツ（色・頭・顔・背中・跡・光）を引く。だぶったら「かけら」になり、交換所で好きなパーツと交換できる
+   ・ガチャ: 1 回 300 / 11 連 3,000 コイン。スキンパーツ（色・頭・顔・背中・跡・光）と、まれにガチャ限定スキン（2%）が出る。
+     だぶったら「かけら」になり、交換所で好きなパーツ・スキンと交換できる
    ・パーツは、いま選んでいるスキンの上に重ねて着る（コレクションの「パーツ」）
    ・保存: dodge_economy
    ========================================================================= */
@@ -15,7 +17,7 @@
 const E = (() => {
   let e = {};
   try { e = JSON.parse(store.get('dodge_economy') || '{}') || {}; } catch (err) { e = {}; }
-  return Object.assign({ coins: 0, shards: 0, owned: {}, equip: {}, pity: 0, pulls: 0, achPaid: {}, daily: { day: '', used: {}, result: {} }, dailyStreak: 0, dailyLast: '' }, e);
+  return Object.assign({ coins: 0, shards: 0, owned: {}, equip: {}, pity: 0, pulls: 0, achPaid: {}, daily: { day: '', used: {}, result: {} }, dailyStreak: 0, dailyLast: '', skinPity: 0 }, e);
 })();
 function saveEco() { store.set('dodge_economy', JSON.stringify(E)); updateCoinUI(); }
 
@@ -27,6 +29,8 @@ const RARITY = {
   UR: { w: 1,  dup: 30, cost: 300, name: 'UR' },
 };
 const RARITY_ORDER = ['UR', 'SR', 'R', 'N'];
+const SKIN_RATE = 2, SKIN_PITY = 120, SKIN_DUP = 100, SKIN_COST = 600;   // ガチャ限定スキン: 2%、120 回目までに必ず 1 つ、だぶりは 💎100、交換は 💎600
+const PULL_COST = 300, MULTI_COST = 3000, MULTI_N = 11;
 const SLOTS = [['color', '色'], ['head', '頭'], ['face', '顔'], ['back', '背中'], ['trail', '跡'], ['aura', '光']];
 // 頭・顔・背中のパーツを着ると、スキンにもともとついている同じ場所の飾りは外れる
 const SLOT_ACC = {
@@ -127,7 +131,10 @@ function composeSkin(base) {
 const CLEAR_COIN = { easy: 30, normal: 60, hard: 120, impossible: 250 };       // はじめてその難易度をクリア
 const RANK_COIN = { C: 20, B: 40, A: 80, S: 150 };                             // ランク（更新した分だけ）
 const RANK_MULT = { easy: 1, normal: 1.5, hard: 2, impossible: 3 };
-const ACH_COIN = [0, 50, 100, 200, 500, 1000];                                  // 実績の ★ ごと
+const ACH_COIN = [0, 50, 100, 200, 500, 1000];
+const PLAY_COIN = { easy: 8, normal: 15, hard: 25, impossible: 40 };            // クリアするたび（ランクで × S 2 / A 1.5 / B 1.2 / C 1）
+const PLAY_RANK = { S: 2, A: 1.5, B: 1.2, C: 1 };
+const grazeCoin = n => Math.min(20, Math.floor(n / 25));                       // かすり 25 回ごとに +1（最大 +20）                                  // 実績の ★ ごと
 const fmt = n => n.toLocaleString('ja-JP');
 const counted = () => !NOT_COUNTED.has(songBase(song));
 
@@ -152,6 +159,12 @@ function onEconomyRunEnd(kind, rec) {
     if (kind === 'clear' && rec.newClear) add(CLEAR_COIN[difficulty], `はじめての ${DIFFS[difficulty].label} クリア`);
     if (rec.newRank) add((RANK_COIN[rec.rank] - (rec.oldRank ? RANK_COIN[rec.oldRank] : 0)) * RANK_MULT[difficulty], `ランク ${rec.rank} を更新`);
   }
+  if (kind === 'clear') {
+    const r = rankOf(hitsTaken);
+    add(PLAY_COIN[difficulty] * (PLAY_RANK[r] || 1), `クリア（${DIFFS[difficulty].label} · ランク ${r}）`);
+    add(grazeCoin(grazes), `かすり ${grazes} 回`);
+  }
+  questProgress(kind, add);
   const ach = payAchievements();
   if (ach.gain) { gain += ach.gain; lines.push(`実績 ${ach.names.length} 個 <b>+${fmt(ach.gain)}</b>`); }
   E.coins += gain - ach.gain;
@@ -208,17 +221,19 @@ function dailyToday() {
 }
 const streakBonus = () => Math.min(5, Math.max(0, E.dailyStreak - 1)) * 0.1;   // 続けた日数で +10%（最大 +50%）
 let dailyNow = null;                             // 挑戦中のデイリー（番号）
-function startDaily(i) {
-  const D = dailyToday(), c = dailyList()[i];
-  if (D.used[i]) return;
-  const keepDiff = difficulty;
+// 残機が無限の時は挑戦できない（使った回数も減らさない）
+function dailyBlocked(i) {
+  const c = dailyList()[i], keepDiff = difficulty, keepMods = runMods;
   runMods = Object.assign({ daily: true }, c.twist ? c.twist.mods : {});
   difficulty = c.diff;
-  if (livesForRun() === Infinity) {              // 残機が無限の時は挑戦できない（使った回数も減らさない）
-    runMods = {}; difficulty = keepDiff;
-    alert('残機が無限の間は、デイリーチャレンジに挑戦できません。設定で OFF にしてください。');
-    return;
-  }
+  const inf = livesForRun() === Infinity;
+  runMods = keepMods; difficulty = keepDiff;
+  return inf;
+}
+function startDaily(i) {
+  const D = dailyToday(), c = dailyList()[i];
+  if (D.used[i] || dailyBlocked(i)) return;
+  const keepDiff = difficulty;
   D.used[i] = true; dailyNow = { i }; saveEco();
   closeDaily();
   runMods = {}; difficulty = keepDiff;
@@ -272,10 +287,64 @@ function renderDaily() {
         ${used ? `<div class="d-state">${state}</div>` : `<button class="d-go" data-i="${i}">挑戦する（1 回だけ）</button>`}
       </div>`;
     }).join('');
+  dailyBody.insertAdjacentHTML('beforeend', renderQuests());
+  // 確かめは、ページの中に出す（Claude アプリなどでは confirm() が使えないので）
   dailyBody.querySelectorAll('.d-go').forEach(btn => btn.addEventListener('click', () => {
-    const c = list[+btn.dataset.i];
-    if (confirm(`「${c.song.title}」${DIFFS[c.diff].label}${c.twist ? ' ／ ' + c.twist.name : ''}\n挑戦できるのは 1 回だけです。始めますか？`)) startDaily(+btn.dataset.i);
+    const i = +btn.dataset.i, card = btn.parentElement;
+    if (dailyBlocked(i)) { btn.outerHTML = '<div class="d-ask">残機が無限の間は挑戦できません。設定で OFF にしてください。</div>'; return; }
+    btn.outerHTML = `<div class="d-ask">挑戦できるのは 1 回だけです。始めますか？<div class="d-ask-btns"><button class="d-yes">始める</button><button class="d-no">やめる</button></div></div>`;
+    card.querySelector('.d-yes').addEventListener('click', () => startDaily(i));
+    card.querySelector('.d-no').addEventListener('click', renderDaily);
   }));
+}
+
+// ---- 今日のミッション（かんたんな実績。1 日 3 つ、達成したらその場でコイン）------------------------------
+//   数えるのは、記録する回だけ（残機が無限の回・First Step は数えない）。デイリーチャレンジの回も数える
+const QUESTS = [
+  { id: 'play5',   tier: 0, text: '5 回遊ぶ',                       n: 5,   key: 'plays',  reward: 60 },
+  { id: 'clear3',  tier: 0, text: '曲を 3 回クリアする',            n: 3,   key: 'clears', reward: 100 },
+  { id: 'graze150', tier: 0, text: 'かすりを合わせて 150 回',       n: 150, key: 'grazes', reward: 80 },
+  { id: 'clear5',  tier: 1, text: '曲を 5 回クリアする',            n: 5,   key: 'clears', reward: 180 },
+  { id: 'songs3',  tier: 1, text: 'ちがう曲を 3 曲クリアする',      n: 3,   key: 'songs',  reward: 160 },
+  { id: 'rankA2',  tier: 1, text: 'ランク A 以上で 2 回クリア',     n: 2,   key: 'rankA',  reward: 160 },
+  { id: 'graze500', tier: 1, text: 'かすりを合わせて 500 回',       n: 500, key: 'grazes', reward: 180 },
+  { id: 'hard2',   tier: 2, text: 'HARD 以上で 2 回クリア',         n: 2,   key: 'hard',   reward: 250 },
+  { id: 'rankS1',  tier: 2, text: 'ランク S（ノーミス）でクリア',   n: 1,   key: 'rankS',  reward: 300 },
+  { id: 'clear10', tier: 2, text: '曲を 10 回クリアする',           n: 10,  key: 'clears', reward: 300 },
+];
+function questList(day = todayKey()) {
+  const rnd = seeded('dodge-quest-' + day);
+  return [0, 1, 2].map(t => { const pool = QUESTS.filter(q => q.tier === t); return pool[Math.floor(rnd() * pool.length)]; });
+}
+function questStats() {
+  const D = dailyToday();
+  if (!D.stats) D.stats = { plays: 0, clears: 0, grazes: 0, rankA: 0, rankS: 0, hard: 0, songs: {} };
+  if (!D.quest) D.quest = {};
+  return D.stats;
+}
+const questVal = (q, st) => q.key === 'songs' ? Object.keys(st.songs).length : st[q.key];
+function questProgress(kind, add) {
+  const st = questStats(), D = dailyToday(), clear = kind === 'clear', r = clear ? rankOf(hitsTaken) : null;
+  st.plays++; st.grazes += grazes;
+  if (clear) {
+    st.clears++; st.songs[songBase(song)] = 1;
+    if (r === 'S' || r === 'A') st.rankA++;
+    if (r === 'S') st.rankS++;
+    if (diffIdx(difficulty) >= diffIdx('hard')) st.hard++;
+  }
+  for (const q of questList()) {
+    if (D.quest[q.id] || questVal(q, st) < q.n) continue;
+    D.quest[q.id] = 1; add(q.reward, `ミッション「${q.text}」達成`);
+  }
+}
+function renderQuests() {
+  const st = questStats(), D = dailyToday();
+  return `<div class="daily-head q-head">🎯 今日のミッション<br><small>達成したら、その場でコインがもらえる（記録する回だけ数える）</small></div>` +
+    questList().map(q => {
+      const v = Math.min(q.n, questVal(q, st)), done = !!D.quest[q.id];
+      return `<div class="quest${done ? ' done' : ''}"><div class="q-top"><span>${done ? '✅' : '⬜'} ${q.text}</span><span class="d-reward">🪙 ${fmt(q.reward)}</span></div>
+        <div class="ach-bar"><i style="width:${(100 * v / q.n).toFixed(1)}%"></i></div><small>${v} / ${q.n}</small></div>`;
+    }).join('');
 }
 
 // ガチャ
@@ -289,7 +358,15 @@ function rollRarity() {
   return 'N';
 }
 function pullOne(minR) {
-  E.pity++; E.pulls++;
+  E.pity++; E.pulls++; E.skinPity = (E.skinPity || 0) + 1;
+  if (!minR && (E.skinPity >= SKIN_PITY || Math.random() * 100 < SKIN_RATE)) {        // ガチャ限定スキン
+    E.skinPity = 0;
+    const sk = GACHA_SKINS[Math.floor(Math.random() * GACHA_SKINS.length)], k = 'skin_' + sk.id;
+    const dup = !!E.owned[k];
+    E.owned[k] = (E.owned[k] || 0) + 1;
+    if (dup) E.shards += SKIN_DUP;
+    return { sk, dup };
+  }
   let r = E.pity >= 100 ? 'UR' : rollRarity();
   if (minR && RARITY_ORDER.indexOf(r) > RARITY_ORDER.indexOf(minR)) r = minR;
   if (r === 'UR') E.pity = 0;
@@ -300,11 +377,11 @@ function pullOne(minR) {
   return { p, dup };
 }
 function pull(n) {
-  const cost = n === 10 ? 1000 : 100;
+  const cost = n === MULTI_N ? MULTI_COST : PULL_COST;
   if (E.coins < cost) return;
   E.coins -= cost;
   const res = [];
-  for (let i = 0; i < n; i++) res.push(pullOne(n === 10 && i === 9 && !res.some(x => x.p.r === 'SR' || x.p.r === 'UR') ? 'SR' : null));
+  for (let i = 0; i < n; i++) res.push(pullOne(n === MULTI_N && i === n - 1 && !res.some(x => x.sk || x.p.r === 'SR' || x.p.r === 'UR') ? 'SR' : null));
   saveEco();
   lastPull = res;
   const m = gachaBody.querySelector('.machine');
@@ -317,7 +394,16 @@ function partCard(p, opts = {}) {
     <canvas width="112" height="104"></canvas>
     <span class="p-r">${p.r}</span><span class="p-name">${own || opts.show ? p.name : '？？？'}</span>${opts.extra || ''}</div>`;
 }
+// ガチャ限定スキンのカード（ガチャの結果・ラインナップ・交換所）
+function skinCard(sk, opts = {}) {
+  return `<div class="part-card r-SKIN${opts.cls || ''}" data-gskin="${sk.id}" style="${opts.delay != null ? `animation-delay:${opts.delay}s` : ''}">
+    <canvas width="112" height="104"></canvas><span class="p-r">SKIN</span><span class="p-name">${sk.name}</span>${opts.extra || ''}</div>`;
+}
 function drawPartCards(root, base) {
+  root.querySelectorAll('[data-gskin]').forEach(el => {
+    const sk = SKINS.find(k => k.id === el.dataset.gskin), cv = el.querySelector('canvas');
+    if (sk && cv) drawSkinPreview(cv, sk, false);
+  });
   root.querySelectorAll('.part-card').forEach(el => {
     const p = PART_BY[el.dataset.part], cv = el.querySelector('canvas');
     if (!p || !cv) return;
@@ -334,17 +420,28 @@ function renderGacha() {
     const owned = PARTS.filter(p => E.owned[p.id]).length;
     gachaBody.innerHTML = head + `
       <div class="machine"><div class="dome">${Array.from({ length: 14 }, (_, i) => `<i style="--h:${i * 47 % 360};--x:${(i * 37) % 80 + 6}%;--y:${(i * 53) % 60 + 25}%"></i>`).join('')}</div><div class="m-base"><div class="m-knob"></div><div class="m-slot"></div></div></div>
-      <div class="g-rates">UR 1% · SR 9% · R 30% · N 60%　／　UR まであと <b>${100 - E.pity}</b> 回（100 回目は必ず UR）<br>10 連は SR 以上が 1 つ必ず出る · だぶったら 💎 かけらに（N1 / R3 / SR10 / UR30）</div>
-      <div class="g-btns"><button class="g-pull" data-n="1" ${E.coins < 100 ? 'disabled' : ''}>1 回<br><small>🪙 100</small></button><button class="g-pull ten" data-n="10" ${E.coins < 1000 ? 'disabled' : ''}>10 回<br><small>🪙 1,000</small></button></div>
-      <div class="g-owned">パーツ ${owned} / ${PARTS.length}</div>
-      ${lastPull.length ? `<div class="pull-grid">${lastPull.map((x, i) => partCard(x.p, { show: true, delay: i * 0.12, cls: ' reveal', extra: x.dup ? `<span class="p-dup">だぶり 💎+${RARITY[x.p.r].dup}</span>` : '<span class="p-new">NEW</span>' })).join('')}</div>` : ''}`;
+      <div class="g-rates">✨ ガチャ限定スキン ${SKIN_RATE}% · UR 1% · SR 9% · R 30% · N 58%<br>スキンまであと <b>${SKIN_PITY - (E.skinPity || 0)}</b> 回 · UR まであと <b>${100 - E.pity}</b> 回（必ず出る）<br>11 連は SR 以上が 1 つ必ず出る · だぶったら 💎 かけらに（N1 / R3 / SR10 / UR30 / スキン${SKIN_DUP}）</div>
+      <div class="g-btns"><button class="g-pull" data-n="1" ${E.coins < PULL_COST ? 'disabled' : ''}>1 回<br><small>🪙 ${fmt(PULL_COST)}</small></button><button class="g-pull ten" data-n="${MULTI_N}" ${E.coins < MULTI_COST ? 'disabled' : ''}>${MULTI_N} 連<br><small>🪙 ${fmt(MULTI_COST)}</small></button></div>
+      <div class="g-owned">パーツ ${owned} / ${PARTS.length} · 限定スキン ${GACHA_SKINS.filter(k => E.owned['skin_' + k.id]).length} / ${GACHA_SKINS.length}</div>
+      ${lastPull.length ? `<div class="pull-grid">${lastPull.map((x, i) => {
+        const extra = x.dup ? `<span class="p-dup">だぶり 💎+${x.sk ? SKIN_DUP : RARITY[x.p.r].dup}</span>` : '<span class="p-new">NEW</span>';
+        return x.sk ? skinCard(x.sk, { delay: i * 0.12, cls: ' reveal', extra }) : partCard(x.p, { show: true, delay: i * 0.12, cls: ' reveal', extra });
+      }).join('')}</div>` : ''}
+      <div class="ach-group">✨ ガチャ限定スキン（コレクションの「スキン」で着がえる）</div>
+      <div class="part-grid">${GACHA_SKINS.map(k => skinCard(k, { cls: E.owned['skin_' + k.id] ? '' : ' unowned', extra: E.owned['skin_' + k.id] ? '<span class="p-have">持っている</span>' : '' })).join('')}</div>`;
     gachaBody.querySelectorAll('.g-pull').forEach(b => b.addEventListener('click', () => pull(+b.dataset.n)));
     drawPartCards(gachaBody, heroSkinBase());
   } else {
-    gachaBody.innerHTML = head + `<div class="g-rates">💎 かけらで、好きなパーツと交換できます（N 10 / R 30 / SR 100 / UR 300）</div>` +
+    gachaBody.innerHTML = head + `<div class="g-rates">💎 かけらで、好きなパーツ・スキンと交換できます（N 10 / R 30 / SR 100 / UR 300 / スキン ${SKIN_COST}）</div>` +
+      `<div class="ach-group">✨ ガチャ限定スキン</div><div class="part-grid">${GACHA_SKINS.map(k => skinCard(k, { extra: E.owned['skin_' + k.id] ? '<span class="p-have">持っている</span>' : `<button class="p-buy" data-skin="${k.id}" ${E.shards < SKIN_COST ? 'disabled' : ''}>💎 ${SKIN_COST}</button>` })).join('')}</div>` +
       SLOTS.map(([slot, label]) => `<div class="ach-group">${label}</div><div class="part-grid">${PARTS.filter(p => p.slot === slot).map(p =>
         partCard(p, { show: true, extra: E.owned[p.id] ? '<span class="p-have">持っている</span>' : `<button class="p-buy" data-id="${p.id}" ${E.shards < RARITY[p.r].cost ? 'disabled' : ''}>💎 ${RARITY[p.r].cost}</button>` })).join('')}</div>`).join('');
     gachaBody.querySelectorAll('.p-buy').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.skin) {
+        const k = 'skin_' + b.dataset.skin;
+        if (E.shards < SKIN_COST || E.owned[k]) return;
+        E.shards -= SKIN_COST; E.owned[k] = 1; saveEco(); renderGacha(); return;
+      }
       const p = PART_BY[b.dataset.id], cost = RARITY[p.r].cost;
       if (E.shards < cost || E.owned[p.id]) return;
       E.shards -= cost; E.owned[p.id] = 1; saveEco(); renderGacha();

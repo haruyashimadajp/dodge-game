@@ -52,7 +52,7 @@ function rankedSong(id, minD = 'easy', rank = 'S') {
 // 1 回のプレイでの、そのときだけの条件（ジャンプせずにクリア など）は P.flags に覚えておく
 const flag = k => !!(P.flags && P.flags[k]);
 // スキンの数（「全部集める」「コンプリート」のごほうびのスキンは、数に入れない）
-const collectable = () => SKINS.filter(sk => sk.need !== 'skins_all' && sk.need !== 'complete');
+const collectable = () => SKINS.filter(sk => !sk.gacha && sk.need !== 'skins_all' && sk.need !== 'complete');   // ガチャ限定のスキンも数えない
 const skinsOpen = () => collectable().filter(sk => skinUnlocked(sk)).length;
 
 // ---- 実績 -----------------------------------------------------------------------------------------
@@ -221,9 +221,22 @@ const SKINS = [
   { id: 'truephoenix', name: '真・不死鳥', body: '#ff6a1a', skin: '#ffd8b0', shoe: '#7a2a08', glow: '#ffb05c', acc: ['wings', 'flamehair'], wing: '#ff9a2e', flame: ['#ff4a1a', '#ffe066'], aura: '#ffb05c', trail: 'ember', need: 'revive_imp' },
   { id: 'prismatic', name: '虹色',       body: '#ffffff', cap: '#ffffff', brim: '#e0e0e0', skin: '#fde6d0', shoe: '#ffffff', glow: '#ffffff', acc: ['wings', 'crown'], wing: '#ffffff', fx: 'rainbow', aura: '#ffffff', trail: 'rainbow', need: 'skins_all' },
   { id: 'sakura',  name: 'さくら',       body: '#ff9fc4', cap: '#ffffff', brim: '#f0d8e0', skin: '#fde3d4', shoe: '#a0506a', glow: '#ffc4dc', acc: 'ribbon', trail: 'petal', need: 'shiki' },
+  // ---- ガチャ限定（economy.js のガチャからだけ出る。実績では手に入らない）----
+  //   hairStyle: long 長い髪 / twin ツインテール / pony ポニーテール / spiky つんつん   eyes: cute 大きな目 / sharp するどい光る目
+  //   dress スカート / armor よろい / sparkle まわりできらきら
+  { id: 'g_idol',   gacha: true, name: '星屑アイドル', body: '#ff7ab8', skin: '#fde6da', shoe: '#ffffff', glow: '#ffb3da', hair: '#ff9fd0', hairStyle: 'twin', tie: '#ffe066', eyes: 'cute', eyeColor: '#c0307a', dress: '#ffffff', frill: '#ff7ab8', bow: '#ffe066', acc: ['ribbon'], ribbonColor: '#ffe066', sparkle: '#ffe066', aura: '#ff9fd0', trail: 'star', trailColor: '#ffb3da' },
+  { id: 'g_miko',   gacha: true, name: '巫女',         body: '#ffffff', skin: '#fde3d0', shoe: '#c8102e', glow: '#ff6a6a', hair: '#141018', hairStyle: 'long', tie: '#ffffff', eyes: 'cute', eyeColor: '#8a1020', dress: '#d81e1e', frill: '#ffffff', bow: '#d81e1e', acc: ['ribbon'], ribbonColor: '#d81e1e', trail: 'petal', trailColor: '#ff8aa8' },
+  { id: 'g_magical', gacha: true, name: '魔法少女',    body: '#7a5cff', skin: '#fde6da', shoe: '#5a3fd8', glow: '#c8b4ff', hair: '#c8b4ff', hairStyle: 'pony', tie: '#ff5c8a', eyes: 'cute', eyeColor: '#5a3fd8', dress: '#9f8cff', frill: '#ffffff', bow: '#ff5c8a', acc: ['wings'], wingStyle: 'butterfly', wing: '#ffb3e6', sparkle: '#ffffff', aura: '#c8b4ff', trail: 'heart' },
+  { id: 'g_snow',   gacha: true, name: '雪の姫',       body: '#bfe6ff', skin: '#fff4f8', shoe: '#8ab8e0', glow: '#e0f6ff', hair: '#e8f4ff', hairStyle: 'long', tie: '#9fdcff', eyes: 'cute', eyeColor: '#3a8ad8', dress: '#e0f4ff', frill: '#9fdcff', bow: '#9fdcff', acc: ['crown'], crownColor: '#e0f0ff', sparkle: '#d8f6ff', aura: '#bfefff', alpha: 0.95, trail: 'snow' },
+  { id: 'g_neko',   gacha: true, name: 'ねこメイド',   body: '#141418', skin: '#fde6da', shoe: '#141418', glow: '#ffd2a0', hair: '#f2a65a', hairStyle: 'twin', tie: '#ffffff', eyes: 'cute', eyeColor: '#2a8a4a', dress: '#141418', frill: '#ffffff', bow: '#ffffff', acc: ['ears', 'blush'], cap: '#f2a65a', trail: 'heart', trailColor: '#ffc4dc' },
+  { id: 'g_knight', gacha: true, name: '黒騎士',       body: '#1a1a22', skin: '#e8c8b0', shoe: '#0a0a10', glow: '#ff3b3b', hair: '#d8dce8', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#ff3b3b', armor: '#2a2a36', trim: '#d9a520', acc: ['cape'], cape: '#7a0f1e', aura: '#ff3b3b', trail: 'ember' },
+  { id: 'g_cyber',  gacha: true, name: 'サイバー忍',   body: '#0c1018', skin: '#d8c0b0', shoe: '#22e6ff', glow: '#22e6ff', hair: '#22e6ff', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#22e6ff', armor: '#1a2230', trim: '#22e6ff', acc: ['scarf', 'katana'], scarf: '#ff2e88', blade: '#9fe8ff', fx: 'echo', trail: 'pixel', trailColor: '#22e6ff' },
+  { id: 'g_dragon', gacha: true, name: '竜騎士',       body: '#6a0a0a', skin: '#f0c8a8', shoe: '#2a0505', glow: '#ff8a1a', hair: '#ff6a1a', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#ffd23f', armor: '#8a1a10', trim: '#ffd23f', acc: ['wings', 'horns'], wingStyle: 'bat', wing: '#8a1a10', hornColor: '#ffd23f', aura: '#ff8a1a', trail: 'ember' },
+  { id: 'g_star',   gacha: true, name: '星の王',       body: '#141a4a', skin: '#f4e0d0', shoe: '#0a0e28', glow: '#ffe066', hair: '#ffffff', hairStyle: 'long', eyes: 'sharp', eyeColor: '#ffe066', armor: '#2a3478', trim: '#ffe066', acc: ['wings', 'crown', 'cape'], wingStyle: 'light', wing: '#ffe066', cape: '#0a0e28', sparkle: '#ffe066', aura: '#ffe066', trail: 'star', trailColor: '#ffe066' },
 ];
+const GACHA_SKINS = SKINS.filter(s => s.gacha);
 const achById = id => ACHIEVEMENTS.find(a => a.id === id);
-const skinUnlocked = s => !s.need || !!P.unlocked[s.need];
+const skinUnlocked = s => s.gacha ? !!(typeof E !== 'undefined' && E.owned['skin_' + s.id]) : !s.need || !!P.unlocked[s.need];
 // えらんだスキン（パーツを重ねる前）
 function baseSkin() {
   const s = SKINS.find(k => k.id === P.skin);
@@ -330,10 +343,10 @@ function renderCollection() {
     const cur = baseSkin().id;
     collectionBody.innerHTML = `<div class="skin-grid">${SKINS.map(s => {
       const open = skinUnlocked(s), a = s.need && achById(s.need);
-      return `<button class="skin-card${open ? '' : ' locked'}${s.id === cur ? ' equipped' : ''}" data-skin="${s.id}" ${open ? '' : 'disabled'}>
+      return `<button class="skin-card${open ? '' : ' locked'}${s.id === cur ? ' equipped' : ''}${s.gacha ? ' gacha' : ''}" data-skin="${s.id}" ${open ? '' : 'disabled'}>
         <canvas width="128" height="112"></canvas>
-        <span class="skin-name">${open ? s.name : '？？？'}</span>${a ? `<i class="ach-lv lv${a.lv}">${'★'.repeat(a.lv)}</i>` : ''}
-        <span class="skin-need">${s.id === cur ? '使用中' : open ? 'タップで着がえる' : '🔒 ' + a.name + '<br>' + a.desc}</span>
+        <span class="skin-name">${open ? s.name : '？？？'}</span>${a ? `<i class="ach-lv lv${a.lv}">${'★'.repeat(a.lv)}</i>` : s.gacha ? '<i class="g-tag">ガチャ限定</i>' : ''}
+        <span class="skin-need">${s.id === cur ? '使用中' : open ? 'タップで着がえる' : s.gacha ? '🎰 ガチャで出ることがある' : '🔒 ' + a.name + '<br>' + a.desc}</span>
       </button>`;
     }).join('')}</div>`;
     collectionBody.querySelectorAll('.skin-card').forEach(card => {
