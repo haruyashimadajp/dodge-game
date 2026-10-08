@@ -15,8 +15,8 @@
   const WHITE = [255, 255, 255];
   const NEON = ['#ff3ea5', '#22e6ff', '#ffe066', '#b36bff', '#7dff6a'].map(rgb);
   const FONT = '"Arial Black", "Helvetica Neue", system-ui, sans-serif';
-  const st = { made: false, hills: null, city: null, sign: null, stars: null, lastBeat: -99, flashes: [], confetti: [] };
-  let KICK = null, CLAP = null, STOP = null;
+  const st = { made: false, hills: null, city: null, sign: null, stars: null, lastBeat: -99, flashes: [], confetti: [], comets: [] };
+  let KICK = null, CLAP = null, STOP = null, DIVE = null, BYUUN = null;
   const inSong = () => scene !== 'title';
   const hsh = (a, b = 0) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
   const bpNow = T => inSong() ? beatPos(T) : T / BL_BEAT;
@@ -74,10 +74,12 @@
 
   function reset() {
     if (!st.made) make();
-    Object.assign(st, { lastBeat: -99, flashes: [], confetti: [] });
+    Object.assign(st, { lastBeat: -99, flashes: [], confetti: [], comets: [] });
   }
   function onBeat(b) {
-    if (!KICK) { KICK = SCORE_BAILE.kick; CLAP = new Set(SCORE_BAILE.clap); STOP = SCORE_BAILE.stop; }
+    if (!KICK) { KICK = SCORE_BAILE.kick; CLAP = new Set(SCORE_BAILE.clap); STOP = SCORE_BAILE.stop; DIVE = new Set(SCORE_BAILE.dive); BYUUN = new Set(SCORE_BAILE.byuun); }
+    if (DIVE.has(b)) { shake(9); punch(0.03); }                         // 808 の「ヴゥゥン」: 画面がゆれる
+    if (BYUUN.has(b)) st.comets.push({ t: 0, left: st.comets.length % 2 === 0 });   // 「ビューン」: 空を流れ落ちる光
     if (CLAP.has(b)) st.flashes.push({ t: 0, x: 90 + hsh(b) * (W - 180) });
     for (const s of BL_SECTIONS) if (Math.abs(blBeatPos(s.t) - b) < 0.01 && b > 0) {
       for (let i = 0; i < 60; i++) st.confetti.push({ x: hsh(b, i) * W, y: -10 - hsh(i, b) * 200, vx: (hsh(i, 3) - 0.5) * 60, vy: 120 + hsh(i, 4) * 120, a: hsh(i, 5) * TAU, c: NEON[i % 5] });
@@ -93,6 +95,8 @@
     st.flashes = st.flashes.filter(f => f.t < 0.35);
     for (const q of st.confetti) { q.x += q.vx * dt; q.y += q.vy * dt; q.a += dt * 6; }
     st.confetti = st.confetti.filter(q => q.y < GROUND_Y);
+    for (const q of st.comets) q.t += dt;
+    st.comets = st.comets.filter(q => q.t < 0.8);
   }
 
   // SLOWED の強さ（0〜1）とテープが止まる所（1 に近いほど止まっている）
@@ -142,6 +146,16 @@
         const col = NEON[(((i + Math.floor(bp / 4)) % 5) + 5) % 5];
         ctx.strokeStyle = rgba(col, 0.12 + 0.25 * k); ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + Math.cos(a) * 900, oy + Math.sin(a) * 900); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // ビューン: 空の高い所から、低い所へ流れ落ちる光
+    if (st.comets.length) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+      for (const q of st.comets) {
+        const p = q.t / 0.8, x0 = q.left ? 80 : W - 80, x = x0 + (q.left ? 1 : -1) * p * 520, y = 40 + p * p * 420;
+        ctx.strokeStyle = `rgba(120,240,255,${(0.8 * (1 - p)).toFixed(3)})`; ctx.lineWidth = 6 * (1 - p) + 2;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - (q.left ? 1 : -1) * 90, y - 70 * (0.3 + p)); ctx.stroke();
       }
       ctx.restore();
     }
@@ -250,6 +264,11 @@
 
   // 画面の上にかぶせる: SLOWED の紫のもや ＋ VHS のノイズ帯 ＋ テープが止まる所の表示
   function overlay(T) {
+    if (inSong()) for (const g of SCORE_BAILE.gap) {                   // ドロップ前の無音: 画面がまっ暗 → ドロップで白く光る
+      const t0 = blBeatTime(g), t1 = blBeatTime(g + 0.5);
+      if (T >= t0 - 0.05 && T < t1) { ctx.fillStyle = `rgba(0,0,0,${(0.55 * clamp01((T - t0 + 0.05) / 0.08)).toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
+      else if (T >= t1 && T < t1 + 0.3) { ctx.fillStyle = `rgba(255,255,255,${(0.5 * (1 - (T - t1) / 0.3)).toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
+    }
     const s = slowAmt(T), ts = tapeStop(T);
     if (s <= 0.01) return;
     ctx.fillStyle = `rgba(60,20,120,${(0.22 * s).toFixed(3)})`; ctx.fillRect(0, 0, W, H);

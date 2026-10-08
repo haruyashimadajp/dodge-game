@@ -11,11 +11,13 @@
 
    音 → 弾:
      カウベルの旋律 = 音の高さの所に、カウベルが落ちてくる
-     声のチョップ   = 母音の文字の入ったシャボン（ゆらゆら落ちる。長い声は輪になって広がる）
+     声のチョップ   = 母音の文字の入ったシャボン（ゆらゆら落ちる。長い声は輪になって広がる。ドロップでは出さない）
      クラップ       = 上のスピーカーから 3〜5 発
      トゥイン       = 上から落ちるレーザー（予告の所をよける）
      808 の長い音   = 車高の低い車が床を横切る（跳び越える）。車はキックではねる
      キックの連打（13・14・15）= 床から噴き上がる
+     808 の長い「ヴゥゥン」（ドロップの頭）= 床を走るビーム（跳ぶ）
+     シンセの「ビューン」（落ちていく音）= 上のすみからのななめのビーム
    ========================================================================= */
 
 // 130 BPM: 1拍 = 60/130 秒（約0.46秒）、1小節 = 約1.85秒。0拍目 = 0.5秒
@@ -82,6 +84,14 @@ function baileChart() {
     fire(t, o.warn || 1.0, delay => lowrider({ fromLeft, v, delay, color: o.color || PINK, kicks }));
   };
   const geyserAt = (t, o = {}) => fire(t, 0.55, delay => geyser({ x: clampX(pX() + (o.dx || 0)), count: o.n || 5, gap: 0.06, speed: 540, r: 8, delay }));
+  // シンセの「ビューン」（高い音から落ちる）= 上のすみから床へ、ななめのビーム（来る側へよける）
+  const slam = (t, fromLeft, o = {}) => fire(t, o.warn || 0.65, delay => {
+    const x1 = fromLeft ? -40 : W + 40, y1 = 40, gx = clampX(pX() + (fromLeft ? 50 : -50));
+    const b = laser({ x1, y1, x2: x1 + (gx - x1) * 1.3, y2: y1 + (GROUND_Y - y1) * 1.3, width: 18, delay, hold: 0.25, color: o.color || CYAN }); b.spd = 1;
+  });
+  // 808 の長い「ヴゥゥン」（ドロップの1拍目）= 床を走るビーム（跳ぶ）
+  const vuun = (t, o = {}) => fire(t, o.warn || 0.8, delay => floorStrike({ delay, hold: 0.22, color: o.color || PINK }));
+  const DIVE = new Set(SC.dive);
   const curtainRain = (t, gx, o = {}) => fire(t, 0.8, delay => curtain({ gapX: gx, gapW: o.gw || 150, spacing: 34, vy: o.v || 300, r: 8, delay }));
 
   // ===== 0〜8 夜のバイレへ ｜ カウベルの旋律 = 落ちるカウベル（ゆっくり）／ 4小節から声 = シャボン ==================================
@@ -93,21 +103,26 @@ function baileChart() {
   SC.clap.filter(b => inBars(b, 8, 14)).forEach((b, i) => clapFan(beat(b), i % 2 === 0, { n: 3, v: 270 }));
   SC.bell.filter(([b]) => inBars(b, 8, 14)).forEach(([b, m]) => bell(beat(b), px(m, 72, 92), { v: 220 }));
   SC.vox.filter(([b]) => inBars(b, 12, 14) && b % 4 === 0).forEach(([b, , m, v]) => voxRing(beat(b), px(m, 64, 82), 120, v, { n: 8, v: 130 }));
+  SC.byuun.filter(b => inBars(b, 8, 16)).forEach((b, i) => slam(beat(b), i % 2 === 0));
   hint(bar(14) - 2 * B, '連打 ─ すき間に入る');
   [[14, 260], [14.5, 420], [15, 300], [15.5, 460]].forEach(([k, gx]) => curtainRain(bar(k), gx, { v: 300 }));
-  burst(bar(15) + 2 * B, () => lockOn({ track: 0.7, lock: 0.4, r: 54, color: PINK }));
-  hint(bar(16) - 4 * B, '車 ─ 床を横切るので跳び越える');
+  hint(bar(16) - 4 * B, '床のビーム → 車 ─ どちらも跳び越える');
 
   // ===== 16〜32 MONTAGEM ｜ 車（2小節ごと）／ カウベル ／ クラップ ／ トゥイン = レーザー ／ 20〜 声 ============================
   function dropBars(k0, k1, hard) {
     // 2小節で1組: 1小節目 = 車だけ（跳び越える）／ 2小節目 = カウベル・クラップ・トゥイン
-    for (let k = k0; k < k1; k += 2) car(bar(k), (k / 2) % 2 === 0, { v: hard ? 380 : 320, color: hard ? GOLD : PINK });
+    // ドロップの1小節目（808 が長く「ヴゥゥン」と落ちる所）だけは、車の代わりに床のビーム
+    for (let k = k0; k < k1; k += 2) {
+      if (DIVE.has(k * 4)) vuun(bar(k) + 3 * B);                 // 「ヴゥゥ…ン」と落ちきる所で
+      else car(bar(k), (k / 2) % 2 === 0, { v: hard ? 380 : 320, color: hard ? GOLD : PINK });
+    }
+    // ビューン（2小節目の4拍目）= ななめのビーム。トゥインの連打がある小節は出さない
+    SC.byuun.filter(b => inBars(b, k0, k1) && b % 32 !== 31 && !(hard && Math.floor(b / 4) % 4 === 3)).forEach((b, i) => slam(beat(b), i % 2 === 0, { color: hard ? GOLD : CYAN }));
     SC.bell.filter(([b]) => inBars(b, k0, k1) && b % 8 >= 4.5).forEach(([b, m]) => bell(beat(b), px(m, 72, 94), { v: hard ? 290 : 250, color: hard ? (m >= 86 ? PINK : GOLD) : GOLD }));
-    SC.clap.filter(b => inBars(b, k0, k1) && b % 8 >= 4).forEach((b, i) => clapFan(beat(b), i % 2 === 0, { n: hard ? 5 : 3, spread: hard ? 0.34 : 0.26, v: hard ? 320 : 290 }));
+    SC.clap.filter(b => inBars(b, k0, k1) && b % 8 >= 4 && b % 8 < 6).forEach((b, i) => clapFan(beat(b), i % 2 === 0, { n: hard ? 5 : 3, spread: hard ? 0.34 : 0.26, v: hard ? 320 : 290 }));
     SC.tuin.filter(b => inBars(b, k0, k1) && (b * 4) % 16 === 7 && b % 8 >= 4).forEach((b, i) => zap(beat(b), clampX(pX() + (i % 2 ? 70 : -70)), { warn: 0.65 }));
   }
   dropBars(16, 32, false);
-  SC.vox.filter(([b]) => inBars(b, 20, 32) && b % 8 >= 4).forEach(([b, L, m, v], i) => L >= 0.75 ? voxRing(beat(b), px(m, 64, 82), 110, v, { n: 9, v: 140, start: i * 0.3 }) : voxBub(beat(b), px(m, 64, 82), v, { fall: 170 }));
   // 31小節: トゥインの連打 = 左から右へレーザー
   SC.tuin.filter(b => inBars(b, 31, 32) && b % 4 >= 2).forEach((b, i) => zap(beat(b), 140 + i * 170, { warn: 0.7, color: PINK }));
 
@@ -123,18 +138,18 @@ function baileChart() {
   SC.bass.filter(([b]) => inBars(b, 40, 46) && b % 1 === 0).forEach(([b], i) => fire(beat(b), 0.45, delay => stream({ x: clampX(pX() + (i % 2 ? 60 : -60)), count: 3, gap: 30, vy: 300, r: 7, delay, color: VIOLET })));
   SC.vox.filter(([b]) => inBars(b, 40, 46)).forEach(([b, L, m, v]) => voxBub(beat(b), px(m, 64, 82), v, { fall: 180 }));
   SC.clap.filter(b => inBars(b, 42, 46)).forEach((b, i) => clapFan(beat(b), i % 2 === 0, { n: 3, v: 300 }));
+  SC.byuun.filter(b => inBars(b, 40, 48)).forEach((b, i) => slam(beat(b), i % 2 === 1, { color: VIOLET }));
   hint(bar(46) - 2 * B, '連打 ─ すき間に入る');
-  [[46, 600], [46.5, 440], [47, 580], [47.5, 400]].forEach(([k, gx]) => curtainRain(bar(k), gx, { v: 330, gw: 140 }));
-  burst(bar(47) + 2 * B, () => lockOn({ track: 0.7, lock: 0.4, r: 56, color: GOLD }));
+  [[46, 440], [46.5, 570], [47, 430], [47.5, 560]].forEach(([k, gx]) => curtainRain(bar(k), gx, { v: 330, gw: 140 }));
 
   // ===== 48〜64 MANDELÃO ｜ 車が速い ／ カウベル2本 ／ クラップ5発 ／ キックの連打 = 噴き上げ ===================================
   dropBars(48, 64, true);
   SC.kick.filter(b => inBars(b, 48, 64) && (b * 4) % 16 === 13).forEach((b, i) => geyserAt(beat(b), { dx: i % 2 ? 50 : -50, n: 5 }));
-  SC.vox.filter(([b]) => inBars(b, 52, 64) && b % 8 >= 4 && b % 2 === 0).forEach(([b, L, m, v], i) => voxRing(beat(b), px(m, 64, 82), 100, v, { n: 10, v: 160, start: i * 0.27 }));
   SC.tuin.filter(b => inBars(b, 63, 64) && b % 4 >= 2).forEach((b, i) => zap(beat(b), W - 120 - i * 115, { warn: 0.7, color: GOLD }));
 
   // ===== 64〜 FIM ｜ 最後の一発 → カウベルだけ ================================================================================
   fire(bar(64), 0.8, delay => ring({ x: CX, y: 160, count: 20, speed: 170, r: 8, delay, color: PINK }));
+  vuun(bar(64) + 3 * B, { warn: 0.9 });
   SC.bell.filter(([b]) => inBars(b, 64, 66) && (b * 4) % 2 === 0).forEach(([b, m]) => bell(beat(b), px(m, 72, 92), { v: 180 }));
 
   return cues.sort((a, b) => a.t - b.t);

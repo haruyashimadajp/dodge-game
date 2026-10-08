@@ -49,7 +49,7 @@ class Bus:
         self.R[i:i + n] += (sig[:n] * gain * np.sin((pan + 1) * np.pi / 4) * np.sqrt(2)).astype(np.float32)
     def stereo(self): return np.vstack([self.L, self.R])
 
-drums, bass, bell, vox, pad, fxb = (Bus() for _ in range(6))
+drums, bass, bell, vox, pad, fxb, lead = (Bus() for _ in range(7))
 
 # ---- tools -------------------------------------------------------------------------------
 def tvec(d): return np.arange(int(d * SR)) / SR
@@ -65,12 +65,15 @@ def sq(ph): return np.sign(np.sin(2 * np.pi * ph))
 def saw(ph): return 2 * (ph % 1.0) - 1
 
 # ---- the sounds of this song --------------------------------------------------------------
-def kick(g=1.0):
-    """short punchy funk kick (the 808 carries the low end)"""
-    d = 0.32; tt = tvec(d)
-    body = np.sin(2 * np.pi * phase(55 + 160 * np.exp(-tt / 0.03), len(tt))) * np.exp(-tt / 0.12)
-    click = bp(noise(d), 1500, 6000) * np.exp(-tt / 0.004) * 0.6
-    return np.tanh(2.2 * body + click) * g
+def kick(g=1.0, hard=False):
+    """funk kick. hard = the phonk kick of the drops: a pitch that falls from 250 Hz, driven into a hard clip (it punches like a hammer)"""
+    d = 0.4 if hard else 0.32; tt = tvec(d)
+    f = (48 + 230 * np.exp(-tt / 0.022)) if hard else (55 + 160 * np.exp(-tt / 0.03))
+    body = np.sin(2 * np.pi * phase(f, len(tt))) * np.exp(-tt / (0.17 if hard else 0.12))
+    click = bp(noise(d), 1500, 7000) * np.exp(-tt / 0.004) * (1.0 if hard else 0.6)
+    if not hard: return np.tanh(2.2 * body + click) * g
+    y = np.clip(4.5 * body + click, -1, 1)
+    return (0.8 * y + 0.35 * bp(np.sign(body) * np.abs(body) ** 0.4, 300, 3000) * np.exp(-tt / 0.06)) * g
 
 def clap(g=1.0):
     """the dry funk clap: three fast bursts of band-passed noise, then a short tail"""
@@ -95,19 +98,26 @@ def shaker(g=1.0):
     d = 0.07; n = int(d * SR)
     return bp(noise(d), 4000, 12000) * np.sin(np.pi * np.arange(n) / n) ** 1.5 * g
 
-def b808(m, dur, glide_from=None, drive=4.0):
-    """the phonk 808: a sine boom with a little pitch drop, sliding from the last note, then driven hard"""
-    n = int(dur * SR); tt = np.arange(n) / SR
+def b808(m, dur, glide_from=None, drive=9.0, dive=0.0):
+    """the 'VUUUN' of montagem: an 808 sine that keeps ringing, pushed into distortion until it is almost a square wave.
+       The sub stays clean underneath; above it a band of hard-clipped, buzzing harmonics (200 Hz - 4 kHz) makes it growl
+       (that is the part you hear on a phone speaker). It starts a little sharp ('vu-'), slides from the last note,
+       and with dive > 0 it falls that many semitones at the end ('...uuun')."""
+    n = int(dur * SR); tt = np.arange(n) / SR; u = tt / max(dur, 1e-3)
     f = float(mtof(m))
     if glide_from is not None:
-        f0 = float(mtof(glide_from))
-        fr = f0 * (f / f0) ** np.clip(tt / 0.09, 0, 1)
+        semis = 12 * np.log2(float(mtof(glide_from)) / f) * np.clip(1 - tt / 0.07, 0, 1)
     else:
-        fr = f * (1 + 0.6 * np.exp(-tt / 0.02))
-    x = np.sin(2 * np.pi * phase(fr, n)) * (0.35 + 0.65 * np.exp(-tt / max(dur * 1.2, 0.2)))
-    y = np.tanh(drive * x) / np.tanh(drive)
-    y = 0.75 * y + 0.35 * lp(np.tanh(drive * 2.2 * x), 1800)      # the "dirt" on top of the boom
-    return y * env(dur, 0.003, 0.04)
+        semis = 7 * np.exp(-tt / 0.035)
+    if dive: semis = semis - dive * np.clip((u - 0.45) / 0.55, 0, 1) ** 1.6
+    ph = phase(f * 2 ** (semis / 12), n)
+    x = (np.sin(2 * np.pi * ph) + 0.22 * np.sin(4 * np.pi * ph)) * (0.8 + 0.2 * np.exp(-tt / 0.15))
+    sub = lp(np.tanh(2.5 * x), 140, 2)
+    fuzz = np.clip(drive * x, -1, 1)                                     # hard clip: almost square → odd harmonics
+    fuzz = np.round(fuzz * 12) / 12                                      # a little bit-crush grit
+    buzz = bp(fuzz, 180, 4200, 2)
+    y = 0.85 * sub + 0.55 * buzz + 0.25 * np.tanh(drive * 0.6 * x)
+    return np.tanh(1.3 * y) * env(dur, 0.003, 0.05)
 
 def cowbell(m, dur=0.22, g=1.0):
     """the phonk cowbell: two square waves (f and f * 1.48) through a band-pass; a bright hit, then a short ring"""
@@ -161,6 +171,40 @@ def riser(dur):
     tone = np.sin(2 * np.pi * phase(200 * 2 ** (u * 3), n)) * 0.3
     return (s * 0.8 + tone) * u ** 1.5
 
+def supersaw(f, n, voices=5, spread=0.18):
+    s = np.zeros(n)
+    for v in range(voices):
+        det = (v - (voices - 1) / 2) / max(1, (voices - 1) / 2) * spread
+        s += saw(phase(f * 2 ** (det / 12), n) + rng.random())
+    return s / voices
+
+def byuun(dur=0.7, f0=2200, f1=55):
+    """the synth 'BYUUUN': a detuned saw stack that dives from high to low, through a low-pass that follows it, then driven"""
+    n = int(dur * SR); tt = np.arange(n) / SR; u = tt / dur
+    f = f0 * (f1 / f0) ** (u ** 0.6)
+    x = supersaw(f, n, 5, 0.25) + 0.6 * sq(phase(f / 2, n))
+    y = np.zeros(n); blk = 1024; zi = None
+    for i in range(0, n, blk):
+        sos = signal.butter(2, min(SR * 0.45, f[i] * 5 + 200), 'low', fs=SR, output='sos')
+        if zi is None: zi = signal.sosfilt_zi(sos) * 0
+        y[i:i + blk], zi = signal.sosfilt(sos, x[i:i + blk], zi=zi)
+    return np.tanh(2.2 * y) * env(dur, 0.004, 0.12)
+
+def vwoom(dur):
+    """the rising synth 'VWOOOM' into a drop: the same stack, sweeping up, getting louder"""
+    n = int(dur * SR); u = np.arange(n) / n
+    f = 50 * (1800 / 50) ** (u ** 1.8)
+    x = supersaw(f, n, 5, 0.3) + 0.5 * np.sin(2 * np.pi * phase(f / 2, n))
+    return np.tanh(1.8 * lp(x, 6000)) * u ** 1.4
+
+def hype_lead(m, dur):
+    """a bright supersaw lead (drop 2): 7 detuned saws, a fast pluck in the filter, a little vibrato"""
+    n = int(dur * SR); tt = np.arange(n) / SR
+    f = float(mtof(m)) * (1 + 0.004 * np.sin(2 * np.pi * 6 * tt) * np.clip(tt / 0.15, 0, 1))
+    x = supersaw(f, n, 7, 0.22)
+    y = lp(x, 5200) * (0.55 + 0.45 * np.exp(-tt / 0.08)) + 0.4 * hp(x, 2500) * np.exp(-tt / 0.03)
+    return np.tanh(1.5 * y) * env(dur, 0.004, 0.06)
+
 def crash(g=1.0):
     d = 1.8; tt = tvec(d)
     return hp(noise(d), 4000, 2) * np.exp(-tt / 0.6) * g
@@ -188,14 +232,29 @@ VOX_A = [(0, 2, 'D5', 'a'), (3, 2, 'D5', 'a'), (6, 3, 'F5', 'e'), (10, 2, 'G5', 
 VOX_B = [(0, 2, 'Bb4', 'e'), (3, 2, 'C5', 'e'), (6, 3, 'D5', 'a'), (10, 2, 'F5', 'i'), (12, 2, 'G5', 'a'), (14, 2, 'Ab5', 'u')]
 CHORDS = [['G3', 'Bb3', 'D4'], ['Eb3', 'G3', 'Bb3'], ['C3', 'Eb3', 'G3'], ['D3', 'F3', 'Ab3']]
 
-score = {k: [] for k in ('kick', 'clap', 'tuin', 'crash', 'impact', 'riser', 'stop', 'bell', 'bass', 'vox', 'roll')}
+score = {k: [] for k in ('kick', 'clap', 'tuin', 'crash', 'impact', 'riser', 'stop', 'bell', 'bass', 'vox', 'roll', 'byuun', 'vwoom', 'dive', 'gap', 'lead')}
 S16 = 0.25
 
-def put_bass(B, line, oct_=0, prev=[None]):
+def put_bass(B, line, oct_=0, prev=[None], g=0.5):
     for (p, L, nm) in line:
         m = midi(nm) + oct_
-        bass.add(bt(B + p * S16), b808(m, L * S16 * BEAT + 0.02, prev[0]), 0.5)
+        bass.add(bt(B + p * S16), b808(m, L * S16 * BEAT + 0.02, prev[0]), g)
         score['bass'].append([B + p * S16, L * S16, m]); prev[0] = m
+
+def put_dive(B, nm, beats, semis, g=0.6):
+    """one long 808 'VUUUUN' that falls at the end (the start of a drop)"""
+    bass.add(bt(B), b808(midi(nm), beats * BEAT, None, 10.0, semis), g)
+    score['dive'].append(B); score['bass'].append([B, beats, midi(nm)])
+
+def put_byuun(B, g=0.2, dur=0.7, pan=0.0):
+    fxb.add(bt(B), byuun(dur), g, pan); score['byuun'].append(B)
+
+def put_lead(B, line, g=0.12, oct_=-12):
+    for i, (p, nm) in enumerate(line):
+        nxt = line[i + 1][0] if i + 1 < len(line) else 16
+        m = midi(nm) + oct_
+        lead.add(bt(B + p * S16), hype_lead(m, (nxt - p) * S16 * BEAT * 0.9), g, 0.2 * (1 if i % 2 else -1))
+        score['lead'].append([B + p * S16, (nxt - p) * S16, m])
 
 def put_bell(B, line, g=0.22, oct_=0, rec=True, pan=0.15):
     for (p, nm) in line:
@@ -211,7 +270,7 @@ def put_vox(B, line, g=0.2, oct_=0, rec=True, stretch=1.0):
 
 def funk_drums(B, k, hard=False, sparse=False):
     for p in KICK:
-        drums.add(bt(B + p * S16), kick(), 0.6); score['kick'].append(B + p * S16)
+        drums.add(bt(B + p * S16), kick(1.0, True), 0.62 if p == 0 else 0.52); score['kick'].append(B + p * S16)
     for p in CLAP:
         drums.add(bt(B + p * S16), clap(), 0.42, 0.05); score['clap'].append(B + p * S16)
     if not sparse:
@@ -259,12 +318,18 @@ for k in range(BARS):
             put_bell(B, BELL_A if a_or_b == 0 else BELL_B, 0.2)
             if k >= 12: put_vox(B, VOX_A if a_or_b == 0 else VOX_B, 0.14)
         if k == 14: snare_roll(B, 8); fxb.add(bar(14), riser(8 * BEAT), 0.3); score['riser'].append([B, B + 8])
-        if k == 15: put_vox(B + 3, [(0, 3, 'G5', 'a'), (2, 2, 'Bb5', 'e')], 0.22)
+        if k == 15:
+            put_vox(B + 3, [(0, 3, 'G5', 'a'), (2, 2, 'Bb5', 'e')], 0.22)
+            fxb.add(bar(15), vwoom(3.5 * BEAT), 0.3); score['vwoom'].append([B, B + 3.5]); score['gap'].append(B + 3.5)
+        if k in (10, 12): put_byuun(B + 3, 0.16)
     # ---- DROP "MONTAGEM" 16-32
     elif k < 32:
         if k in (16, 24): drums.add(bar(k), crash(), 0.2); fxb.add(bar(k), impact(), 0.45); score['crash'].append(B); score['impact'].append(B)
         funk_drums(B, k, hard=k >= 24)
-        put_bass(B, BASS_A if a_or_b == 0 else BASS_B)
+        if k in (16, 24): put_dive(B, 'G1', 3.5, 12)
+        else: put_bass(B, BASS_A if a_or_b == 0 else BASS_B)
+        if a_or_b == 1 and k % 4 == 3: put_byuun(B + 3, 0.2, 0.75, 0.3 if k % 8 == 3 else -0.3)
+        if k >= 28: put_lead(B, BELL_C if a_or_b == 0 else BELL_D, 0.08)
         if k < 24: put_bell(B, BELL_A if a_or_b == 0 else BELL_B, 0.34)
         else: put_bell(B, BELL_C if a_or_b == 0 else BELL_D, 0.34)
         if k >= 20: put_vox(B, VOX_A if a_or_b == 0 else VOX_B, 0.17)
@@ -301,6 +366,8 @@ for k in range(BARS):
         put_vox(B, VOX_A if a_or_b == 0 else VOX_B, 0.2)
         if k < 46: put_bell(B, BELL_C if a_or_b == 0 else BELL_D, 0.16)
         if k == 46: snare_roll(B, 8); fxb.add(bar(46), riser(8 * BEAT), 0.32); score['riser'].append([B, B + 8])
+        if k == 47: fxb.add(bar(47), vwoom(3.5 * BEAT), 0.34); score['vwoom'].append([B, B + 3.5]); score['gap'].append(B + 3.5)
+        if k in (41, 43, 45): put_byuun(B + 3, 0.16, 0.6)
     # ---- DROP 2 "MANDELÃO" 48-64: harder, 808 octave jumps, double cowbell, more chops
     elif k < 64:
         if k in (48, 56): drums.add(bar(k), crash(), 0.22); fxb.add(bar(k), impact(1.1), 0.5); score['crash'].append(B); score['impact'].append(B)
@@ -309,7 +376,10 @@ for k in range(BARS):
             for p in (13, 14, 15): drums.add(bt(B + p * S16), kick(0.8), 0.45); score['kick'].append(B + p * S16)
         line = BASS_A if a_or_b == 0 else BASS_B
         if k >= 56: line = [(p, L, nm[:-1] + str(int(nm[-1]) + (1 if i % 2 else 0))) for i, (p, L, nm) in enumerate(line)]
-        put_bass(B, line)
+        if k in (48, 56): put_dive(B, 'G1', 3.5, 14, 0.62)
+        else: put_bass(B, line, g=0.55)
+        if a_or_b == 1: put_byuun(B + 3, 0.22, 0.75, 0.3 if k % 4 == 1 else -0.3)
+        put_lead(B, BELL_C if a_or_b == 0 else BELL_D, 0.12 if k < 56 else 0.15)
         put_bell(B, BELL_C if a_or_b == 0 else BELL_D, 0.34)
         if k >= 52: put_bell(B, BELL_A if a_or_b == 0 else BELL_B, 0.1, 12, False, -0.35)    # a second, higher cowbell
         put_vox(B, VOX_A if a_or_b == 0 else VOX_B, 0.18)
@@ -320,7 +390,7 @@ for k in range(BARS):
         if k == 64:
             drums.add(bar(64), crash(), 0.24); fxb.add(bar(64), impact(1.2), 0.5); score['crash'].append(B); score['impact'].append(B)
             drums.add(bar(64), kick(), 0.7); score['kick'].append(B)
-            bass.add(bar(64), b808(midi('G1'), 8 * BEAT, None, 3.0), 0.5); score['bass'].append([B, 8, midi('G1')])
+            put_dive(B, 'G1', 8, 24, 0.6)
             pad.add(bar(64), pad_chord(CHORDS[0], 16 * BEAT, 1100), 0.25)
         if k < 66: put_bell(B, BELL_A if a_or_b == 0 else BELL_B, 0.16 - 0.04 * (k - 64))
         if k == 65: put_vox(B, [(0, 4, 'D5', 'a'), (6, 6, 'G4', 'o')], 0.16)
@@ -365,8 +435,8 @@ top = sweep_lp(top, i0, i1, 900, 9000)
 # the slowed break: the top lines get much more reverb
 slow = np.zeros(N, np.float32); slow[int(bar(32) * SR):int(bar(40) * SR)] = 1
 slow = lp(slow, 2)
-dry = drums.stereo() + bass.stereo() * 1.0 + top + pad.stereo() + fxb.stereo()
-wet = reverb(top * (0.6 + 1.6 * slow) + pad.stereo() * 0.8 + drums.stereo() * 0.12, 0.3)
+dry = drums.stereo() + bass.stereo() * 1.0 + top + pad.stereo() + fxb.stereo() + lead.stereo()
+wet = reverb(top * (0.6 + 1.6 * slow) + pad.stereo() * 0.8 + drums.stereo() * 0.12 + lead.stereo() * 0.7 + fxb.stereo() * 0.3, 0.3)
 mix = dry + wet
 mix -= np.mean(mix, axis=1, keepdims=True)
 lowm = lp((mix[0] + mix[1]) / 2, 120, 4)
@@ -382,6 +452,12 @@ def tape_stop(mix, b0, b1):
         mix[ch, i0:i1] = np.interp(pos, np.arange(len(mix[ch])), mix[ch]) * np.clip((1 - np.arange(n) / n) * 3, 0, 1)
     return mix
 mix = tape_stop(mix, 158, 160)
+# a moment of silence just before each drop (the last half beat of the build), so the drop hits harder
+gate = np.ones(N)
+for b in score['gap']:
+    i0, i1 = int(bt(b) * SR), int(bt(b + 0.5) * SR) - int(0.004 * SR)
+    gate[i0:i1] = 0; gate[i0 - 220:i0] = np.linspace(1, 0, 220)
+mix = mix * gate
 
 # phonk master: drive into a soft clip (loud and a little dirty), with a look-ahead limiter
 mix /= np.max(np.abs(mix))

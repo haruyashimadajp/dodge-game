@@ -858,9 +858,11 @@ armField(t)                   // 時刻 t の床の広さ { l, r }（px）
 lowrider({ fromLeft, v, w, h, delay, color, kicks })   // 車高の低い車が床を横切る（高さ 28px → 跳び越える）。kicks の時刻に、見た目だけはねる
 ```
 曲は songs/baile-compose.py が作る。score.json の `bell` にカウベルの旋律（[拍, 音の高さ]）、`bass` に 808（[拍, 長さ, 音の高さ]）、
-`vox` に声のチョップ（[拍, 長さ, 音の高さ, 母音]）、`kick` / `clap` / `tuin` / `roll` / `crash` / `impact` に打楽器、`stop` にテープが止まる拍が入っている。
+`vox` に声のチョップ（[拍, 長さ, 音の高さ, 母音]）、`kick` / `clap` / `tuin` / `roll` / `crash` / `impact` に打楽器、`stop` にテープが止まる拍、
+`dive` にドロップの頭の長く落ちる 808（「ヴゥゥン」）、`byuun` に落ちていくシンセ（「ビューン」）、`vwoom` に上がっていくシンセ、`gap` にドロップ前の無音、`lead` にスーパーソウのリードが入っている。
 譜面の中の道具（songs/baile.js の baileChart）: `bell`（音の高さの所に落ちるカウベル。ちょうどその拍に頭の高さへ着く）・`voxBub`（母音の文字入りのシャボン。ゆれて落ちる）・
-`voxRing`（長い声 = シャボンの輪）・`clapFan`（上のスピーカーから扇）・`zap`（トゥイン = 上からのレーザー）・`car`（lowrider）・`geyserAt`・`curtainRain`。
+`voxRing`（長い声 = シャボンの輪）・`clapFan`（上のスピーカーから扇）・`zap`（トゥイン = 上からのレーザー）・`car`（lowrider）・`geyserAt`・`curtainRain`・
+`vuun`（808 の「ヴゥゥン」が落ちきる所 = 床のビーム）・`slam`（「ビューン」= 上のすみからのななめのビーム）。ドロップでは声の弾は出さない。
 ドロップは 2 小節で 1 組: 1 小節目は車だけ、2 小節目にカウベル・クラップ・トゥイン（跳んでいる間に当たらないように）。SLOWED（32〜40 小節）は弾の速さが 0.72 倍。
 スキン（見た目の「しるし」）に `sig: 'disco'`（頭の上のミラーボール）を足した。
 
