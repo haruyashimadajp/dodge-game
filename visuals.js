@@ -394,7 +394,7 @@ function freeArt(st) {
     if (v instanceof CanvasPattern) return true;
     let had = false;
     const plain = v && (Array.isArray(v) || Object.getPrototypeOf(v) === Object.prototype);   // ふつうの配列・オブジェクトの中だけ見る
-    if (d < 3 && plain) for (const k in v) if (free(v[k], d + 1)) had = true;
+    if (d < 4 && plain) for (const k in v) if (free(v[k], d + 1)) had = true;
     return had;
   };
   for (const k in st) if (free(st[k], 0)) st[k] = null;
@@ -406,7 +406,7 @@ function releaseOtherArt() {
   const now = song && song.theme;
   if (now === artOwner) return;
   artOwner = now;
-  releaseLayers();
+  releaseLayers(); glowPool.clear();
   for (const k in THEMES) if (k !== now && THEMES[k].release) THEMES[k].release();
 }
 // タイトルにもどったら、今の曲の絵も含めて全部手放す（次に描くときに作り直す）。曲の途中で作った絵が残らないように

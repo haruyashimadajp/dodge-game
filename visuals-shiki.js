@@ -68,8 +68,8 @@
         ridge.push(base - amp * (0.55 * Math.abs(Math.sin(u * (1.5 + i * 0.7) + i)) + 0.3 * Math.sin(u * (4.1 + i) + i * 2) ** 2 + 0.15 * Math.sin(u * 11 + i * 5)));
       }
       const draw = (col, a, snow) => {
-        const c = document.createElement('canvas'); c.width = w; c.height = h + 40;
-        const q = c.getContext('2d');
+        const c = document.createElement('canvas'); c.width = w / 2; c.height = (h + 40) / 2;   // 半分の大きさで描いて、2倍にのばして貼る（ぼかした墨なので見た目は同じ。メモリは 1/4）
+        const q = c.getContext('2d'); q.scale(0.5, 0.5);
         const gr = q.createLinearGradient(0, 40, 0, h);
         gr.addColorStop(0, rgba(col, a)); gr.addColorStop(0.55, rgba(col, a * 0.45)); gr.addColorStop(1, rgba(col, 0));
         q.fillStyle = gr;
@@ -96,7 +96,9 @@
         }
         return c;
       };
-      return { day: draw([28, 22, 30], 0.32 + i * 0.12, false), night: draw([120, 140, 200], 0.18 + i * 0.07, false), snow: draw([170, 190, 225], 0.2 + i * 0.08, true), w, speed: 3 + i * 4 };
+      // 昼の墨 / 夜の青 / 雪 の絵は、使うときに作り、しばらく使わなければ手放す（3つ全部をずっと持つと、メモリが重い）
+      const make = { day: () => draw([28, 22, 30], 0.32 + i * 0.12, false), night: () => draw([120, 140, 200], 0.18 + i * 0.07, false), snow: () => draw([170, 190, 225], 0.2 + i * 0.08, true) };
+      return { make, art: {}, used: {}, w, speed: 3 + i * 4 };
     });
 
     // 左の大きな木（枝は墨）＋ 季節ごとの樹冠
@@ -283,7 +285,7 @@
      （山の動きは1秒に数px なので、描き直しが少なくても見た目は同じ）。花火・流れ星・雁・ホタル・花びらは毎コマ描く */
   function layerCanvas(name) {
     let c = st[name];
-    if (!c || c.width !== cv.width || c.height !== cv.height) { c = st[name] = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.dirty = true; }
+    if (!c || c.width !== cv.width || c.height !== cv.height) { releaseCanvas(c); c = st[name] = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.dirty = true; }
     return c;
   }
   // every = 何コマに 1 回描き直すか（phase でずらして、重い描き直しが同じコマに重ならないようにする）
@@ -374,9 +376,11 @@
     st.mtn.forEach((m, i) => {
       const off = -((T * m.speed) % (m.w - W)), y = 160 + i * 40;
       const day = 1 - nt;
-      if (day > 0.01) { ctx.globalAlpha = day; ctx.drawImage(m.day, off, y); }
-      if (nt - SW.winter > 0.01) { ctx.globalAlpha = nt - SW.winter; ctx.drawImage(m.night, off, y); }
-      if (SW.winter > 0.01) { ctx.globalAlpha = SW.winter; ctx.drawImage(m.snow, off, y); }
+      const put = (key, a) => {
+        if (a > 0.01) { ctx.globalAlpha = a; ctx.drawImage(m.art[key] || (m.art[key] = m.make[key]()), off, y, m.w, 400); m.used[key] = st.fc; }
+        else if (m.art[key] && st.fc - m.used[key] > 240) { releaseCanvas(m.art[key]); m.art[key] = null; }
+      };
+      put('day', day); put('night', nt - SW.winter); put('snow', SW.winter);
       ctx.globalAlpha = 1;
       // 霧の帯
       const my = y + 210, gr = ctx.createLinearGradient(0, my - 50, 0, my + 50);
@@ -476,48 +480,74 @@
     ctx.beginPath();
     for (const q of f.parts) { ctx.moveTo(f.x + q.vx * e0, f.y + q.vy * e0 + g0); ctx.lineTo(f.x + q.vx * e1, f.y + q.vy * e1 + g1); }
     ctx.stroke();
-    for (let i = 0; i < f.parts.length; i++) {                              // 光の粒の頭（二重の花火は内と外で色がちがう。色がかわっていく）
-      const q = f.parts[i], c2 = f.kind === 'double' && i % 2 ? f.col2 : mixC(f.col, f.col2, clamp01(p * 1.5 - 0.3));
-      ctx.fillStyle = rgba(mixC(c2, WHITE, 0.4), a);
-      const sz = f.kind === 'ring' ? 3.5 : 3;
-      ctx.fillRect(f.x + q.vx * e1 - sz / 2, f.y + q.vy * e1 + g1 - sz / 2, sz, sz);
+    {                                                                       // 光の粒の頭（二重の花火は内と外で色がちがう。色がかわっていく）。色ごとに 1 回で塗る
+      const sz = f.kind === 'ring' ? 3.5 : 3, dbl = f.kind === 'double';
+      for (let odd = 0; odd < (dbl ? 2 : 1); odd++) {
+        const c2 = odd ? f.col2 : mixC(f.col, f.col2, clamp01(p * 1.5 - 0.3));
+        ctx.fillStyle = rgba(mixC(c2, WHITE, 0.4), a);
+        ctx.beginPath();
+        for (let i = dbl ? odd : 0; i < f.parts.length; i += dbl ? 2 : 1) { const q = f.parts[i]; ctx.rect(f.x + q.vx * e1 - sz / 2, f.y + q.vy * e1 + g1 - sz / 2, sz, sz); }
+        ctx.fill();
+      }
     }
     if (f.t < 0.15) { ctx.globalAlpha = 1 - f.t / 0.15; ctx.drawImage(glowSprite(f.col), f.x - 60, f.y - 60, 120, 120); ctx.globalAlpha = 1; }
     if (gfx > 0) {                                                          // きらきら
       ctx.fillStyle = rgba(WHITE, 0.8 * a);
-      for (let i = 0; i < f.parts.length; i += 3) if (Math.random() < 0.5) { const q = f.parts[i]; ctx.fillRect(f.x + q.vx * e1 - 1, f.y + q.vy * e1 + g1 - 1, 2, 2); }
+      ctx.beginPath();
+      for (let i = 0; i < f.parts.length; i += 3) if (Math.random() < 0.5) { const q = f.parts[i]; ctx.rect(f.x + q.vx * e1 - 1, f.y + q.vy * e1 + g1 - 1, 2, 2); }
+      ctx.fill();
     }
     ctx.globalCompositeOperation = 'source-over';
   }
   // 花びら・もみじは、回した点を直接計算して描く（save / restore を毎回するより軽い）
-  function petalShape(x, y, r, a, col, alpha) {
+  // 形を今の道（path）に足すだけ。塗るのは、同じ色をまとめて 1 回（1枚ずつ塗るより、ずっと軽い）
+  function petalShape(x, y, r, a) {
     const c = Math.cos(a), sn = Math.sin(a), sy = 0.55 + 0.45 * Math.sin(a * 1.7);
     const X = (u, v) => x + c * u - sn * v * sy, Y = (u, v) => y + sn * u + c * v * sy;
-    ctx.fillStyle = rgba(col, alpha);
-    ctx.beginPath(); ctx.moveTo(X(0, -r), Y(0, -r));
+    ctx.moveTo(X(0, -r), Y(0, -r));
     ctx.quadraticCurveTo(X(r, -r * 0.2), Y(r, -r * 0.2), X(0, r), Y(0, r));
-    ctx.quadraticCurveTo(X(-r, -r * 0.2), Y(-r, -r * 0.2), X(0, -r), Y(0, -r)); ctx.fill();
+    ctx.quadraticCurveTo(X(-r, -r * 0.2), Y(-r, -r * 0.2), X(0, -r), Y(0, -r));
   }
-  function mapleShape(x, y, r, a, col, alpha) {
+  function mapleShape(x, y, r, a, vein) {
     const c = Math.cos(a), sn = Math.sin(a);
     const X = (u, v) => x + c * u - sn * v, Y = (u, v) => y + sn * u + c * v;
-    ctx.fillStyle = rgba(col, alpha);
-    ctx.beginPath();
+    if (vein) {
+      ctx.moveTo(X(0, r * 1.2), Y(0, r * 1.2)); ctx.lineTo(X(0, -r * 0.8), Y(0, -r * 0.8));
+      ctx.moveTo(x, y); ctx.lineTo(X(r * 0.8, -r * 0.3), Y(r * 0.8, -r * 0.3)); ctx.moveTo(x, y); ctx.lineTo(X(-r * 0.8, -r * 0.3), Y(-r * 0.8, -r * 0.3));
+      return;
+    }
     for (let i = 0; i < 10; i++) {
       const ang = -Math.PI / 2 + i * TAU / 10, rr = i % 2 ? r * 0.45 : r * (i === 4 || i === 6 ? 0.8 : 1);
-      ctx.lineTo(X(Math.cos(ang) * rr, Math.sin(ang) * rr), Y(Math.cos(ang) * rr, Math.sin(ang) * rr));
+      ctx[i ? 'lineTo' : 'moveTo'](X(Math.cos(ang) * rr, Math.sin(ang) * rr), Y(Math.cos(ang) * rr, Math.sin(ang) * rr));
     }
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = rgba(mixC(col, [60, 10, 0], 0.5), alpha * 0.8); ctx.lineWidth = 0.8;
-    ctx.beginPath(); ctx.moveTo(X(0, r * 1.2), Y(0, r * 1.2)); ctx.lineTo(X(0, -r * 0.8), Y(0, -r * 0.8));
-    ctx.moveTo(x, y); ctx.lineTo(X(r * 0.8, -r * 0.3), Y(r * 0.8, -r * 0.3)); ctx.moveTo(x, y); ctx.lineTo(X(-r * 0.8, -r * 0.3), Y(-r * 0.8, -r * 0.3)); ctx.stroke();
+    ctx.closePath();
   }
+  const leafCols = new Map();                                               // もみじの色 → 塗る色・葉脈の色（毎コマ作り直さない）
+  const leafCol = c => { const k = c.join(); let v = leafCols.get(k); if (!v) { const m = mixC(c, [120, 70, 50], 0.35); leafCols.set(k, v = [rgba(m, 0.55), rgba(mixC(m, [60, 10, 0], 0.5), 0.44)]); } return v; };
   function drawParticles(front, T) {
-    for (const p of st.petals) if (!!p.front === front) petalShape(p.x, p.y, p.r * (front ? 1.4 : 1), p.a, [255, 196, 214], front ? 0.95 : 0.8);
-    if (!front) for (const p of st.leaves) mapleShape(p.x, p.y, p.r, p.a, mixC(p.c, [120, 70, 50], 0.35), 0.55);
-    if (st.snow.length) {
+    if (st.petals.length) {
+      ctx.fillStyle = rgba([255, 196, 214], front ? 0.95 : 0.8);
+      ctx.beginPath();
+      for (const p of st.petals) if (!!p.front === front) petalShape(p.x, p.y, p.r * (front ? 1.4 : 1), p.a);
+      ctx.fill();
+    }
+    if (!front && st.leaves.length) {
+      const groups = new Map();
+      for (const p of st.leaves) { const k = leafCol(p.c); let g = groups.get(k); if (!g) groups.set(k, g = []); g.push(p); }
+      ctx.lineWidth = 0.8;
+      for (const [cols, g] of groups) {
+        ctx.fillStyle = cols[0]; ctx.beginPath(); for (const p of g) mapleShape(p.x, p.y, p.r, p.a, false); ctx.fill();
+        ctx.strokeStyle = cols[1]; ctx.beginPath(); for (const p of g) mapleShape(p.x, p.y, p.r, p.a, true); ctx.stroke();
+      }
+    }
+    if (st.snow.length) {                                                   // 雪: こさを 4 段にまとめて、段ごとに 1 回で塗る（1粒ずつ塗るより、ずっと軽い）
       ctx.fillStyle = '#fff';
-      for (const p of st.snow) if ((p.z > 0.75) === front) { ctx.globalAlpha = 0.5 + 0.5 * p.z; ctx.beginPath(); ctx.arc(p.x, p.y, 1 + p.z * 2.2, 0, TAU); ctx.fill(); }
+      for (let q = 0; q < 4; q++) {
+        const lo = 0.3 + q * 0.175, hi = lo + 0.175;
+        ctx.beginPath();
+        for (const p of st.snow) if ((p.z > 0.75) === front && p.z >= lo && (p.z < hi || q === 3)) { const r = 1 + p.z * 2.2; ctx.moveTo(p.x + r, p.y); ctx.arc(p.x, p.y, r, 0, TAU); }
+        ctx.globalAlpha = 0.5 + 0.5 * (lo + 0.0875); ctx.fill();
+      }
       ctx.globalAlpha = 1;
     }
   }
@@ -869,9 +899,14 @@
   // もみじ（弾）
   function bullet(b, c, k) {
     if (b.style === 'leaf') {                                               // 当たるもみじ: 大きく、白いふちどり
-      ctx.save(); ctx.shadowColor = 'rgba(255,250,230,0.95)'; ctx.shadowBlur = gfx > 0 ? 8 : 0;
-      mapleShape(b.x, b.y, b.r * 1.7, b.rot, c, 1);
-      ctx.restore();
+      // 白いにじみは光の絵を下に貼る（shadowBlur はスマホでとても重いので使わない）＋ 白いふちどり
+      const r = b.r * 1.7;
+      if (gfx > 0) { ctx.globalAlpha = 0.7; ctx.drawImage(glowSprite(WHITE), b.x - r * 2.2, b.y - r * 2.2, r * 4.4, r * 4.4); ctx.globalAlpha = 1; }
+      ctx.beginPath(); mapleShape(b.x, b.y, r, b.rot, false);
+      ctx.strokeStyle = 'rgba(255,250,230,0.9)'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke(); ctx.lineJoin = 'miter';
+      ctx.fillStyle = rgba(c, 1); ctx.fill();
+      ctx.strokeStyle = rgba(mixC(c, [60, 10, 0], 0.5), 0.8); ctx.lineWidth = 0.8;
+      ctx.beginPath(); mapleShape(b.x, b.y, r, b.rot, true); ctx.stroke();
       return;
     }
     ctx.fillStyle = rgba(c, 1); ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
@@ -897,7 +932,7 @@
   }
 
   // つららが割れた
-  window.fxShatter = function (x, y, b) {
+  window.fxIceShatter = function (x, y, b) {
     sparks(x, y - 4, { n: 14, color: '#e8f6ff', speed: 220, life: 0.5, size: 2.4, gravity: 600, dir: -Math.PI / 2, spread: 2.6 });
   };
 

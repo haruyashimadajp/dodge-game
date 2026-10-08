@@ -2433,7 +2433,7 @@ function icicle({ x, len = 56, g = 1500, delay = 0.8, color = '#cfeaff' }) {
     kind: 'icicle', x, y: -len, r: 7, len, vy: 0, g, delay, color, spd: 1,
     move(b, dt) {
       b.vy += b.g * dt; b.y += b.vy * dt;
-      if (b.y >= GROUND_Y) { b.dead = true; if (typeof fxShatter === 'function') fxShatter(b.x, GROUND_Y, b); }
+      if (b.y >= GROUND_Y) { b.dead = true; if (typeof fxIceShatter === 'function') fxIceShatter(b.x, GROUND_Y, b); }
     },
     hits: b => segmentHitsPlayer(b.x, b.y - b.len, b.x, b.y, 6),
   });
