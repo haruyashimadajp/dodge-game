@@ -354,8 +354,9 @@ function updateBullets(dt) {
   // Collision: bullet (circle) vs player (rect). A bullet with its own
   // hits(b) test (lasers) uses that instead; b.safe = just for show.
   if (invuln <= 0) {
-    const grow = runMods.big ? 5 : 0, keep = { x: player.x, y: player.y, w: player.w, h: player.h };
-    if (grow) { player.x -= grow; player.y -= grow; player.w += grow * 2; player.h += grow * 2; }   // ひねり「当たり判定が大きい」
+    // 当たり判定は見た目より HIT_INSET ずつ内側（ひねり「当たり判定が大きい」の時は +5）
+    const grow = (runMods.big ? 5 : 0) - HIT_INSET, keep = { x: player.x, y: player.y, w: player.w, h: player.h };
+    if (grow) { player.x -= grow; player.y -= grow; player.w += grow * 2; player.h += grow * 2; }
     let hit = false;
     try {
       for (const b of bullets) {
@@ -371,6 +372,8 @@ function updateBullets(dt) {
   if (songTime >= SONG_END) winGame();
 }
 
+// 当たり判定の小ささ: 見た目（20×20）の四方を、これだけ内側にする（4 → 12×12）。かすりは見た目の大きさから数える
+const HIT_INSET = 4;
 // ---- かすり（グレイズ）: 当たらずに、すぐそばを弾が通った -----------------------------------
 // プレイヤーの当たり判定を GRAZE だけ広げて、もう一度当たり判定をする。広げた時だけ当たる弾 = かすった。
 // （それぞれの弾が自分の当たり判定 hits() を持っていても、同じやり方で使える）。1つの弾は1回だけ数える
