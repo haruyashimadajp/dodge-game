@@ -1325,6 +1325,7 @@ function paintHero(g, x, y, w, h, f, baseY, wob, sk) {
   // ---- うしろ ----
   if (sk.magicCircle) paintMagicCircle(g, cx, y + h * 0.55, w, h, sk.magicCircle, t);
   if (sk.orbs) paintOrbs(g, sk.orbs, cx, y, w, h, t, -1);
+  if (sk.sig) paintSig(g, sk, x, y, w, h, f, cx, bodyTop, baseY, t, false);
   if (has('tails')) paintTails(g, sk, cx, f, w, h, baseY, t);
   if (has('bigbow')) paintBigBow(g, sk.bigbow || '#ff5c8a', cx - f * w * 0.42, bodyTop + h * 0.2, w, h, t);
   if (sk.aura) {                                                 // 光るふち（ゆっくり脈打つ）
@@ -1491,6 +1492,7 @@ function paintHero(g, x, y, w, h, f, baseY, wob, sk) {
   }
   if (has('tiara')) paintTiara(g, cx, y, w, h, sk, t);
   if (sk.orbs) paintOrbs(g, sk.orbs, cx, y, w, h, t, 1);
+  if (sk.sig) paintSig(g, sk, x, y, w, h, f, cx, bodyTop, baseY, t, true);
   if (sk.sparkle) {                                              // まわりを回る、きらきらの星
     g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = sk.sparkle;
     for (let i = 0; i < 4; i++) {
@@ -1577,6 +1579,233 @@ function paintMagicCircle(g, cx, cy, w, h, col, t) {
   for (let i = 0; i < 12; i++) { const q = -a * 1.5 + i * TAU / 12; g.fillRect(Math.cos(q) * R * 0.91 - 1, Math.sin(q) * R * 0.91 - 1, 2.2, 2.2); }
   g.restore();
 }
+// ---- スキンごとの「しるし」の演出（sk.sig）。魔法陣ばかりにならないよう、スキンの名前に合わせた動きを 1 つずつ ----
+//   front = false … 体よりうしろ / true … 体より前。sk.sigColor で色を変えられる
+const SIG_RAINBOW = ['#ff4d4d', '#ff9f43', '#ffe66d', '#5cff9d', '#4dd2ff', '#6c7bff', '#c77dff'];
+const sigHash = n => { const v = Math.sin(n * 127.1) * 43758.5453; return v - Math.floor(v); };
+function paintSig(g, sk, x, y, w, h, f, cx, bodyTop, baseY, t, front) {
+  const S = sk.sig, c = sk.sigColor || sk.glow || '#ffffff', cy = y + h * 0.5;
+  const star4 = (px, py, r) => { g.beginPath(); g.moveTo(px, py - r); g.quadraticCurveTo(px, py, px + r, py); g.quadraticCurveTo(px, py, px, py + r); g.quadraticCurveTo(px, py, px - r, py); g.quadraticCurveTo(px, py, px, py - r); g.fill(); };
+  g.save();
+  if (!front) {
+    if (S === 'flames') {                                        // 体のうしろから、ゆらめく炎が立ちのぼる
+      g.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 5; i++) {
+        const px = cx + (i - 2) * w * 0.28, ph = t * 9 + i * 1.7, fh = h * (0.55 + 0.25 * Math.sin(ph) + (i % 2 ? 0 : 0.2)), fw = w * 0.2;
+        for (const [col, k] of [[c, 1], ['#ffe066', 0.55]]) {
+          g.fillStyle = col; g.globalAlpha = k === 1 ? 0.55 : 0.6;
+          const top = baseY - h * 0.25 - fh * k, sway = Math.sin(ph * 0.7) * w * 0.08;
+          g.beginPath(); g.moveTo(px - fw * k, baseY - h * 0.2); g.quadraticCurveTo(px - fw * k, top + fh * 0.4 * k, px + sway, top); g.quadraticCurveTo(px + fw * k, top + fh * 0.4 * k, px + fw * k, baseY - h * 0.2); g.fill();
+        }
+      }
+    } else if (S === 'smoke') {                                  // 黒いけむり（ふちだけ色がにじむ）が、ゆらゆら立ちのぼる
+      g.lineCap = 'round';
+      for (let i = 0; i < 4; i++) {                                // 細くうねる筋が、体の両わきから上へ
+        const side = i % 2 ? 1 : -1, p = (t * 0.5 + i / 4) % 1, x0 = cx + side * w * (0.45 + 0.1 * (i >> 1)), y0 = baseY - h * 0.1;
+        const L = h * (0.9 + 0.5 * p), sw = Math.sin(t * 2.5 + i) * w * 0.35;
+        g.globalAlpha = 0.65 * Math.sin(p * Math.PI);
+        for (const [col, lw] of [[c, w * 0.13], ['#05030a', w * 0.05]]) {
+          g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(x0, y0);
+          g.bezierCurveTo(x0 + side * w * 0.3 + sw, y0 - L * 0.35, x0 - side * w * 0.2 - sw, y0 - L * 0.7, x0 + side * w * 0.15 + sw * 0.5, y0 - L); g.stroke();
+        }
+      }
+    } else if (S === 'rays') {                                   // うしろで回る、日の光の筋
+      g.globalCompositeOperation = 'lighter'; g.fillStyle = c;
+      const R = w * 1.35;
+      for (let i = 0; i < 12; i++) {
+        const a = t * 0.4 + i * TAU / 12, L = R * (i % 2 ? 0.75 : 1) * (0.9 + 0.1 * Math.sin(t * 3 + i));
+        g.globalAlpha = 0.28; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a - 0.09) * L, cy + Math.sin(a - 0.09) * L); g.lineTo(cx + Math.cos(a + 0.09) * L, cy + Math.sin(a + 0.09) * L); g.fill();
+      }
+      g.globalAlpha = 0.35; g.beginPath(); g.arc(cx, cy, w * 0.55, 0, TAU); g.fill();
+    } else if (S === 'stars') {                                  // 星座: 星を線でつなぐ。星はまたたく
+      const pts = [[-1, -0.7], [-0.55, -1.05], [0.1, -0.85], [0.75, -1.1], [1.05, -0.45], [0.85, 0.35], [-1.1, 0.2]].map(([a, b]) => [cx + a * w * 0.95, cy + b * h * 0.75]);
+      g.strokeStyle = c; g.globalAlpha = 0.45; g.lineWidth = 0.8; g.beginPath(); pts.forEach(([px, py], i) => g[i ? 'lineTo' : 'moveTo'](px, py)); g.stroke();
+      g.globalCompositeOperation = 'lighter'; g.fillStyle = '#ffffff';
+      pts.forEach(([px, py], i) => { g.globalAlpha = 0.5 + 0.5 * Math.sin(t * 4 + i * 1.3); star4(px, py, w * (0.07 + 0.05 * Math.abs(Math.sin(t * 2 + i)))); });
+    } else if (S === 'prism') {                                  // 虹色の光の帯が、ゆっくり回る
+      g.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 7; i++) {
+        const a = -t * 0.5 + i * TAU / 7, L = w * 1.2;
+        g.fillStyle = SIG_RAINBOW[i]; g.globalAlpha = 0.2;
+        g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a - 0.14) * L, cy + Math.sin(a - 0.14) * L); g.lineTo(cx + Math.cos(a + 0.14) * L, cy + Math.sin(a + 0.14) * L); g.fill();
+      }
+    } else if (S === 'clock') {                                  // 時計の文字盤: 歯車のふちが回り、針が進む
+      g.translate(cx, cy); g.strokeStyle = c; g.fillStyle = c; g.globalAlpha = 0.6;
+      const R = w * 0.95;
+      g.lineWidth = 1.4; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.stroke();
+      for (let i = 0; i < 12; i++) { const a = i * TAU / 12, k = i % 3 ? 0.9 : 0.8; g.lineWidth = i % 3 ? 1 : 2; g.beginPath(); g.moveTo(Math.cos(a) * R * k, Math.sin(a) * R * k); g.lineTo(Math.cos(a) * R * 0.98, Math.sin(a) * R * 0.98); g.stroke(); }
+      for (let i = 0; i < 20; i++) { const a = t * 0.3 + i * TAU / 20; g.fillRect(Math.cos(a) * R * 1.1 - 1.5, Math.sin(a) * R * 1.1 - 1.5, 3, 3); }   // 歯車の歯
+      g.lineCap = 'round';
+      for (const [sp, L, lw] of [[2.4, 0.85, 1.2], [0.2, 0.55, 2]]) { const a = t * sp - Math.PI / 2; g.lineWidth = lw; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * R * L, Math.sin(a) * R * L); g.stroke(); }
+    } else if (S === 'code') {                                   // 0 と 1 が、うしろを流れ落ちる
+      g.fillStyle = c; g.font = `700 ${Math.max(6, w * 0.24) | 0}px monospace`; g.textAlign = 'center';
+      for (let col = 0; col < 6; col++) {
+        const px = cx + (col - 2.5) * w * 0.36, sp = 0.6 + sigHash(col) * 0.6;
+        for (let k = 0; k < 4; k++) {
+          const p = (t * sp + k / 4 + sigHash(col + 9)) % 1, py = y - h * 0.5 + p * h * 1.9;
+          g.globalAlpha = 0.7 * Math.sin(p * Math.PI); g.fillText(sigHash(col * 7 + k + Math.floor(t * 4)) < 0.5 ? '0' : '1', px, py);
+        }
+      }
+    } else if (S === 'moon') {                                   // 大きな三日月
+      const mx = cx - f * w * 0.35, my = y - h * 0.05, R = w * 0.75;
+      g.globalAlpha = 0.85; g.fillStyle = c; g.beginPath(); g.arc(mx, my, R, 0, TAU); g.fill();
+      g.globalCompositeOperation = 'destination-out'; g.globalAlpha = 1; g.beginPath(); g.arc(mx + R * 0.45, my - R * 0.2, R * 0.9, 0, TAU); g.fill();
+    } else if (S === 'radar') {                                  // レーダー: 回る線と、映った点
+      g.translate(cx, cy); g.strokeStyle = c; g.globalAlpha = 0.5; g.lineWidth = 1;
+      const R = w * 1.0, a = t * 2.2;
+      for (const k of [1, 0.6]) { g.beginPath(); g.arc(0, 0, R * k, 0, TAU); g.stroke(); }
+      g.beginPath(); g.moveTo(-R, 0); g.lineTo(R, 0); g.moveTo(0, -R); g.lineTo(0, R); g.stroke();
+      g.fillStyle = c; g.globalAlpha = 0.3; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, R, a - 0.7, a); g.closePath(); g.fill();
+      for (let i = 0; i < 3; i++) { const b = sigHash(i) * TAU, d = (a - b) % TAU; g.globalAlpha = Math.max(0, 1 - ((d + TAU) % TAU) / 3); g.beginPath(); g.arc(Math.cos(b) * R * (0.4 + i * 0.2), Math.sin(b) * R * (0.4 + i * 0.2), 2.2, 0, TAU); g.fill(); }
+    } else if (S === 'ecg') {                                    // 心電図の線が流れる（止まらない鼓動）
+      g.strokeStyle = c; g.lineWidth = 1.6; g.globalCompositeOperation = 'lighter';
+      const L = w * 2.6, x0 = cx - L / 2, my = cy, ph = (t * 0.9) % 1;
+      g.beginPath();
+      for (let i = 0; i <= 52; i++) {
+        const u = i / 52, k = ((u - ph) % 0.5 + 0.5) % 0.5 / 0.5;
+        const beat = k > 0.42 && k < 0.58 ? [0, -0.9, 1, -0.3, 0][Math.min(4, Math.floor((k - 0.42) / 0.032))] : 0;
+        g[i ? 'lineTo' : 'moveTo'](x0 + u * L, my + beat * h * 0.45);
+      }
+      g.globalAlpha = 0.75; g.stroke();
+    } else if (S === 'ring') {                                   // 土星の輪（うしろ半分）
+      g.strokeStyle = c; g.lineWidth = 2.5; g.globalAlpha = 0.7;
+      g.beginPath(); g.ellipse(cx, cy, w * 1.05, h * 0.22, -0.25 + Math.sin(t) * 0.08, Math.PI, TAU); g.stroke();
+    } else if (S === 'eyes') {                                   // 暗やみに、赤い目がいくつも開いては閉じる
+      for (let i = 0; i < 5; i++) {
+        const a = i * TAU / 5 + 0.4, px = cx + Math.cos(a) * w * 0.95, py = cy + Math.sin(a) * h * 0.75, o = Math.max(0, Math.sin(t * 1.3 + i * 2.1));
+        const ew = w * 0.16, eh = ew * 0.55 * o;
+        if (eh < 0.3) continue;
+        g.fillStyle = '#ffffff'; g.globalAlpha = 0.85; g.beginPath(); g.ellipse(px, py, ew, eh, 0, 0, TAU); g.fill();
+        g.fillStyle = c; g.beginPath(); g.arc(px + Math.sin(t * 2 + i) * ew * 0.3, py, Math.min(eh, ew * 0.45), 0, TAU); g.fill();
+      }
+    } else if (S === 'speed') {                                  // うしろへ流れる、速さの線
+      g.strokeStyle = c; g.lineCap = 'round'; g.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 7; i++) {
+        const p = (t * 2.2 + sigHash(i)) % 1, py = y + h * (0.05 + i * 0.15), L = w * (0.5 + sigHash(i + 3) * 0.6);
+        const px = cx - f * (w * 0.4 + p * w * 1.6);
+        g.globalAlpha = 0.8 * (1 - p); g.lineWidth = 1.5; g.beginPath(); g.moveTo(px, py); g.lineTo(px - f * L, py); g.stroke();
+      }
+    } else if (S === 'flag') {                                   // 背中の旗（はためく）
+      const px = cx - f * w * 0.55, top = y - h * 0.9;
+      g.strokeStyle = '#d8d8d8'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(px, baseY - h * 0.3); g.lineTo(px, top); g.stroke();
+      g.fillStyle = c; g.beginPath(); g.moveTo(px, top);
+      for (let i = 0; i <= 8; i++) { const u = i / 8; g.lineTo(px - f * u * w * 0.9, top + Math.sin(t * 6 - u * 4) * h * 0.06 * u); }
+      for (let i = 8; i >= 0; i--) { const u = i / 8; g.lineTo(px - f * u * w * 0.9, top + h * 0.45 + Math.sin(t * 6 - u * 4) * h * 0.06 * u); }
+      g.fill();
+      g.fillStyle = '#ffd23f'; star4(px - f * w * 0.42, top + h * 0.22 + Math.sin(t * 6 - 2) * h * 0.03, w * 0.13);
+    }
+  } else {
+    if (S === 'snowflakes' || S === 'shuriken' || S === 'shards') {   // まわりを回る（雪の結晶 / 手裏剣 / 水晶のかけら）
+      g.fillStyle = c; g.strokeStyle = c;
+      for (let i = 0; i < 3; i++) {
+        const a = t * (S === 'shuriken' ? 2.2 : 0.9) + i * TAU / 3, px = cx + Math.cos(a) * w * 0.95, py = cy + Math.sin(a) * h * 0.55, r = w * 0.15, spin = t * (S === 'shuriken' ? 14 : 1.5) + i;
+        g.save(); g.translate(px, py); g.rotate(spin); g.globalAlpha = 0.9;
+        if (S === 'snowflakes') { g.lineWidth = 1.1; g.beginPath(); for (let k = 0; k < 6; k++) { const q = k * TAU / 6; g.moveTo(0, 0); g.lineTo(Math.cos(q) * r, Math.sin(q) * r); g.moveTo(Math.cos(q) * r * 0.55, Math.sin(q) * r * 0.55); g.lineTo(Math.cos(q + 0.5) * r * 0.75, Math.sin(q + 0.5) * r * 0.75); } g.stroke(); }
+        else if (S === 'shuriken') { g.beginPath(); for (let k = 0; k < 8; k++) { const q = k * TAU / 8, rr2 = k % 2 ? r * 0.3 : r; g.lineTo(Math.cos(q) * rr2, Math.sin(q) * rr2); } g.fill(); g.fillStyle = '#111'; g.beginPath(); g.arc(0, 0, r * 0.18, 0, TAU); g.fill(); }
+        else { g.beginPath(); g.moveTo(0, -r * 1.2); g.lineTo(r * 0.55, 0); g.lineTo(0, r * 1.2); g.lineTo(-r * 0.55, 0); g.fill(); g.fillStyle = '#ffffff'; g.globalAlpha = 0.7; g.beginPath(); g.moveTo(0, -r * 1.2); g.lineTo(r * 0.2, 0); g.lineTo(0, r * 0.3); g.fill(); }
+        g.restore();
+      }
+    } else if (S === 'petals' || S === 'feathers') {             // 舞う花びら / 落ちる羽根
+      for (let i = 0; i < 5; i++) {
+        const p = (t * (S === 'petals' ? 0.35 : 0.25) + i / 5) % 1, a = p * TAU * (S === 'petals' ? 1.5 : 0.5) + i;
+        const px = S === 'petals' ? cx + Math.cos(a) * w * (0.6 + p * 0.5) : cx + (sigHash(i) - 0.5) * w * 2 + Math.sin(t * 2 + i) * w * 0.2;
+        const py = S === 'petals' ? cy + Math.sin(a) * h * 0.5 - p * h * 0.3 : y - h * 0.6 + p * h * 1.8;
+        g.save(); g.translate(px, py); g.rotate(t * 2 + i); g.globalAlpha = Math.sin(p * Math.PI); g.fillStyle = c;
+        const r = w * (S === 'petals' ? 0.11 : 0.16);
+        g.beginPath(); g.ellipse(0, 0, r, r * (S === 'petals' ? 0.55 : 0.32), 0, 0, TAU); g.fill();
+        if (S === 'feathers') { g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(-r, 0); g.lineTo(r * 1.3, 0); g.stroke(); }
+        g.restore();
+      }
+    } else if (S === 'notes' || S === 'arrows') {                // 浮かぶ音符 / リズムゲームの矢印
+      for (let i = 0; i < 4; i++) {
+        const p = (t * 0.5 + i / 4) % 1, px = cx + (i - 1.5) * w * 0.55 + Math.sin(t * 2 + i) * w * 0.12, py = y + h * 0.4 - p * h * 1.3, r = w * 0.12;
+        const col = sk.sigColors ? sk.sigColors[i % sk.sigColors.length] : c;
+        g.globalAlpha = Math.sin(p * Math.PI); g.fillStyle = col; g.strokeStyle = col;
+        if (S === 'notes') {
+          g.beginPath(); g.ellipse(px, py, r, r * 0.75, -0.4, 0, TAU); g.fill();
+          g.lineWidth = 1.3; g.beginPath(); g.moveTo(px + r * 0.9, py); g.lineTo(px + r * 0.9, py - r * 3); g.quadraticCurveTo(px + r * 2, py - r * 2.4, px + r * 1.7, py - r * 1.4); g.stroke();
+        } else {
+          g.save(); g.translate(px, py); g.rotate([0, Math.PI / 2, Math.PI, -Math.PI / 2][i]);
+          g.beginPath(); g.moveTo(0, -r * 1.4); g.lineTo(r * 1.3, 0); g.lineTo(r * 0.5, 0); g.lineTo(r * 0.5, r * 1.3); g.lineTo(-r * 0.5, r * 1.3); g.lineTo(-r * 0.5, 0); g.lineTo(-r * 1.3, 0); g.closePath(); g.fill();
+          g.restore();
+        }
+      }
+    } else if (S === 'waves' || S === 'shout') {                 // 広がる音の輪（shout はギザギザ）
+      g.strokeStyle = c; g.lineWidth = 1.5;
+      for (let i = 0; i < 3; i++) {
+        const p = (t * 0.8 + i / 3) % 1, R = w * (0.5 + p * 0.9);
+        g.globalAlpha = 0.8 * (1 - p); g.beginPath();
+        if (S === 'waves') g.ellipse(cx, cy, R, R * 0.85, 0, 0, TAU);
+        else for (let k = 0; k <= 24; k++) { const q = k * TAU / 24, rr2 = R * (k % 2 ? 0.85 : 1.05); g.lineTo(cx + Math.cos(q) * rr2, cy + Math.sin(q) * rr2 * 0.85); }
+        g.stroke();
+      }
+    } else if (S === 'bubbles' || S === 'motes') {               // 立ちのぼる泡 / 光のつぶ
+      for (let i = 0; i < 6; i++) {
+        const p = (t * 0.4 + i / 6) % 1, px = cx + (sigHash(i) - 0.5) * w * 1.8 + Math.sin(t * 3 + i) * w * 0.08, py = baseY - p * h * 1.7, r = w * (0.06 + sigHash(i + 5) * 0.07);
+        g.globalAlpha = Math.sin(p * Math.PI);
+        if (S === 'bubbles') { g.strokeStyle = c; g.lineWidth = 1; g.beginPath(); g.arc(px, py, r, 0, TAU); g.stroke(); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(px - r * 0.35, py - r * 0.35, r * 0.25, 0, TAU); g.fill(); }
+        else { g.globalCompositeOperation = 'lighter'; g.fillStyle = c; g.beginPath(); g.arc(px, py, r * 1.8, 0, TAU); g.globalAlpha *= 0.35; g.fill(); g.globalAlpha = Math.sin(p * Math.PI); g.beginPath(); g.arc(px, py, r * 0.7, 0, TAU); g.fill(); }
+      }
+    } else if (S === 'steam') {                                  // 頭から湯気
+      g.fillStyle = c;
+      for (let i = 0; i < 4; i++) {
+        const p = (t * 0.6 + i / 4) % 1, px = cx + Math.sin(t * 2 + i * 2) * w * 0.25, py = y - h * 0.35 - p * h * 0.9;
+        g.globalAlpha = 0.5 * Math.sin(p * Math.PI); g.beginPath(); g.arc(px, py, w * (0.1 + p * 0.18), 0, TAU); g.fill();
+      }
+    } else if (S === 'bolts') {                                  // 体のまわりに走る稲妻
+      g.strokeStyle = c; g.lineWidth = 1.6; g.lineJoin = 'round'; g.globalCompositeOperation = 'lighter';
+      const seed = Math.floor(t * 10);
+      for (let i = 0; i < 3; i++) {
+        if (sigHash(seed + i * 13) < 0.35) continue;
+        const a = sigHash(seed * 3 + i) * TAU, R0 = w * 0.6, R1 = w * 1.25;
+        g.globalAlpha = 0.95; g.beginPath(); g.moveTo(cx + Math.cos(a) * R0, cy + Math.sin(a) * R0 * 0.8);
+        for (let k = 1; k <= 4; k++) { const rr2 = R0 + (R1 - R0) * k / 4, q = a + (sigHash(seed + i + k * 7) - 0.5) * 0.6; g.lineTo(cx + Math.cos(q) * rr2, cy + Math.sin(q) * rr2 * 0.8); }
+        g.stroke();
+      }
+    } else if (S === 'wind') {                                   // まわりを巻く風の筋
+      g.strokeStyle = c; g.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        const a = t * 3 + i * TAU / 3, R = w * (0.85 + i * 0.12);
+        g.lineWidth = 1.8 - i * 0.3; g.globalAlpha = 0.75;
+        g.beginPath(); g.ellipse(cx, cy + (i - 1) * h * 0.25, R, R * 0.3, 0, a, a + 2); g.stroke();
+      }
+    } else if (S === 'barrier') {                                // 六角形のバリア（ゆっくり光が走る）
+      g.strokeStyle = c; g.lineWidth = 1;
+      const R = w * 0.32;
+      for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
+        const px = cx + i * R * 1.5, py = cy + j * R * 1.73 + (i % 2 ? R * 0.87 : 0), d = Math.hypot((px - cx) / w, (py - cy) / h);
+        if (d > 1.15) continue;
+        g.globalAlpha = 0.15 + 0.5 * Math.max(0, Math.sin(t * 3 - d * 5));
+        g.beginPath(); for (let k = 0; k <= 6; k++) { const q = k * TAU / 6; g.lineTo(px + Math.cos(q) * R * 0.95, py + Math.sin(q) * R * 0.95); } g.stroke();
+      }
+    } else if (S === 'glitch') {                                 // 画面がこわれたような、ずれた色の帯
+      const seed = Math.floor(t * 12);
+      for (let i = 0; i < 5; i++) {
+        if (sigHash(seed + i * 5) < 0.4) continue;
+        const py = y + sigHash(seed * 2 + i) * h * 1.2 - h * 0.1, bw = w * (0.4 + sigHash(seed + i * 3) * 1.2), px = cx + (sigHash(seed + i * 11) - 0.5) * w * 2;
+        g.globalAlpha = 0.7; g.fillStyle = i % 2 ? c : '#ff2ea6'; g.fillRect(px - bw / 2, py, bw, Math.max(1.5, h * 0.05));
+      }
+    } else if (S === 'medals') {                                 // 胸の勲章（リボン＋メダル。キラッと光る）
+      const cols = sk.sigColors || ['#ffd23f', '#e0e0e8', '#d08a4a'];
+      cols.forEach((col, i) => {
+        const px = cx + f * w * (0.05 + i * 0.18) - f * w * 0.1, py = bodyTop + h * 0.12;
+        g.fillStyle = ['#c8102e', '#2c54c4', '#2a8a4a'][i % 3]; g.fillRect(px - w * 0.06, py, w * 0.12, h * 0.1);
+        g.fillStyle = col; g.beginPath(); g.arc(px, py + h * 0.15, w * 0.075, 0, TAU); g.fill();
+        g.fillStyle = '#ffffff'; g.globalAlpha = Math.max(0, Math.sin(t * 3 - i)); g.beginPath(); g.arc(px - w * 0.025, py + h * 0.13, w * 0.025, 0, TAU); g.fill(); g.globalAlpha = 1;
+      });
+    } else if (S === 'shield') {                                 // 前に構えた盾（紋章入り）
+      const px = cx + f * w * 0.42, py = bodyTop + h * 0.05 + Math.sin(t * 3) * h * 0.02, sw = w * 0.42, sh = h * 0.55;
+      g.fillStyle = '#d8dde8'; g.beginPath(); g.moveTo(px - sw / 2, py); g.lineTo(px + sw / 2, py); g.lineTo(px + sw / 2, py + sh * 0.5); g.quadraticCurveTo(px + sw / 2, py + sh * 0.85, px, py + sh); g.quadraticCurveTo(px - sw / 2, py + sh * 0.85, px - sw / 2, py + sh * 0.5); g.closePath(); g.fill();
+      g.save(); g.clip(); g.fillStyle = c; g.fillRect(px - sw * 0.38, py + sh * 0.08, sw * 0.76, sh * 0.82); g.restore();
+      g.fillStyle = '#ffd23f'; g.fillRect(px - sw * 0.07, py + sh * 0.15, sw * 0.14, sh * 0.65); g.fillRect(px - sw * 0.3, py + sh * 0.35, sw * 0.6, sh * 0.12);
+    } else if (S === 'ring') {                                   // 土星の輪（前半分）
+      g.strokeStyle = c; g.lineWidth = 2.5; g.globalAlpha = 0.9;
+      g.beginPath(); g.ellipse(cx, cy, w * 1.05, h * 0.22, -0.25 + Math.sin(t) * 0.08, 0, Math.PI); g.stroke();
+    }
+  }
+  g.restore();
+}
+
 // まわりを回る光の玉（side -1 = うしろ半分、1 = 前半分）
 function paintOrbs(g, cols, cx, y, w, h, t, side) {
   g.save(); g.globalCompositeOperation = 'lighter';
