@@ -105,7 +105,7 @@ function baileChart() {
   SC.vox.filter(([b]) => inBars(b, 12, 14) && b % 4 === 0).forEach(([b, , m, v]) => voxRing(beat(b), px(m, 64, 82), 120, v, { n: 8, v: 130 }));
   SC.byuun.filter(b => inBars(b, 8, 16)).forEach((b, i) => slam(beat(b), i % 2 === 0));
   hint(bar(14) - 2 * B, '連打 ─ すき間に入る');
-  [[14, 260], [14.5, 420], [15, 300], [15.5, 460]].forEach(([k, gx]) => curtainRain(bar(k), gx, { v: 300 }));
+  [[14, 260], [14.5, 420], [15, 300], [15.5, 460]].forEach(([k, gx]) => curtainRain(bar(k), gx, { v: 300, gw: 175 }));
   hint(bar(16) - 4 * B, '床のビーム → 車 ─ どちらも跳び越える');
 
   // ===== 16〜32 MONTAGEM ｜ 車（2小節ごと）／ カウベル ／ クラップ ／ トゥイン = レーザー ／ 20〜 声 ============================
@@ -128,11 +128,11 @@ function baileChart() {
 
   // ===== 32〜40 SLOWED ｜ すべてがゆっくり。大きなカウベル ／ キック = ゆっくりの輪 ／ 声 = 大きなシャボン ======================
   hint(bar(32) + B, 'SLOWED ─ ぜんぶゆっくり');
-  SC.bell.filter(([b]) => inBars(b, 32, 40)).forEach(([b, m]) => bell(beat(b), px(m, 60, 82), { v: 150, r: 11, color: VIOLET }));
-  SC.kick.filter(b => inBars(b, 33, 39) && b % 4 === 0).forEach((b, i) => fire(beat(b), 0.7, delay => ring({ x: i % 2 ? 200 : W - 200, y: 140, count: 12, speed: 110, r: 9, delay, start: i * 0.13, color: CYAN })));
-  SC.vox.filter(([b]) => inBars(b, 34, 40)).forEach(([b, , m, v], i) => i % 2 === 0 && voxBub(beat(b), px(m, 58, 78), v, { r: 14, fall: 110, amp: 60, freq: 2 }));
-  // テープが止まる: 画面ぜんぶ、上からカーテン（すき間はまんなか）
-  SC.stop.forEach(b => curtainRain(beat(b), CX, { gw: 170, v: 260 }));
+  SC.bell.filter(([b]) => inBars(b, 32, 39)).forEach(([b, m]) => bell(beat(b), px(m, 60, 82), { v: 150, r: 11, color: VIOLET }));
+  SC.kick.filter(b => inBars(b, 33, 38) && b % 4 === 0).forEach((b, i) => fire(beat(b), 0.7, delay => ring({ x: i % 2 ? 200 : W - 200, y: 140, count: 12, speed: 110, r: 9, delay, start: i * 0.13, color: CYAN })));
+  SC.vox.filter(([b]) => inBars(b, 34, 39)).forEach(([b, , m, v], i) => i % 2 === 0 && voxBub(beat(b), px(m, 58, 78), v, { r: 14, fall: 110, amp: 60, freq: 2 }));
+  // テープが止まる: 画面ぜんぶ、上からカーテン（すき間はまんなか）。最後の小節は、ほかの弾を出さない
+  SC.stop.forEach(b => curtainRain(beat(b), CX, { gw: 220, v: 260 }));
 
   // ===== 40〜48 SOBE ｜ 808 の 8分 = 上から落ちる連なり（プレイヤーへ）／ 声 = シャボン ／ 46〜 連打 + ロックオン ================
   SC.bass.filter(([b]) => inBars(b, 40, 46) && b % 1 === 0).forEach(([b], i) => fire(beat(b), 0.45, delay => stream({ x: clampX(pX() + (i % 2 ? 60 : -60)), count: 3, gap: 30, vy: 300, r: 7, delay, color: VIOLET })));
@@ -140,11 +140,11 @@ function baileChart() {
   SC.clap.filter(b => inBars(b, 42, 46)).forEach((b, i) => clapFan(beat(b), i % 2 === 0, { n: 3, v: 300 }));
   SC.byuun.filter(b => inBars(b, 40, 48)).forEach((b, i) => slam(beat(b), i % 2 === 1, { color: VIOLET }));
   hint(bar(46) - 2 * B, '連打 ─ すき間に入る');
-  [[46, 440], [46.5, 570], [47, 430], [47.5, 560]].forEach(([k, gx]) => curtainRain(bar(k), gx, { v: 330, gw: 140 }));
+  [[46, 440], [46.5, 570], [47, 430], [47.5, 560]].forEach(([k, gx]) => curtainRain(bar(k), gx, { v: 330, gw: 170 }));
 
   // ===== 48〜64 MANDELÃO ｜ 車が速い ／ カウベル2本 ／ クラップ5発 ／ キックの連打 = 噴き上げ ===================================
   dropBars(48, 64, true);
-  SC.kick.filter(b => inBars(b, 48, 64) && (b * 4) % 16 === 13).forEach((b, i) => geyserAt(beat(b), { dx: i % 2 ? 50 : -50, n: 5 }));
+  SC.kick.filter(b => inBars(b, 48, 64) && Math.floor(b / 4) % 4 === 3 && (b * 4) % 16 === 13).forEach((b, i) => geyserAt(beat(b), { dx: i % 2 ? 50 : -50, n: 5 }));
   SC.tuin.filter(b => inBars(b, 63, 64) && b % 4 >= 2).forEach((b, i) => zap(beat(b), W - 120 - i * 115, { warn: 0.7, color: GOLD }));
 
   // ===== 64〜 FIM ｜ 最後の一発 → カウベルだけ ================================================================================

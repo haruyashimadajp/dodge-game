@@ -3,7 +3,8 @@
 Beat 0 at t = 0.5 s; 1 beat = 60/130 s (about 0.46 s); 1 bar = about 1.85 s.
 
 The sounds are made for this song only:
-  tamborzão     — the funk carioca drum pattern (kick on 16ths 0, 3, 6, 10, 12), a dry triple clap,
+  tamborzão     — the funk carioca drum pattern (kick on 16ths 0, 3, 6, 10, 12; in the drops a hard, clipped kick plays it
+                  at double speed, twice per bar, on top of the 808), a dry triple clap,
                   a "tuin" (a pitched zap that drops fast) and a shaker / tambourine that never stops
   808           — a long sine boom driven into hard distortion; it slides between notes (the phonk bass)
   cowbell       — the phonk cowbell: two detuned square waves (ratio 1.48) through a band-pass, pitched to play the riff
@@ -65,14 +66,14 @@ def sq(ph): return np.sign(np.sin(2 * np.pi * ph))
 def saw(ph): return 2 * (ph % 1.0) - 1
 
 # ---- the sounds of this song --------------------------------------------------------------
-def kick(g=1.0, hard=False):
+def kick(g=1.0, hard=False, short=False):
     """funk kick. hard = the phonk kick of the drops: a pitch that falls from 250 Hz, driven into a hard clip (it punches like a hammer)"""
-    d = 0.4 if hard else 0.32; tt = tvec(d)
+    d = 0.2 if short else 0.4 if hard else 0.32; tt = tvec(d)
     f = (48 + 230 * np.exp(-tt / 0.022)) if hard else (55 + 160 * np.exp(-tt / 0.03))
-    body = np.sin(2 * np.pi * phase(f, len(tt))) * np.exp(-tt / (0.17 if hard else 0.12))
+    body = np.sin(2 * np.pi * phase(f, len(tt))) * np.exp(-tt / (0.08 if short else 0.17 if hard else 0.12))
     click = bp(noise(d), 1500, 7000) * np.exp(-tt / 0.004) * (1.0 if hard else 0.6)
     if not hard: return np.tanh(2.2 * body + click) * g
-    y = np.clip(4.5 * body + click, -1, 1)
+    y = np.clip(4.5 * body + click, -1, 1) * env(d, 0.0005, 0.02)
     return (0.8 * y + 0.35 * bp(np.sign(body) * np.abs(body) ** 0.4, 300, 3000) * np.exp(-tt / 0.06)) * g
 
 def clap(g=1.0):
@@ -217,6 +218,8 @@ def impact(g=1.0):
 # ---- the music -------------------------------------------------------------------------------
 # tamborzão (16ths in a bar)
 KICK = [0, 3, 6, 10, 12]
+# the drops: the same pattern at double speed (in 32nds, so it plays twice per bar) — a hard kick running at twice the 808's tempo
+KICK2 = [h / 2 + half for half in (0, 8) for h in KICK]
 CLAP = [4, 12]
 TUIN = [7, 15]
 # the 808 line (G minor, flat 2nd Ab): [16th, length in 16ths, note]
@@ -269,8 +272,9 @@ def put_vox(B, line, g=0.2, oct_=0, rec=True, stretch=1.0):
         if rec: score['vox'].append([B + p * S16 * stretch, L * S16 * stretch, m, v])
 
 def funk_drums(B, k, hard=False, sparse=False):
-    for p in KICK:
-        drums.add(bt(B + p * S16), kick(1.0, True), 0.62 if p == 0 else 0.52); score['kick'].append(B + p * S16)
+    for p in KICK2:
+        long_ = p in (0, 8)                                    # the two downbeats ring out; the rest are short so they don't blur
+        drums.add(bt(B + p * S16), kick(1.0, True, not long_), 0.66 if long_ else 0.56); score['kick'].append(B + p * S16)
     for p in CLAP:
         drums.add(bt(B + p * S16), clap(), 0.42, 0.05); score['clap'].append(B + p * S16)
     if not sparse:
