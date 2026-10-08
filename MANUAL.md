@@ -63,7 +63,9 @@ dodge-game/
 │   ├── circlepit.js     ← 曲⑱「Circle Pit」（オリジナル曲・200 BPM のブレイクコア。ひずんだハードコア・キック・ブレイクビーツ・グリッチ。声なし。画面がずっとヘッドバンギングする）の拍・場面・譜面
 │   ├── circlepit-score.js / circlepit-env.js / circlepit-compose.py ← 曲⑱の楽譜データ / 音量データ / 作曲プログラム
 │   ├── arm.js           ← 曲⑲「And Revive The Melody」（黒魔。オンゲキの MASTER 譜面の床の広さ・矢印・ベルを読み取り、ほかはオリジナルの弾幕）の拍・場面・譜面
-│   └── arm-data.js / arm-env.js ← 曲⑲の譜面データ（床の広さ・金色の音・矢印の位置・曲の音の解析）/ 音量データ
+│   ├── arm-data.js / arm-env.js ← 曲⑲の譜面データ（床の広さ・金色の音・矢印の位置・曲の音の解析）/ 音量データ
+│   ├── baile.js         ← 曲⑳「NEON BAILE」（オリジナル曲・130 BPM のブラジリアン・ファンク / フォンク。タンボルザォン・歪んだ 808・カウベル・声のチョップ・SLOWED）の拍・場面・譜面
+│   └── baile-score.js / baile-env.js / baile-compose.py ← 曲⑳の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔の中・ステンドグラスのバラ窓の時計・光の筋・真鍮の歯車）
@@ -81,6 +83,7 @@ dodge-game/
 ├── visuals-cave.js   ← 曲⑰の見た目（反響する洞窟・水の床・結晶・こだまに合わせて光る左右の壁・音の波形とそのこだまの線）
 ├── visuals-punk.js   ← 曲⑱の見た目（地下のライブハウス・チラシの壁・アンプの山・照明・モッシュピットの観客・切り抜き文字）
 ├── visuals-revive.js ← 曲⑲の見た目（オルゴールの円盤・光の羽・燃えた楽譜のカーテン・金色の音符）
+├── visuals-baile.js  ← 曲⑳の見た目（夜のネオン街・丘のファヴェーラの灯り・ネオンの看板・スピーカーの山・パーティーのレーザー・車・SLOWED の VHS）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
@@ -249,7 +252,7 @@ START の上の 4 つのボタン（または 1〜4 キー）で選びます。�
 - **かすり（GRAZE）**: 弾やビームが、当たらずにプレイヤーの 12px 以内を通ると 1 回（1 つの弾につき 1 回）。白い火花と小さな音が出て、画面上の Graze と結果の画面に出ます。
   いちばん多かった数を `dodge_graze_<曲の id>_<難易度>` に保存。広さは game.js の `GRAZE`。仕組みは「当たり判定を GRAZE だけ広げて、もう一度判定する」だけなので、自分の当たり判定 `hits()` を持つ弾もそのまま数えられます。
   プレイヤーの当たり判定は見た目（20×20）より `HIT_INSET`（6）ずつ内側の 8×8。かすりは見た目の大きさから `GRAZE` だけ広げて数えます。
-- **実績とスキン**（`progress.js`）: 実績は `ACH_GROUPS`（9 つのなかまに分けて 103 個。First Step は練習用なので `NOT_COUNTED` に入れて、どの実績にも数えない。`lv` = むずかしさ ★1〜5、`secret: true` = 解除するまでかくす）、スキンは `SKINS`（104 個。うちガチャ限定 18。むずかしい実績のごほうびほど、羽・マント・刀・バイザー・光るふち `aura`・残像 `fx: 'echo'`・虹色 `fx: 'rainbow'` などがつく）。
+- **実績とスキン**（`progress.js`）: 実績は `ACH_GROUPS`（9 つのなかまに分けて 106 個。First Step は練習用なので `NOT_COUNTED` に入れて、どの実績にも数えない。`lv` = むずかしさ ★1〜5、`secret: true` = 解除するまでかくす）、スキンは `SKINS`（107 個。うちガチャ限定 18。むずかしい実績のごほうびほど、羽・マント・刀・バイザー・光るふち `aura`・残像 `fx: 'echo'`・虹色 `fx: 'rainbow'` などがつく）。
   1 回のプレイだけで決まる条件（ジャンプせずにクリア など）は `onProgressRunEnd()` で `P.flags` に書いておき、実績の `test()` で読みます。スキンの `need` に書いた実績を解除すると、そのスキンが使えるようになります。
   タイトルの「🏆 コレクション」で、スキンを選んだり、実績の進みぐあいを見たりできます。プレイの記録（回数・時間・かすり・ジャンプ…）は `dodge_progress`。
   スキンの見た目（色・頭の飾り `acc`・動いた跡 `trail`）は visuals.js の `paintHero()` / `heroTrail()` が描きます。
@@ -849,7 +852,19 @@ armField(t)                   // 時刻 t の床の広さ { l, r }（px）
 これから先の床の形を、燃えた楽譜のカーテンとして上から下ろしている。`clearText` は関数にもできる（クリアしたときに文字を作る）。
 画面の演出は `armFx('bell' / 'swell' / 'open' / 'lastlight' / 'fade' / 'dark' / 'spark' / 'phoenix' / 'band' / 'hush' / 'rush' / 'revived' …)` で呼ぶ（visuals-revive.js）。
 
-### 5-22. 軽くするための道具（visuals.js）
+### 5-22. 曲⑳「NEON BAILE」で生まれた形（ブラジリアン・ファンク）
+
+```js
+lowrider({ fromLeft, v, w, h, delay, color, kicks })   // 車高の低い車が床を横切る（高さ 28px → 跳び越える）。kicks の時刻に、見た目だけはねる
+```
+曲は songs/baile-compose.py が作る。score.json の `bell` にカウベルの旋律（[拍, 音の高さ]）、`bass` に 808（[拍, 長さ, 音の高さ]）、
+`vox` に声のチョップ（[拍, 長さ, 音の高さ, 母音]）、`kick` / `clap` / `tuin` / `roll` / `crash` / `impact` に打楽器、`stop` にテープが止まる拍が入っている。
+譜面の中の道具（songs/baile.js の baileChart）: `bell`（音の高さの所に落ちるカウベル。ちょうどその拍に頭の高さへ着く）・`voxBub`（母音の文字入りのシャボン。ゆれて落ちる）・
+`voxRing`（長い声 = シャボンの輪）・`clapFan`（上のスピーカーから扇）・`zap`（トゥイン = 上からのレーザー）・`car`（lowrider）・`geyserAt`・`curtainRain`。
+ドロップは 2 小節で 1 組: 1 小節目は車だけ、2 小節目にカウベル・クラップ・トゥイン（跳んでいる間に当たらないように）。SLOWED（32〜40 小節）は弾の速さが 0.72 倍。
+スキン（見た目の「しるし」）に `sig: 'disco'`（頭の上のミラーボール）を足した。
+
+### 5-23. 軽くするための道具（visuals.js）
 
 ```js
 cachedLayer('名前', 3, 0, g => { /* g に背景を描く */ })   // ゆっくりしか変わらない層を絵にしておき、3コマに1回だけ描き直す
@@ -985,7 +1000,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`・`'cave'`・`'punk'`・`'revive'` など。visuals-〜.js の `THEMES.名前`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`・`'cave'`・`'punk'`・`'revive'`・`'baile'` など。visuals-〜.js の `THEMES.名前`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
    同じ曲に別の譜面を足すときは、`addSong` に `variantOf: 'もとの曲のid'` と `variant: '譜面の名前'` を書く
    （◀ ▶ では出てこず、タイトル画面の「譜面」ボタン / C キーで切りかわる。例: `songs/emperror-classic.js`）

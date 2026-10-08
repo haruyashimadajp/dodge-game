@@ -2526,6 +2526,20 @@ function jellyBear({ fromLeft = true, v = 150, delay = 0.9, color = '#ff9f43', h
     hits: b => player.x < b.x + b.w / 2 - 4 && player.x + player.w > b.x - b.w / 2 + 4 && player.y + player.h > GROUND_Y - b.h - b.hop + 6 && player.y < GROUND_Y - b.hop,
   });
 }
+// ★車★（NEON BAILE）車高の低い車が、床を横切る（跳び越える）。kicks = 車がはねる時刻（ハイドロで、キックに合わせてはねる）
+function lowrider({ fromLeft = true, v = 260, w = 84, h = 28, delay = 1.0, color = '#ff3ea5', kicks = [] }) {
+  return spawn({
+    kind: 'car', x: fromLeft ? -w : W + w, y: GROUND_Y - h / 2, w, h, r: h / 2, v: fromLeft ? v : -v, delay, color, spd: 1, lane: [fromLeft ? 1 : -1, 0], hop: 0, kicks,
+    move(b, dt) {
+      b.x += b.v * dt;
+      let hop = 0;                                                               // キックのたびに、ぴょんと少しはねる（見た目だけ。当たり判定の高さは変わらない）
+      for (const kt of b.kicks) { const d = songTime - kt; if (d >= 0 && d < 0.25) hop = Math.max(hop, Math.sin(d / 0.25 * Math.PI) * 9); }
+      b.hop = hop;
+      if (b.x < -w * 1.5 || b.x > W + w * 1.5) b.dead = true;
+    },
+    hits: b => player.x < b.x + b.w / 2 - 4 && player.x + player.w > b.x - b.w / 2 + 4 && player.y + player.h > GROUND_Y - b.h + 4,
+  });
+}
 function donut({ x, y, r0 = 30, r1 = 760, dur = 4, gapA = Math.PI / 2, gap = 1.25, thick = 22, delay = 0.9, color = '#ffb3d1' }) {
   return spawn({
     kind: 'donut', x, y, r: r0, r0, r1, dur, gapA, gap, thick, delay, color, spd: 1, ringR: r0,

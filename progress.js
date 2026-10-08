@@ -161,6 +161,9 @@ const ACH_GROUPS = [
     { id: 'pit',         lv: 2, name: 'モッシュの洗礼',   desc: 'Circle Pit をクリアする',                    test: () => clearedSong('circlepit') },
     { id: 'pit_imp',     lv: 5, name: 'サークルの中心で', desc: 'Circle Pit を IMPOSSIBLE でクリアする',      test: () => clearedSong('circlepit', 'impossible') },
     { id: 'phoenix',     lv: 3, name: '不死鳥',           desc: 'And Revive The Melody を HARD 以上でクリアする', test: () => clearedSong('revive', 'hard') },
+    { id: 'baile',       lv: 2, name: 'バイレへようこそ', desc: 'NEON BAILE をクリアする',                    test: () => clearedSong('baile') },
+    { id: 'baile_hard',  lv: 3, name: 'カウベル職人',     desc: 'NEON BAILE を HARD 以上でクリアする',        test: () => clearedSong('baile', 'hard') },
+    { id: 'baile_s',     lv: 4, name: 'バイレの女王',     desc: 'NEON BAILE で S ランクを取る',               test: () => rankedSong('baile') },
     { id: 'revive_imp',  lv: 5, name: '旋律よ、よみがえれ', desc: 'And Revive The Melody を IMPOSSIBLE でクリアする', test: () => clearedSong('revive', 'impossible') },
   ]],
   ['デイリー・ガチャ', [
@@ -258,6 +261,9 @@ const SKINS = [
   { id: 'nightmare', name: 'ナイトメア',  body: '#1a0a0a', skin: '#e8d8d8', shoe: '#0a0202', glow: '#ff3b3b', hair: '#e8e4d8', hairStyle: 'long', eyes: 'sharp', eyeColor: '#ff3b3b', gown: '#2a0a0a', gownTrim: '#8a0f1e', acc: ['wings', 'horns'], wingStyle: 'bat', wing: '#2a0505', fx: 'echo', aura: '#ff3b3b', hornColor: '#2a0505', sig: 'eyes', sigColor: '#ff3b3b', trail: 'ember', trailColor: '#8a0f1e', need: 'ward_s' },
   { id: 'sugar',    name: 'シュガープリンセス', body: '#ff9fd0', skin: '#fde6da', shoe: '#ffffff', glow: '#ffb3e6', hair: '#ffb3e6', hairStyle: 'drill', eyes: 'cute', eyeColor: '#ff3ea5', gown: '#ff9fd0', gownTrim: '#ffffff', acc: ['tiara', 'bigbow', 'wings'], bigbow: '#7fe8c8', orbs: ['#7fe8c8', '#ffe066', '#ffffff'], sparkle: '#ffffff', wingStyle: 'butterfly', wing: '#ffb3e6', trail: 'heart', need: 'candy_s' },
   { id: 'earthking', name: '大地の王',    body: '#3a2418', skin: '#e8b890', shoe: '#1a0a05', glow: '#ff6a1a', hair: '#ff6a1a', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#ffd23f', armor: '#6a5040', trim: '#ffd23f', acc: ['horns', 'wings', 'crown', 'cape'], hornColor: '#2a1a10', wingStyle: 'flame', magicCircle: '#ff6a1a', aura: '#ff6a1a', cape: '#3a2418', orbs: ['#6a5040', '#ff6a1a', '#6a5040'], trail: 'ember', need: 'tect_s' },
+  { id: 'funkeiro', name: 'フンケイロ',   body: '#ff3ea5', cap: '#141418', brim: '#ff3ea5', skin: '#e8b890', shoe: '#ffffff', glow: '#ff3ea5', acc: ['shades', 'scarf'], scarf: '#ffe066', sig: 'waves', sigColor: '#ff3ea5', trail: 'note', trailColor: '#ff3ea5', need: 'baile' },
+  { id: 'cowbell',  name: 'カウベル',     body: '#ffd23f', cap: '#22e6ff', brim: '#0a8aa8', skin: '#f0c8a8', shoe: '#141418', glow: '#ffe066', eyes: 'sharp', eyeColor: '#22e6ff', acc: ['phones', 'shades', 'scarf'], scarf: '#ff3ea5', sig: 'shout', sigColor: '#ffe066', aura: '#ffe066', trail: 'spark', trailColor: '#ffe066', need: 'baile_hard' },
+  { id: 'rainha',   name: 'バイレの女王', body: '#ff3ea5', skin: '#e8b890', shoe: '#ffe066', glow: '#ff7ad0', hair: '#2a1018', hairStyle: 'long', eyes: 'cute', eyeColor: '#ff3ea5', dress: '#ff3ea5', frill: '#ffe066', bow: '#22e6ff', acc: ['tiara', 'wings'], tiaraColor: '#ffe066', wingStyle: 'butterfly', wing: '#22e6ff', sig: 'disco', sigColor: '#ff7ad0', sparkle: '#ffe066', aura: '#ff3ea5', trail: 'gold', need: 'baile_s' },
   // ---- 実績のスキン（追加）----
   { id: 'adventurer', name: '冒険者',     body: '#6a4a2a', skin: '#f0c49a', shoe: '#3a2418', glow: '#b6ff8a', hair: '#8a5a2e', hairStyle: 'pony', tie: '#2f6a3a', acc: ['cape', 'backpack'], cape: '#2f6a3a', pack: '#a0602a', trail: 'leaf', need: 'time3h' },
   { id: 'kamaitachi', name: 'かまいたち', body: '#e8f8f0', skin: '#f4e0d0', shoe: '#2a5a4a', glow: '#9fffe0', hair: '#5ac8a0', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#5cff9d', acc: ['scarf'], scarf: '#5ac8a0', fx: 'echo', trail: 'leaf', trailColor: '#9fffe0', need: 'graze10000' },

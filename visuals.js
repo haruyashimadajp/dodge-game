@@ -1685,6 +1685,20 @@ function paintSig(g, sk, x, y, w, h, f, cx, bodyTop, baseY, t, front) {
         const px = cx - f * (w * 0.4 + p * w * 1.6);
         g.globalAlpha = 0.8 * (1 - p); g.lineWidth = 1.5; g.beginPath(); g.moveTo(px, py); g.lineTo(px - f * L, py); g.stroke();
       }
+    } else if (S === 'disco') {                                  // 頭の上のミラーボール: 回りながら、光の点をまわりに散らす
+      const bx = cx + f * w * 0.55, by = y - h * 0.3, R = w * 0.24;
+      g.strokeStyle = '#d8d8e8'; g.lineWidth = 1; g.beginPath(); g.moveTo(bx, by - R - h * 0.3); g.lineTo(bx, by - R); g.stroke();
+      g.fillStyle = '#c8c8d8'; g.beginPath(); g.arc(bx, by, R, 0, TAU); g.fill();
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+        const u = ((i / 4 + t * 0.25) % 1) * 2 - 1, v = j / 3 * 2 - 1, q = Math.sqrt(Math.max(0, 1 - v * v));
+        g.fillStyle = (i + j) % 2 ? '#ffffff' : SIG_RAINBOW[(i * 2 + j) % 7]; g.fillRect(bx + u * R * q * 0.9 - 1.5, by + v * R * 0.75 - 1.5, 3, 3);
+      }
+      g.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 8; i++) {
+        const a = t * 1.2 + i * TAU / 8, d = w * (0.8 + 0.4 * sigHash(i));
+        g.globalAlpha = 0.5 + 0.5 * Math.sin(t * 5 + i); g.fillStyle = SIG_RAINBOW[i % 7];
+        g.beginPath(); g.arc(cx + Math.cos(a) * d * 1.2, cy + Math.sin(a) * d * 0.7, w * 0.05, 0, TAU); g.fill();
+      }
     } else if (S === 'flag') {                                   // 背中の旗（はためく）
       const px = cx - f * w * 0.55, top = y - h * 0.9;
       g.strokeStyle = '#d8d8d8'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(px, baseY - h * 0.3); g.lineTo(px, top); g.stroke();
