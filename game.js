@@ -543,6 +543,41 @@ bgm.preload = 'auto';
 bgm.volume = masterVol;
 // Survive to the end of the song = clear.
 bgm.addEventListener('ended', () => { if (running) winGame(); });
+// 一度読みこんだ曲は、ページを開いているあいだ手元に残す（遊ぶたび・選びなおすたびにダウンロードしない）。
+// まだなら、ファイルをまるごと読みこんでから鳴らす。読みこみ中に別の曲へ移ったら、その読みこみはやめる。
+const songBlobs = new Map();                   // file → blob: URL
+let songFetch = null, songFetchBroken = false;
+function loadSongFile(file) {
+  if (songFetch) { songFetch.abort(); songFetch = null; }
+  if (songBlobs.has(file)) { bgm.src = songBlobs.get(file); return; }
+  if (songFetchBroken) { bgm.src = encodeURI(file); return; }
+  const ctl = songFetch = new AbortController();
+  fetch(encodeURI(file), { signal: ctl.signal })
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+    .then(b => {
+      songBlobs.set(file, URL.createObjectURL(b));
+      if (songFetch === ctl) songFetch = null;
+      if (bgm.dataset.src === file) useLoadedSong(songBlobs.get(file));
+    })
+    .catch(() => {
+      if (songFetch === ctl) songFetch = null;
+      if (!ctl.signal.aborted) songFetchBroken = true;
+      if (!ctl.signal.aborted && bgm.dataset.src === file) useLoadedSong(encodeURI(file));   // 読みこめない環境では、今までどおりそのまま流す
+    });
+}
+// 読みこみが終わった時に、待っていたもの（プレイ中の曲・タイトルのプレビュー）を鳴らす
+function useLoadedSong(url) {
+  bgm.src = url;
+  if (running) {                                // 読みこみ中に始めていたら、弾の時計（songTime）が止まっていた所から鳴らす
+    bgm.addEventListener('loadedmetadata', () => {
+      if (!running || bgm.src !== url) return;
+      bgm.playbackRate = runMods.speed || 1;
+      try { bgm.currentTime = songTime; } catch (e) { /* ignore */ }
+      clockSynced = false;
+      if (!paused) bgm.play().catch(() => {});
+    }, { once: true });
+  } else if (previewTimer) playPreview();
+}
 function beep(freq, dur, type, vol) {
   if (masterVol <= 0) return;
   try {
@@ -1012,7 +1047,7 @@ function selectSong(i) {
   if (bgm.dataset.src !== song.file) {        // load the new track (keeps the old one if same)
     bgm.dataset.src = song.file;
     bgm.pause(); bgm.removeAttribute('src'); bgm.load();   // 前の曲の音のデータを先に手放す（そのまま差しかえると、端末によっては残ってたまる）
-    bgm.src = encodeURI(song.file);
+    loadSongFile(song.file);
   }
   best = parseFloat(store.get(song.bestKey) || '0') || 0;
   showBest();

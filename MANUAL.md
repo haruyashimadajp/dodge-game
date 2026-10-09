@@ -274,6 +274,13 @@ START の上の 4 つのボタン（または 1〜4 キー）で選びます。�
   （`hairStyle` long / twin / pony / spiky / drill、`eyes` cute / sharp、`dress`・`frill`・`bow`、`gown` ロングドレス、`sleeves` 着物の袖、`armor`・`trim`、`sparkle`）。
   ほかの豪華な飾り: `magicCircle` 魔法陣 / `orbs` 回る光の玉 / acc `tails`（`tails` 本数）・`bigbow`・`tiara` / `wingStyle` seraph・crystal・flame / 跡 gem・feather・galaxy・gold・firefly。
 
+### 曲のファイルの読みこみ（`game.js` の `loadSongFile`）
+- 曲（mp3）は、選んだ時にファイルをまるごと読みこみ、**ページを開いているあいだは手元に残す**。
+  同じ曲をもう一度遊んだり、選びなおしたりしても、もうダウンロードしない（ページを閉じる・再読みこみすると消える）。
+- 読みこみ中に別の曲へ移ったら、その読みこみはやめる（◀ ▶ で曲を見ていくだけで全部ダウンロードされないように）。
+- 読みこみ中にゲームを始めたら、弾は曲が鳴りだすまで待つ（今までと同じ）。
+- ファイルを読みこめない環境（ファイルを直接開いた時など）では、今までどおりそのまま流す。
+
 ### 移動の仕方（コードで切りかえ）＝ 滑る / 滑らない
 game.js の `slideMove`（`true` = 滑る、`false` = 滑らない）で、主人公の左右移動のクセが決まります。
 
