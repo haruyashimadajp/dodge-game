@@ -1685,6 +1685,17 @@ function paintSig(g, sk, x, y, w, h, f, cx, bodyTop, baseY, t, front) {
         const px = cx - f * (w * 0.4 + p * w * 1.6);
         g.globalAlpha = 0.8 * (1 - p); g.lineWidth = 1.5; g.beginPath(); g.moveTo(px, py); g.lineTo(px - f * L, py); g.stroke();
       }
+    } else if (S === 'dominoes') {                               // うしろに並んだドミノが、拍に合わせて順にパタパタ倒れ、また起きる
+      const cols = sk.sigColors || [c], n = 6, cyc = (t / (60 / 144) / 8) % 1;
+      for (let i = 0; i < n; i++) {
+        const px = cx + (i - (n - 1) / 2) * w * 0.46, ph = clamp01((cyc - i * 0.07) * 6) - clamp01((cyc - 0.6 - i * 0.04) * 6), a = ph * ph * 1.2;
+        const dw = w * 0.18, dh = h * 0.78;
+        g.save(); g.translate(px + dw / 2, baseY); g.rotate(a);
+        g.fillStyle = cols[i % cols.length]; g.fillRect(-dw, -dh, dw, dh);
+        g.strokeStyle = 'rgba(52,46,82,0.85)'; g.lineWidth = 1.4; g.strokeRect(-dw, -dh, dw, dh);
+        g.fillStyle = '#ffffff'; g.beginPath(); g.arc(-dw / 2, -dh * 0.72, w * 0.03, 0, TAU); g.arc(-dw / 2, -dh * 0.3, w * 0.03, 0, TAU); g.fill();
+        g.restore();
+      }
     } else if (S === 'disco') {                                  // 頭の上のミラーボール: 回りながら、光の点をまわりに散らす
       const bx = cx + f * w * 0.55, by = y - h * 0.3, R = w * 0.24;
       g.strokeStyle = '#d8d8e8'; g.lineWidth = 1; g.beginPath(); g.moveTo(bx, by - R - h * 0.3); g.lineTo(bx, by - R); g.stroke();
@@ -1799,6 +1810,30 @@ function paintSig(g, sk, x, y, w, h, f, cx, bodyTop, baseY, t, front) {
         const py = y + sigHash(seed * 2 + i) * h * 1.2 - h * 0.1, bw = w * (0.4 + sigHash(seed + i * 3) * 1.2), px = cx + (sigHash(seed + i * 11) - 0.5) * w * 2;
         g.globalAlpha = 0.7; g.fillStyle = i % 2 ? c : '#ff2ea6'; g.fillRect(px - bw / 2, py, bw, Math.max(1.5, h * 0.05));
       }
+    } else if (S === 'cherries') {                               // デリシャスフルーツが3つ、拍ごとに「カクッ」と 1/8 周ずつ回る
+      const bt = t / (60 / 144), n0 = Math.floor(bt), fr = bt - n0, v = n0 + 1 - Math.pow(1 - Math.min(1, fr / 0.3), 3);
+      for (let i = 0; i < 3; i++) {
+        const a = v * Math.PI / 4 + i * TAU / 3, px = cx + Math.cos(a) * w * 0.95, py = cy + Math.sin(a) * h * 0.55, r = w * 0.16;
+        g.strokeStyle = '#342e52'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(px, py - r * 0.8); g.quadraticCurveTo(px + r * 0.2, py - r * 1.5, px + r * 0.7, py - r * 1.7); g.stroke();
+        g.fillStyle = '#3fbf6a'; g.beginPath(); g.ellipse(px + r * 0.8, py - r * 1.6, r * 0.45, r * 0.2, -0.5, 0, TAU); g.fill();
+        g.fillStyle = c; g.beginPath(); g.arc(px, py, r, 0, TAU); g.fill(); g.stroke();
+        g.fillStyle = 'rgba(255,255,255,0.85)'; g.beginPath(); g.ellipse(px - r * 0.35, py - r * 0.3, r * 0.25, r * 0.16, -0.6, 0, TAU); g.fill();
+      }
+    } else if (S === 'switch') {                                 // 頭の上の大きな押しボタン: 2拍ごとに「カチッ」と押され、図形が飛び出す
+      const cols = sk.sigColors || [c], bt = t / (60 / 144) / 2, ph = bt - Math.floor(bt), press = Math.max(0, 1 - ph / 0.12);
+      const px = cx, py = y - h * 0.32;
+      for (let i = 0; i < 5; i++) {                              // 飛び出す図形（三角・四角・星…）
+        const a = -Math.PI / 2 + (i - 2) * 0.55, d = w * (0.3 + ph * 1.1), sx = px + Math.cos(a) * d, sy = py + Math.sin(a) * d * 0.8;
+        g.save(); g.globalAlpha = Math.max(0, 1 - ph * 1.3); g.translate(sx, sy); g.rotate(ph * 3 + i); g.strokeStyle = cols[i % cols.length]; g.lineWidth = 1.6;
+        const s2 = w * 0.09; g.beginPath();
+        if (i % 3 === 0) { g.moveTo(0, -s2); g.lineTo(s2, s2 * 0.8); g.lineTo(-s2, s2 * 0.8); g.closePath(); } else if (i % 3 === 1) g.rect(-s2 * 0.8, -s2 * 0.8, s2 * 1.6, s2 * 1.6); else g.arc(0, 0, s2, 0, TAU);
+        g.stroke(); g.restore();
+      }
+      g.fillStyle = '#ffffff'; g.fillRect(px - w * 0.32, py, w * 0.64, h * 0.14);
+      g.strokeStyle = '#342e52'; g.lineWidth = 1.2; g.strokeRect(px - w * 0.32, py, w * 0.64, h * 0.14);
+      const by = py - h * 0.04 + press * h * 0.05;
+      g.fillStyle = c; g.beginPath(); g.ellipse(px, by, w * 0.22, h * 0.07, 0, 0, TAU); g.fill(); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.75)'; g.beginPath(); g.ellipse(px - w * 0.07, by - h * 0.02, w * 0.07, h * 0.02, 0, 0, TAU); g.fill();
     } else if (S === 'medals') {                                 // 胸の勲章（リボン＋メダル。キラッと光る）
       const cols = sk.sigColors || ['#ffd23f', '#e0e0e8', '#d08a4a'];
       cols.forEach((col, i) => {

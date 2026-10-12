@@ -65,7 +65,9 @@ dodge-game/
 │   ├── arm.js           ← 曲⑲「And Revive The Melody」（黒魔。オンゲキの MASTER 譜面の床の広さ・矢印・ベルを読み取り、ほかはオリジナルの弾幕）の拍・場面・譜面
 │   ├── arm-data.js / arm-env.js ← 曲⑲の譜面データ（床の広さ・金色の音・矢印の位置・曲の音の解析）/ 音量データ
 │   ├── baile.js         ← 曲⑳「NEON BAILE」（オリジナル曲・130 BPM のブラジリアン・ファンク / フォンク。タンボルザォン・歪んだ 808・カウベル・声のチョップ・SLOWED）の拍・場面・譜面
-│   └── baile-score.js / baile-env.js / baile-compose.py ← 曲⑳の楽譜データ / 音量データ / 作曲プログラム
+│   ├── baile-score.js / baile-env.js / baile-compose.py ← 曲⑳の楽譜データ / 音量データ / 作曲プログラム
+│   ├── chain.js         ← 曲㉑「CHAIN REACTION」（オリジナル曲・144 BPM のエレクトロ・ポップ。からくり装置の音でリズムを作った。弾が拍に合わせて一歩ずつ動く）の拍・場面・譜面
+│   └── chain-score.js / chain-env.js / chain-compose.py ← 曲㉑の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔の中・ステンドグラスのバラ窓の時計・光の筋・真鍮の歯車）
@@ -84,6 +86,7 @@ dodge-game/
 ├── visuals-punk.js   ← 曲⑱の見た目（地下のライブハウス・チラシの壁・アンプの山・照明・モッシュピットの観客・切り抜き文字）
 ├── visuals-revive.js ← 曲⑲の見た目（オルゴールの円盤・光の羽・燃えた楽譜のカーテン・金色の音符）
 ├── visuals-baile.js  ← 曲⑳の見た目（夜のネオン街・丘のファヴェーラの灯り・ネオンの看板・スピーカーの山・パーティーのレーザー・車・SLOWED の VHS）
+├── visuals-chain.js  ← 曲㉑の見た目（パステルのからくり部屋・大きなスイッチ・拍で回る図形・ビー玉のレール・拍で動くカメラ・ガラスの窓わく）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
 ├── visuals-virus.js ← 曲⑦の見た目（緑のターミナル・ウイルスの粒子・エラー画面・ブルースクリーン）
@@ -252,7 +255,7 @@ START の上の 4 つのボタン（または 1〜4 キー）で選びます。�
 - **かすり（GRAZE）**: 弾やビームが、当たらずにプレイヤーの 12px 以内を通ると 1 回（1 つの弾につき 1 回）。白い火花と小さな音が出て、画面上の Graze と結果の画面に出ます。
   いちばん多かった数を `dodge_graze_<曲の id>_<難易度>` に保存。広さは game.js の `GRAZE`。仕組みは「当たり判定を GRAZE だけ広げて、もう一度判定する」だけなので、自分の当たり判定 `hits()` を持つ弾もそのまま数えられます。
   プレイヤーの当たり判定は見た目（20×20）より `HIT_INSET`（6）ずつ内側の 8×8。かすりは見た目の大きさから `GRAZE` だけ広げて数えます。
-- **実績とスキン**（`progress.js`）: 実績は `ACH_GROUPS`（9 つのなかまに分けて 106 個。First Step は練習用なので `NOT_COUNTED` に入れて、どの実績にも数えない。`lv` = むずかしさ ★1〜5、`secret: true` = 解除するまでかくす）、スキンは `SKINS`（107 個。うちガチャ限定 18。むずかしい実績のごほうびほど、羽・マント・刀・バイザー・光るふち `aura`・残像 `fx: 'echo'`・虹色 `fx: 'rainbow'` などがつく）。
+- **実績とスキン**（`progress.js`）: 実績は `ACH_GROUPS`（9 つのなかまに分けて 109 個。First Step は練習用なので `NOT_COUNTED` に入れて、どの実績にも数えない。`lv` = むずかしさ ★1〜5、`secret: true` = 解除するまでかくす）、スキンは `SKINS`（110 個。うちガチャ限定 18。むずかしい実績のごほうびほど、羽・マント・刀・バイザー・光るふち `aura`・残像 `fx: 'echo'`・虹色 `fx: 'rainbow'` などがつく）。
   1 回のプレイだけで決まる条件（ジャンプせずにクリア など）は `onProgressRunEnd()` で `P.flags` に書いておき、実績の `test()` で読みます。スキンの `need` に書いた実績を解除すると、そのスキンが使えるようになります。
   タイトルの「🏆 コレクション」で、スキンを選んだり、実績の進みぐあいを見たりできます。プレイの記録（回数・時間・かすり・ジャンプ…）は `dodge_progress`。
   スキンの見た目（色・頭の飾り `acc`・動いた跡 `trail`）は visuals.js の `paintHero()` / `heroTrail()` が描きます。
@@ -873,7 +876,31 @@ lowrider({ fromLeft, v, w, h, delay, color, kicks })   // 車高の低い車が�
 ドロップは 2 小節で 1 組: 1 小節目は車だけ、2 小節目にカウベル・クラップ・トゥイン（跳んでいる間に当たらないように）。SLOWED（32〜40 小節）は弾の速さが 0.72 倍。
 スキン（見た目の「しるし」）に `sig: 'disco'`（頭の上のミラーボール）を足した。
 
-### 5-23. 軽くするための道具（visuals.js）
+### 5-23. 曲㉑「CHAIN REACTION」で生まれた形（拍に合わせて一歩ずつ動く弾）
+
+この曲の弾は、なめらかに進まない。拍（または 8分）が来るたびに「カクッ」と一歩進んで止まる。道具はぜんぶ songs/chain.js の chainChart の中にある:
+```js
+crSnap(x, sh)              // 拍で「カクッ」と進む時計。拍の頭から sh 拍のあいだに一歩ぶん進み、あとは止まる（game.js の stepTime と同じ考え方）
+stepper(t, { at, div, life, warn, r, color, style, shape })   // ★もと★ t に出て、次の拍から at(s) の位置へ一歩ずつ。at(s) = s 歩目の {x, y}
+mover(t, x, y, dx, dy, o)  // まっすぐ一歩ずつ（一歩 = dx, dy）
+cherry(t, x, o)            // 落ちるさくらんぼ（8分ごとに一段）。メロディの音の高さの所に落とす
+stepRing(t, cx, cy, n, o)  // 輪: 1拍ごとに dr ずつ広がり、spin ずつ回る（星・四角・三角・丸の図形）
+dominoRow(t, xs, step, o)  // 上のドミノが順に倒れて、さくらんぼを落とす（ドミノとドミノの間に立てば当たらない）
+block(t, fromLeft, o)      // 床を一歩ずつ進むブロック（来る拍の直前に跳ぶ）
+spring(t, fromLeft, o)     // 1拍ごとに跳ねて進むボール（着地する所をよける。跳んでいる間はくぐれる）
+marbleRoll(t, fromLeft)    // ビー玉（roller）が床を転がる
+walls(t, n, step)          // 左右の壁が 1拍ごとに一歩ずつせまる
+spinOnce(t) / tiltTo(t, a) // 画面の回転（stage.spin。見た目だけで、重力も操作も変わらない。「画面演出」を 0 近くにすると回らない）
+```
+曲は songs/chain-compose.py が作る。score.json の `switch` に大きなスイッチの「カチッ」、`click` にハイハット代わりの小さなスイッチ、`tick` に時計、
+`domino` にドミノ（[拍, 音の高さ]。木琴の音）、`marble` にビー玉（[拍, 長さ]）、`boing` にばね、`ding` にベル、`box` にオルゴール（[拍, 音]）、
+`lead` / `hook` にメロディ（[拍, 長さ, 音]）、`chord` に和音、`stab` にサビの裏拍、`off` に最後にスイッチを切る拍が入っている。
+カメラ（visuals-chain.js の `camera`）: Aメロはチクタクと拍ごとに左右へ、サビは拍ごとに大きくゆれ、ビルドアップはカチカチが速くなるほど細かくふるえる。
+大きなスイッチ（4小節ごと）で部屋が一回転し、最後のサビは 2 小節ごとにかたむく。MACHINE（36〜44 小節）はカメラが寄って追いかける（`stageTo({ zoom, follow })`）。
+最後の「カチッ」（OFF）で、画面のすべての弾が止まって消える。
+スキンの「しるし」に `sig: 'dominoes'`（うしろで順に倒れるドミノ）・`'cherries'`（拍ごとに 1/8 周ずつ回るさくらんぼ）・`'switch'`（頭の上の押しボタン。押すと図形が飛び出す）を足した。
+
+### 5-24. 軽くするための道具（visuals.js）
 
 ```js
 cachedLayer('名前', 3, 0, g => { /* g に背景を描く */ })   // ゆっくりしか変わらない層を絵にしておき、3コマに1回だけ描き直す
@@ -1009,7 +1036,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`・`'cave'`・`'punk'`・`'revive'`・`'baile'` など。visuals-〜.js の `THEMES.名前`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`・`'cave'`・`'punk'`・`'revive'`・`'baile'`・`'chain'` など。visuals-〜.js の `THEMES.名前`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
    同じ曲に別の譜面を足すときは、`addSong` に `variantOf: 'もとの曲のid'` と `variant: '譜面の名前'` を書く
    （◀ ▶ では出てこず、タイトル画面の「譜面」ボタン / C キーで切りかわる。例: `songs/emperror-classic.js`）
