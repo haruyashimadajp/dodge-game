@@ -70,12 +70,16 @@ function chainChart() {
     const a0 = crBeatPos(t) * (o.div || 1), p0 = o.at(0);
     return spawn({
       x: p0.x, y: p0.y, r: o.r || 8, delay, spd: 1, color: o.color || PINK, style: o.style || 'cherry', shape: o.shape, rot0: o.rot0 || 0,
-      noTrail: true, lane: o.lane, base: Math.floor(a0 + 1e-6) + 1, div: o.div || 1, sh: o.sh || 0.3, end: crBeatPos(t) + (o.life || 64), at: o.at,
+      noTrail: true, lane: o.lane, base: Math.floor(a0 + 1e-6) + 1, div: o.div || 1, sh: o.sh || 0.3, end: crBeatPos(t) + (o.life || 64), at: o.at, grp: o.grp, gi: o.gi,
       move(b) {
         const p = crBeatPos(songTime) * b.div;
         const s = Math.max(0, crSnap(p, b.sh) - b.base);
         const q = b.at(s); b.x = q.x; b.y = q.y; b.st = s;
         if (p / b.div > b.end) b.dead = true;
+        if ((b.style === 'cherry' || b.style === 'note') && b.y > GROUND_Y - b.r * 0.6) {   // 床に落ちたら、はじけて消える（見た目: visuals-chain.js）
+          b.dead = true;
+          if (typeof chainSplash === 'function') chainSplash(b.x, GROUND_Y, b.color, b.style === 'note');
+        }
       },
     });
   });
@@ -84,10 +88,12 @@ function chainChart() {
   // 落ちるさくらんぼ（8分ごとに一段）
   const cherry = (t, x, o = {}) => mover(t, x, o.y0 != null ? o.y0 : -12, 0, o.dy || 46, { div: 2, warn: o.warn || 0.45, r: o.r || 9, color: o.color || RED, style: o.style || 'cherry', lane: [0, 1], life: 24, ...o });
   // 輪: (cx, cy) から n 個、1拍ごとに dr ずつ広がる。spin = 1歩ごとに回る角度
+  let ringId = 0;
   const stepRing = (t, cx, cy, n, o = {}) => {
+    const grp = ++ringId;                         // 同じ輪の弾は線でつないで描く（visuals-chain.js）
     for (let i = 0; i < n; i++) {
       const a = (o.a0 || 0) + i / n * TAU, dr = o.dr || 60, r0 = o.r0 || 24, sp = o.spin || 0;
-      stepper(t, { warn: o.warn || 0.6, r: o.r || 9, color: o.color || PINK, style: 'shape', shape: o.shape || 'star', rot0: a, life: o.life || 14,
+      stepper(t, { warn: o.warn || 0.6, r: o.r || 9, color: o.color || PINK, style: 'shape', shape: o.shape || 'star', rot0: a, life: o.life || 14, grp, gi: i,
         at: s => ({ x: cx + Math.cos(a + sp * s) * (r0 + dr * s), y: cy + Math.sin(a + sp * s) * (r0 + dr * s) }) });
     }
   };
