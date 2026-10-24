@@ -869,12 +869,12 @@ body[data-theme="chain"] .start-btn {
 body[data-theme="chain"] .overlay.clear .logo { text-shadow: 0 3px 0 #ff4f8b, 0 6px 18px rgba(52, 46, 82, 0.4); }
 body[data-theme="chain"] .seg-btn.active { background: linear-gradient(90deg, #ff4f8b, #2f8cff); }
 
-/* SANCTUS: night cathedral */
+/* SANCTUS: the heavens */
 body[data-theme="sanctus"] {
   --accent: #ffd25a;
   --accent-2: #9fc8ff;
   --text-dim: #b8b0d0;
-  background: radial-gradient(ellipse at 50% 20%, #2a2050, #0a0a1e 60%, #04040c);
+  background: radial-gradient(ellipse at 50% 15%, #fff6dc, #8ab0f0 45%, #3a4a8a);
 }
 body[data-theme="sanctus"] .stat { background: rgba(14, 10, 30, 0.85); border: 1px solid rgba(200, 160, 80, 0.4); }
 body[data-theme="sanctus"] canvas { box-shadow: 0 0 0 1px rgba(200,160,80,0.5), 0 20px 60px rgba(0,0,0,0.7), 0 0 90px rgba(255, 210, 90, 0.12); }

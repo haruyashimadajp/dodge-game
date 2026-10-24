@@ -1685,16 +1685,19 @@ function paintSig(g, sk, x, y, w, h, f, cx, bodyTop, baseY, t, front) {
         const px = cx - f * (w * 0.4 + p * w * 1.6);
         g.globalAlpha = 0.8 * (1 - p); g.lineWidth = 1.5; g.beginPath(); g.moveTo(px, py); g.lineTo(px - f * L, py); g.stroke();
       }
-    } else if (S === 'pipes') {                                  // うしろのパイプオルガン: 低い音から高い音へ、順に光が走る
-      const n = 9, bt = t * 2;
-      for (let i = 0; i < n; i++) {
-        const px = cx + (i - (n - 1) / 2) * w * 0.26, len = h * (1.5 - Math.abs(i - (n - 1) / 2) * 0.16), top = baseY - len, pw = w * 0.17;
-        g.fillStyle = '#9aa2b4'; g.fillRect(px - pw / 2, top, pw, len);
-        g.fillStyle = '#e8ecf4'; g.fillRect(px - pw / 2 + 1, top, pw * 0.25, len);
-        g.fillStyle = '#20222a'; g.fillRect(px - pw / 2, baseY - len * 0.25, pw, pw * 0.35);
-        const lit = Math.max(0, 1 - Math.abs(((bt - i * 0.35) % 4 + 4) % 4 - 0.5) * 2);
-        if (lit > 0) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.7 * lit; g.fillStyle = c; g.fillRect(px - pw / 2, top, pw, len); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
+    } else if (S === 'harp') {                                   // うしろの金のハープ: 弦が低い音から高い音へ順にふるえて光る
+      const hx = cx - f * w * 0.55, top = y - h * 0.55, n = 9;
+      g.strokeStyle = '#e0b050'; g.lineWidth = w * 0.09; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(hx, baseY); g.lineTo(hx, top); g.quadraticCurveTo(cx + f * w * 0.3, top - h * 0.2, cx + f * w * 0.95, top + h * 0.55); g.stroke();
+      g.beginPath(); g.moveTo(hx, baseY); g.lineTo(cx + f * w * 0.95, top + h * 0.55); g.stroke();
+      for (let i = 1; i < n; i++) {
+        const u = i / n, sx = hx + (cx + f * w * 0.95 - hx) * u, sy0 = top + (h * 0.55 + h * 0.05) * u * u - h * 0.02 * Math.sin(u * Math.PI) * 4, sy1 = baseY + (top + h * 0.55 - baseY) * u;
+        const lit = Math.max(0, 1 - Math.abs(((t * 2 - u * 2.5) % 3 + 3) % 3 - 0.4) * 2.5), amp = lit * w * 0.04 * Math.sin(t * 60 + i);
+        g.strokeStyle = i % 7 === 0 ? '#ff4a5a' : i % 7 === 3 ? '#3a6cff' : '#fff6dc'; g.lineWidth = 1; g.globalAlpha = 0.7 + 0.3 * lit;
+        g.beginPath(); g.moveTo(sx, sy0); g.quadraticCurveTo(sx + amp, (sy0 + sy1) / 2, sx, sy1); g.stroke();
+        if (lit > 0.3) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.5 * lit; g.fillStyle = c; g.beginPath(); g.arc(sx, (sy0 + sy1) / 2, w * 0.08, 0, TAU); g.fill(); g.globalCompositeOperation = 'source-over'; }
       }
+      g.globalAlpha = 1;
     } else if (S === 'rosewin') {                                // 背中のバラ窓（ステンドグラス）がゆっくり回り、光の筋を放つ
       const R = w * 1.05, rx = cx, ry = cy - h * 0.1, rot = t * 0.3, cols = ['#2a5cff', '#ff2a4a', '#ffc21a', '#1ab86a', '#9a3aff', '#22c8ff'];
       g.globalCompositeOperation = 'lighter'; g.fillStyle = c;
