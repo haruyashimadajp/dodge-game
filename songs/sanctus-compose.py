@@ -52,7 +52,14 @@ class Bus:
         self.R[i:i + n] += (sig[:n] * gain * np.sin((pan + 1) * np.pi / 4) * np.sqrt(2)).astype(np.float32)
     def stereo(self): return np.vstack([self.L, self.R])
 
-strings, harpb, pianob, choir, bells, timp = (Bus() for _ in range(6))
+class PianoBus(Bus):
+    """the piano is heard from the player's seat: low notes on the left, high notes on the right (the pan given to add() is ignored)"""
+    last_m = 60
+    def add(self, t, sig, gain=1.0, pan=0.0):
+        super().add(t, sig, gain, max(-0.5, min(0.5, (PianoBus.last_m - 64) / 56)))
+
+strings, harpb, choir, bells, timp = (Bus() for _ in range(5))
+pianob = PianoBus()
 
 def tvec(d): return np.arange(int(d * SR)) / SR
 def noise(d): return rng.standard_normal(int(d * SR))
@@ -92,22 +99,40 @@ def harp(m, dur=1.0, g=1.0):
     return out * 0.2 * g
 
 def piano(m, dur, g=1.0, vel=0.8):
-    """hammered strings: stretched partials, 3 detuned strings, fast-then-slow decay, damper at key release"""
-    f = mtof(m); dur = max(dur, 0.1)
-    ring = dur + 0.15; tt = tvec(ring + 0.12); out = np.zeros(len(tt))
-    B = 0.00035 * (2 ** ((m - 60) / 18))
-    slow = 3.2 * (2 ** ((48 - m) / 30)); fast = 0.35
-    for h in range(1, 13):
-        fh = f * h * np.sqrt(1 + B * h * h)
-        if fh > 15000: break
-        a = (1 / h ** (1.3 - 0.4 * vel)) * (1 if h < 8 else 0.6)
-        dec = 0.55 * np.exp(-tt / (fast / (1 + 0.2 * h))) + 0.45 * np.exp(-tt / (slow / (1 + 0.15 * h)))
-        for d in (-0.0005, 0, 0.0006):
-            out += a / 3 * np.sin(2 * np.pi * fh * (1 + d) * tt + h) * dec
-    ham = lp(noise(0.02), 2500) * np.exp(-tvec(0.02) / 0.004) * 0.15 * vel
-    out[:len(ham)] += ham
-    damp = np.clip((ring + 0.12 - tt) / 0.12, 0, 1)
-    return out * damp * 0.17 * g * (0.6 + 0.5 * vel)
+    """a concert grand piano note (key held for dur seconds; vel = how hard, 0-1).
+    Two slightly detuned strings per note (a gentle beating), partials stretched by the string's stiffness,
+    the hammer striking about 1/8 of the way along the string (so those partials are weak), a brighter tone when played harder,
+    a two-stage decay (a quick drop, then a long singing aftersound; longer in the bass), a hammer knock, and dampers that stop
+    the note when the key is released (the highest notes have no dampers, as on a real piano)."""
+    PianoBus.last_m = m
+    f0 = float(mtof(m)); dur = max(dur, 0.12)
+    damped = m <= 89
+    tail = 0.5 if damped else 2.5
+    tt = tvec(dur + tail); out = np.zeros(len(tt))
+    tau = 3.0 * 2 ** (-(m - 40) / 15)                       # the aftersound's time constant (s): long in the bass, short in the treble
+    B = 0.00032 * 2 ** ((m - 60) / 20)                       # string stiffness (inharmonicity)
+    roll = 1.85 - 0.9 * vel                                  # softer playing = darker
+    bright = 1800 + 5200 * vel
+    nmax = 30 if m < 48 else 20 if m < 72 else 12
+    seed = (m * 7919) % 1000
+    for n in range(1, nmax + 1):
+        fn = n * f0 * np.sqrt(1 + B * n * n)
+        if fn > 13000: break
+        a = abs(np.sin(np.pi * n * 0.125)) / n ** roll / (1 + (fn / bright) ** 2)
+        if a < 1e-4: continue
+        tn = tau / (1 + (n - 1) * 0.32 * (f0 / 262) ** 0.4)
+        env = 0.72 * np.exp(-tt / (tn * 0.22)) + 0.28 * np.exp(-tt / tn)
+        c = 0.00025 + 0.00035 * ((seed + n * 37) % 10) / 10   # the two strings are a hair apart → slow beating
+        ph1, ph2 = (seed * 0.37 + n) % 6.28, (seed * 0.71 + 2 * n) % 6.28
+        out += a * env * (np.sin(2 * np.pi * fn * tt + ph1) + 0.85 * np.sin(2 * np.pi * fn * (1 + c) * tt + ph2))
+    na = int(0.0015 * SR); out[:na] *= np.linspace(0, 1, na)  # the hammer hits (very fast attack)
+    kn = int(0.04 * SR)
+    knock = lp(noise(0.04), 1400) * np.exp(-tvec(0.04) / 0.008) * 0.06 * (0.4 + vel) + bpf(noise(0.04), 70, 350) * np.exp(-tvec(0.04) / 0.02) * 0.05
+    out[:kn] += knock[:kn] * max(1, nmax / 12)
+    if damped:                                               # key released: the damper stops the strings (a little slower in the bass)
+        i0 = int(dur * SR); td = 0.16 if m < 45 else 0.09
+        out[i0:] *= np.exp(-(tt[i0:] - dur) / td)
+    return out * 0.16 * g * (0.3 + 0.8 * vel)
 
 FORM = {'a': [(730, 90, 1.0), (1090, 110, 0.5), (2440, 160, 0.25)],
         'o': [(570, 80, 1.0), (840, 90, 0.45), (2410, 160, 0.15)],
@@ -381,6 +406,18 @@ def reverb(st, mix, dur=4.5, decay=1.6):
         out.append(signal.fftconvolve(st[ch], ir)[:N])
     return np.vstack(out) * mix
 
+# the piano's body: a short, warm soundboard resonance and a gentle EQ (body bump, soft top end)
+def piano_body(bus):
+    st = bus.stereo().astype(np.float64)
+    tt = np.arange(int(0.12 * SR)) / SR
+    out = []
+    for ch in range(2):
+        ir = lp(rng.standard_normal(len(tt)) * np.exp(-tt / 0.025), 3500); ir /= np.sqrt(np.sum(ir ** 2))
+        x = st[ch] + 0.35 * signal.fftconvolve(st[ch], ir)[:N]
+        x = hp(x, 30) + 0.25 * bpf(x, 90, 320)
+        out.append(lp(x, 9500))
+    bus.L, bus.R = out[0].astype(np.float32), out[1].astype(np.float32)
+piano_body(pianob)
 dry = strings.stereo() * 1.0 + harpb.stereo() * 1.0 + pianob.stereo() * 1.0 + choir.stereo() * 0.8 + bells.stereo() * 0.8 + timp.stereo() * 0.55
 wet = reverb(strings.stereo() + harpb.stereo() * 1.1 + pianob.stereo() * 0.8 + choir.stereo() * 1.3 + bells.stereo() + timp.stereo() * 0.5, 0.45)
 mix = dry * 0.85 + wet
