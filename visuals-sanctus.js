@@ -16,13 +16,14 @@
 (function () {
   const WHITE = [255, 255, 255], GOLD = [255, 210, 90], CRIM = [255, 74, 90];
   const SERIF = '"Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif';
-  const st = { made: false, gate: null, clouds: null, cloudFloor: null, isles: null, harp: null, motes: null, angels: null, lastBeat: -99, bellT: -9, timpT: -9, bolt: null, rings: [], labels: [], feathers: [] };
+  const st = { made: false, gate: null, clouds: null, cloudFloor: null, isles: null, harp: null, motes: null, angels: null, lastBeat: -99, bellT: -9, timpT: -9, bolt: null, rings: [], labels: [], feathers: [], secI: -1, wipeT: -9 };
   let SC = null, BELLS = null, TIMP = null, ENTRY = null, GP = null;
   const inSong = () => scene !== 'title';
   const hsh = (a, b = 0) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
   const nowT = () => inSong() ? songTime : titleClock();
   const bpAt = T => inSong() ? snBeatPos(T) : T / SN_BEAT;
   const sec = br => br < 4 ? 'bells' : br < 12 ? 'introitus' : br < 28 ? 'fuga' : br < 32 ? 'kyrie' : br < 48 ? 'dies' : br < 56 ? 'stretto' : 'amen';
+  const CXv = W / 2;
   const R0 = 110;                                                        // 光の門の半径
   const strLen = m => 112 - (m - SN_PIPE_LO) * 1.45;                    // ハープの弦の長さ（低い音ほど長い）
   const strCol = m => (m % 12 === 0 ? '#ff4a5a' : m % 12 === 5 ? '#3a6cff' : '#f4eedc');   // ドは赤、ファは青
@@ -133,7 +134,7 @@
   function reset() {
     if (!st.made) make();
     data();
-    Object.assign(st, { lastBeat: -99, bellT: -9, timpT: -9, bolt: null, rings: [], labels: [], feathers: [] });
+    Object.assign(st, { lastBeat: -99, bellT: -9, timpT: -9, bolt: null, rings: [], labels: [], feathers: [], secI: -1, wipeT: -9 });
   }
   const INST = { 1: 'PIANO', 2: 'VIOLIN', 3: 'VIOLIN SOLO', 4: 'BASS' };
   function onBeat(b, T) {
@@ -169,6 +170,10 @@
     for (const q of st.feathers) { q.t += dt; q.y += q.v * dt; q.x += Math.sin(q.t * 1.5 + q.p) * 0.8; }
     st.feathers = st.feathers.filter(q => q.y < GROUND_Y);
     for (const arr of [st.rings, st.labels]) for (const q of arr) q.t += dt;
+    if (inSong()) {                                                     // 場面が変わったら、光の帯が画面を横切る
+      let si = 0; while (si + 1 < SN_SECTIONS.length && SN_SECTIONS[si + 1].t <= T) si++;
+      if (si !== st.secI) { if (st.secI >= 0 && si > st.secI) st.wipeT = T; st.secI = si; }
+    }
     st.rings = st.rings.filter(q => q.t < 1.4);
     st.labels = st.labels.filter(q => q.t < 2.2);
     if (st.bolt) { st.bolt.t += dt; if (st.bolt.t > 0.35) st.bolt = null; }
@@ -246,6 +251,14 @@
         ctx.restore();
       }
     }
+    if (inSong()) {
+      const br = bp / 4;
+      if (br >= 3.5 && br < 12.5) drawViolin(T, clamp01((br - 3.5) / 0.8) * clamp01((12.5 - br) / 0.6));
+      if (br >= 27.5 && br < 32.3) drawChoirAndWings(T, bp, clamp01((br - 27.5) / 0.5) * clamp01((32.3 - br) / 0.3));
+      if (br >= 31.5 && br < 48.3) drawStaff(T, clamp01((br - 31.5) / 0.6) * clamp01((48.3 - br) / 0.3));
+      if (br >= 31.5 && br < 48.3) drawScale(T, clamp01((br - 31.5) / 0.6) * clamp01((48.3 - br) / 0.3));
+      if (br >= 55.9) drawGateDoors(T, bp);
+    }
     // ハープ ＋ 光る弦
     ctx.drawImage(st.harp, 0, 0);
     drawPlucked(T);
@@ -303,6 +316,7 @@
     const off = (T * 18) % W;
     ctx.drawImage(st.cloudFloor, -off - 400 + W, y - 36); ctx.drawImage(st.cloudFloor, -off - 400 - W, y - 36);
     if (gfx > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rgba(s === 'dies' ? CRIM : GOLD, 0.1 + 0.1 * Math.exp(-(T - st.bellT) * 1.6)); ctx.beginPath(); ctx.ellipse(SN_ROSE.x, y + 18, 180, 16, 0, 0, TAU); ctx.fill(); ctx.restore(); }
+    if (inSong()) { const br = bp / 4, ka = Math.max(clamp01((br - 11.5) / 0.5) * clamp01((28.3 - br) / 0.3), clamp01((br - 47.5) / 0.5) * clamp01((56 - br) / 0.3)); if (ka > 0) drawKeyboard(ka); }
     for (const cx of [26, W - 26]) {                                    // 白い柱と、上の聖なる火
       ctx.fillStyle = '#fbf8f0'; ctx.fillRect(cx - 10, y - 110, 20, 110);
       ctx.fillStyle = 'rgba(200,190,170,0.5)'; for (let i = -6; i <= 6; i += 4) ctx.fillRect(cx + i, y - 106, 1.2, 102);
@@ -322,6 +336,27 @@
 
   // ---- 弾 -------------------------------------------------------------------------------------
   function bullet(b, c, k) {
+    if (b.style === 'feather') {                                        // 羽根（白 ＋ 金のじく）
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot || 0);
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(0, -b.r * 2); ctx.quadraticCurveTo(b.r * 1.3, -b.r * 0.4, 0, b.r * 1.8); ctx.quadraticCurveTo(-b.r * 1.3, -b.r * 0.4, 0, -b.r * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(70,45,20,0.85)'; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.strokeStyle = '#e0b050'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(0, -b.r * 1.8); ctx.lineTo(0, b.r * 2.2); ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    if (b.style === 'snote') {                                          // 五線の音符: ド・レ（床の高さ）は赤く光る ／ 長い音は白抜きの全音符
+      if (b.low && gfx > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glowSprite([255, 80, 80]), b.x - b.r * 2.4, b.y - b.r * 2.4, b.r * 4.8, b.r * 4.8); ctx.restore(); }
+      ctx.save(); ctx.translate(b.x, b.y);
+      if (b.y > GROUND_Y - 30) { ctx.strokeStyle = 'rgba(255,230,160,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-b.r * 1.7, 0); ctx.lineTo(b.r * 1.7, 0); ctx.stroke(); }   // 加線
+      ctx.rotate(-0.35);
+      ctx.fillStyle = b.long ? '#fff6e0' : '#2a1030'; ctx.beginPath(); ctx.ellipse(0, 0, b.r * 1.25, b.r * 0.9, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = b.low ? '#ff6a6a' : '#ffd25a'; ctx.lineWidth = 2.5; ctx.stroke();
+      if (b.long) { ctx.fillStyle = '#2a1030'; ctx.beginPath(); ctx.ellipse(0, 0, b.r * 0.55, b.r * 0.35, 0.6, 0, TAU); ctx.fill(); }
+      ctx.restore();
+      if (!b.long) { ctx.strokeStyle = b.low ? '#ff6a6a' : '#ffd25a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(b.x + b.r * 1.1, b.y - 2); ctx.lineTo(b.x + b.r * 1.1, b.y - b.r * 3.4); ctx.stroke(); }
+      if (b.sharp) { ctx.fillStyle = '#ffd25a'; ctx.font = `700 ${Math.round(b.r * 2)}px ${SERIF}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('♯', b.x - b.r * 2.4, b.y); }
+      return;
+    }
     if (b.style === 'pipe') {                                           // ハープの音の光: 細長いひし形 ＋ 白い芯。主題の音は十字のきらめき
       const r = b.r, hgt = r * 1.9;
       ctx.fillStyle = rgba(c, 1); ctx.beginPath(); ctx.moveTo(b.x, b.y - hgt); ctx.lineTo(b.x + r, b.y); ctx.lineTo(b.x, b.y + hgt); ctx.lineTo(b.x - r, b.y); ctx.closePath(); ctx.fill();
@@ -353,6 +388,23 @@
       ctx.save(); ctx.lineCap = 'butt';
       ctx.strokeStyle = b.delay > 0 ? 'rgba(40,20,50,0.16)' : 'rgba(60,15,30,0.45)'; ctx.lineWidth = b.r * 2 + (b.delay > 0 ? 0 : 8);
       ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); ctx.restore();
+    }
+    if (b.lstyle === 'scale') {                                        // 審判の重り: 落ちる時、かたむいた側の床に金の重りがドンと乗る
+      const on = b.delay <= 0 && !b.safe, x0 = b.left ? CXv - W / 4 : CXv + W / 4;
+      if (b.delay > 0) {
+        const p = 1 - b.delay / b.delayMax;
+        ctx.fillStyle = `rgba(255,80,60,${(0.08 + 0.18 * p * (Math.floor(T * 12) % 2 ? 1 : 0.5)).toFixed(3)})`; ctx.fillRect(b.left ? 0 : CXv, GROUND_Y - 56, W / 2, 56);
+      } else if (on || b.age < b.hold + 0.3) {
+        const fall = clamp01(b.age / 0.08), y = GROUND_Y - 56 - (1 - fall) * 300;
+        ctx.save(); ctx.globalAlpha = clamp01(1 - (b.age - b.hold) / 0.3);
+        ctx.fillStyle = 'rgba(255,200,80,0.45)'; ctx.fillRect(b.left ? 0 : CXv, GROUND_Y - 56, W / 2, 56);   // 当たるのは半分の床ぜんぶ
+        ctx.strokeStyle = '#fff2b8'; ctx.lineWidth = 2; ctx.strokeRect(b.left ? 0 : CXv, GROUND_Y - 56, W / 2, 56);
+        ctx.fillStyle = '#c8962a'; ctx.beginPath(); ctx.moveTo(x0 - 70, y + 56); ctx.lineTo(x0 - 50, y); ctx.lineTo(x0 + 50, y); ctx.lineTo(x0 + 70, y + 56); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#fff2b8'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#5a3a10'; ctx.font = `700 22px ${SERIF}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚖', x0, y + 30);
+        ctx.restore();
+      }
+      return true;
     }
     if (b.lstyle === 'sword') {
       const x = b.x1, on = b.delay <= 0 && !b.safe, p = b.delay > 0 ? 1 - b.delay / b.delayMax : 1;
@@ -386,6 +438,15 @@
   // 画面に固定: 稲妻の光 ／ 全休止の灰色とフェルマータ ／ アーメンの光
   function overlay(T) {
     if (!inSong()) return;
+    const wd = T - st.wipeT;                                            // 場面が変わる時の光の帯
+    if (wd >= 0 && wd < 0.9) {
+      const p = wd / 0.9, x = -300 + p * (W + 600);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const gr = ctx.createLinearGradient(x - 160, 0, x + 160, 0);
+      gr.addColorStop(0, 'rgba(255,240,200,0)'); gr.addColorStop(0.5, `rgba(255,244,210,${(0.45 * Math.sin(p * Math.PI)).toFixed(3)})`); gr.addColorStop(1, 'rgba(255,240,200,0)');
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(x - 260, H); ctx.lineTo(x - 60, 0); ctx.lineTo(x + 260, 0); ctx.lineTo(x + 60, H); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
     const bp = snBeatPos(T), s = sec(bp / 4);
     if (s === 'dies') { const d = T - st.timpT; if (d >= 0 && d < 0.3) { ctx.fillStyle = `rgba(255,220,220,${(0.18 * (1 - d / 0.3)).toFixed(3)})`; ctx.fillRect(0, 0, W, H); } }
     for (const g of GP || []) {
@@ -448,8 +509,207 @@
     }
   }
 
+  // ==== この曲だけの攻撃の絵 =========================================================================
+  // ピアノの鍵（床から飛び出す）。予告は床の鍵が金色に点滅する
+  function pkeyK(b, T, k) {
+    const x0 = b.x - b.w / 2;
+    if (b.delay > 0) {
+      const p = 1 - b.delay / b.delayMax, on = p > 0.6 || Math.floor(T * 14) % 2 === 0;
+      ctx.fillStyle = `rgba(255,200,60,${(on ? 0.25 + 0.5 * p : 0.1).toFixed(3)})`; ctx.fillRect(x0, GROUND_Y - 3, b.w, 6);
+      ctx.strokeStyle = `rgba(255,220,120,${(0.3 + 0.5 * p).toFixed(3)})`; ctx.lineWidth = 2; ctx.strokeRect(x0, GROUND_Y - 30 * p, b.w, 30 * p);
+      return;
+    }
+    const h = b.curH, y = GROUND_Y - h;
+    if (h < 1) return;
+    if (gfx > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glowSprite(bulletColor(b)), b.x - b.w, y - b.w * 0.6, b.w * 2, b.w * 1.4); ctx.restore(); }
+    ctx.fillStyle = b.black ? '#1a1220' : '#fffaf0'; ctx.fillRect(x0, y, b.w, h);
+    ctx.strokeStyle = b.black ? rgba(bulletColor(b), 1) : '#c8962a'; ctx.lineWidth = 2.5; ctx.strokeRect(x0, y, b.w, h);
+    ctx.fillStyle = b.black ? 'rgba(255,255,255,0.25)' : 'rgba(200,150,60,0.35)'; ctx.fillRect(x0 + 3, y + 2, b.w - 6, 3);
+  }
+  // バイオリンの弓: 木の棒 ＋ 白い毛 ＋ 毛箱（フロッグ）。予告はうすい弓が上から下りてくる。床にとどく先は赤く光る
+  function bowK(b, T, k) {
+    let x1, y1, x2, y2;
+    if (b.delay > 0) {
+      const p = 1 - b.delay / b.delayMax, xc = b.x0 + b.amp, dy = (1 - p) * -200;
+      [x1, y1, x2, y2] = b.lowLeft ? [xc - b.span / 2, b.yLow + dy, xc + b.span / 2, b.yHigh + dy] : [xc - b.span / 2, b.yHigh + dy, xc + b.span / 2, b.yLow + dy];
+      ctx.save(); ctx.globalAlpha = 0.25 + 0.45 * p; ctx.setLineDash([10, 8]);
+      ctx.strokeStyle = '#ffe6a8'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.setLineDash([]);
+      const tx = b.lowLeft ? b.x0 + b.amp - b.span / 2 : b.x0 + b.amp + b.span / 2;            // 先がふれる範囲（床）
+      ctx.fillStyle = `rgba(255,70,70,${(0.12 + 0.25 * p).toFixed(3)})`; ctx.fillRect(tx - 2 * b.amp - 16, GROUND_Y - 8, 2 * b.amp + 32, 8);
+      ctx.restore();
+      return;
+    }
+    [x1, y1, x2, y2] = b.ends(b);
+    const lowX = b.lowLeft ? x1 : x2, lowY = b.lowLeft ? y1 : y2;
+    ctx.save(); ctx.globalAlpha = 1 - b.lift; ctx.lineCap = 'round';
+    const nx = -(y2 - y1), ny = x2 - x1, nl = Math.hypot(nx, ny) || 1, ox = nx / nl * 7, oy = ny / nl * 7;
+    ctx.strokeStyle = '#6a3a14'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(x1 - ox, y1 - oy); ctx.lineTo(x2 - ox, y2 - oy); ctx.stroke();      // さお（木）
+    ctx.strokeStyle = '#c8823a'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = '#fffaf0'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();                         // 毛（当たる所）
+    const fx = b.lowLeft ? x2 : x1, fy = b.lowLeft ? y2 : y1;                                                                                    // 毛箱
+    ctx.fillStyle = '#1a1018'; ctx.fillRect(fx - 9, fy - 9, 18, 18); ctx.fillStyle = '#f0e8ff'; ctx.beginPath(); ctx.arc(fx, fy, 3, 0, TAU); ctx.fill();
+    if (gfx > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glowSprite([255, 90, 80]), lowX - 26, lowY - 26, 52, 52); ctx.globalCompositeOperation = 'source-over'; }
+    // 弓がこすった所から、光の粉
+    ctx.fillStyle = 'rgba(255,240,200,0.8)';
+    for (let i = 0; i < 6; i++) { const u = hsh(Math.floor(T * 20), i), px = x1 + (x2 - x1) * u, py = y1 + (y2 - y1) * u; ctx.fillRect(px + (hsh(i, T) - 0.5) * 10, py - hsh(T, i) * 14, 2, 2); }
+    ctx.restore();
+  }
+  // ハープの弦のむち: 上の弦から床まで光の弦がのび、下のはしが大きくふれる（残像つき）。予告はふれる範囲が床に出る
+  function whipK(b, T, k) {
+    const c = bulletColor(b), top = SN_PIPE_Y + 12;
+    if (b.delay > 0) {
+      const p = 1 - b.delay / b.delayMax;
+      ctx.save(); ctx.globalAlpha = 0.25 + 0.5 * p;
+      ctx.strokeStyle = rgba(c, 1); ctx.lineWidth = 1.5; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(b.x0, top); ctx.lineTo(b.x0, GROUND_Y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = `rgba(255,90,90,${(0.1 + 0.25 * p).toFixed(3)})`; ctx.beginPath(); ctx.moveTo(b.x0, top); ctx.lineTo(b.x0 - b.A - 12, GROUND_Y); ctx.lineTo(b.x0 + b.A + 12, GROUND_Y); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      return;
+    }
+    b.tr = b.tr || []; b.tr.push(b.xb); if (b.tr.length > 6) b.tr.shift();
+    ctx.save(); ctx.lineCap = 'round';
+    b.tr.forEach((xb, i) => { ctx.strokeStyle = rgba(c, 0.08 + 0.06 * i); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(b.x0, top); ctx.quadraticCurveTo((b.x0 + xb) / 2 + (xb - b.x0) * 0.3, (top + GROUND_Y) / 2, xb, GROUND_Y); ctx.stroke(); });
+    const fade = b.safe ? 0.4 : 1;
+    if (gfx > 0) { ctx.strokeStyle = rgba(c, 0.25 * fade); ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(b.x0, top); ctx.lineTo(b.xb, GROUND_Y); ctx.stroke(); }
+    ctx.strokeStyle = rgba(mixC(c, WHITE, 0.5), fade); ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(b.x0, top); ctx.lineTo(b.xb, GROUND_Y); ctx.stroke();
+    ctx.strokeStyle = 'rgba(70,45,20,0.7)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
+  }
+  // 稲妻: 予告は道すじの点線、落ちたら白い二重線
+  function boltK(b, T, k) {
+    ctx.save(); ctx.lineJoin = 'round';
+    const path = () => { ctx.beginPath(); b.pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); };
+    if (b.delay > 0) {
+      const p = 1 - b.delay / b.delayMax;
+      ctx.setLineDash([8, 6]); ctx.strokeStyle = `rgba(255,120,140,${(0.3 + 0.5 * p).toFixed(3)})`; ctx.lineWidth = 2; path(); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = `rgba(255,90,110,${(0.15 + 0.3 * p).toFixed(3)})`; ctx.beginPath(); ctx.ellipse(b.pts[6][0], GROUND_Y, 22, 6, 0, 0, TAU); ctx.fill();
+    } else {
+      const a = b.safe ? clamp01(1 - (b.age - b.hold) / 0.3) : 1;
+      ctx.globalCompositeOperation = 'lighter';
+      for (const [w, c] of [[22, `rgba(255,100,140,${(0.3 * a).toFixed(3)})`], [8, `rgba(255,210,230,${(0.8 * a).toFixed(3)})`], [3, `rgba(255,255,255,${a.toFixed(3)})`]]) { ctx.strokeStyle = c; ctx.lineWidth = w; path(); ctx.stroke(); }
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = `rgba(60,10,30,${(0.5 * a).toFixed(3)})`; ctx.lineWidth = 1; path(); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function gustK() { }
+  // 床の鍵盤（フーガとストレットの間）
+  function drawKeyboard(a) {
+    ctx.save(); ctx.globalAlpha = a;
+    const kw = (W - 120) / (SN_KEY_HI - SN_KEY_LO);
+    ctx.fillStyle = 'rgba(40,24,10,0.6)'; ctx.fillRect(60 - kw / 2 - 4, GROUND_Y, (SN_KEY_HI - SN_KEY_LO + 1) * kw + 8, 30);
+    for (let m = SN_KEY_LO; m <= SN_KEY_HI; m++) {
+      const x = snKeyX(m) - kw / 2 + 1, blk = snIsBlack(m);
+      ctx.fillStyle = blk ? '#1a1220' : '#fffaf0'; ctx.fillRect(x, GROUND_Y + 2, kw - 2, blk ? 18 : 26);
+      ctx.fillStyle = 'rgba(200,150,60,0.6)'; ctx.fillRect(x, GROUND_Y + 2, kw - 2, 2);
+    }
+    ctx.fillStyle = '#e0b050'; ctx.fillRect(60 - kw / 2 - 4, GROUND_Y, (SN_KEY_HI - SN_KEY_LO + 1) * kw + 8, 2);
+    ctx.restore();
+  }
+  // 大きなバイオリンのかげ（INTROITUS）
+  function drawViolin(T, a) {
+    if (a <= 0) return;
+    ctx.save(); ctx.globalAlpha = 0.22 * a; ctx.translate(W / 2, 430 + Math.sin(T * 0.6) * 6); ctx.rotate(-0.12);
+    ctx.strokeStyle = '#fff0c0'; ctx.fillStyle = 'rgba(255,220,150,0.25)'; ctx.lineWidth = 4;
+    ctx.beginPath();                                                     // 胴（8の字）
+    ctx.moveTo(0, -150); ctx.bezierCurveTo(110, -150, 110, -40, 60, -20); ctx.bezierCurveTo(130, 20, 130, 160, 0, 160);
+    ctx.bezierCurveTo(-130, 160, -130, 20, -60, -20); ctx.bezierCurveTo(-110, -40, -110, -150, 0, -150); ctx.fill(); ctx.stroke();
+    ctx.lineWidth = 3; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 34, -40); ctx.bezierCurveTo(s * 48, -10, s * 20, 20, s * 36, 50); ctx.stroke(); }   // f字孔
+    ctx.fillRect(-12, -330, 24, 190); ctx.strokeRect(-12, -330, 24, 190);   // ネック
+    ctx.beginPath(); ctx.arc(0, -345, 18, 0, TAU * 0.85); ctx.stroke();       // うず巻き
+    ctx.lineWidth = 1.2; for (let i = -1.5; i <= 1.5; i++) { ctx.beginPath(); ctx.moveTo(i * 5, -320); ctx.lineTo(i * 8, 120); ctx.stroke(); }   // 弦
+    ctx.restore();
+  }
+  // KYRIE: 両はしの大きな翼（風の向きに羽ばたく）と、光の門のまわりで歌う天使たち
+  function drawChoirAndWings(T, bp, a) {
+    if (a <= 0) return;
+    let flapL = 0, flapR = 0;
+    for (const b of bullets) if (b.kind === 'gust') {
+      const p = b.delay > 0 ? -(1 - b.delay / b.delayMax) : Math.min(1, b.age / 0.15) * Math.exp(-b.age * 2);
+      if (b.dir > 0) flapL = p; else flapR = p;
+    }
+    for (const [side, fl] of [[-1, flapL], [1, flapR]]) {
+      ctx.save(); ctx.globalAlpha = 0.75 * a; ctx.translate(side < 0 ? -10 : W + 10, 420); ctx.scale(-side, 1); ctx.rotate(-0.5 * fl + 0.06 * Math.sin(T * 1.5));
+      for (let r = 0; r < 3; r++) for (let i = 0; i < 9; i++) {
+        const ang = -1.25 + i * 0.2, L = 230 - r * 55 - i * 6, w = 26 - r * 5;
+        ctx.save(); ctx.rotate(ang); ctx.fillStyle = r === 0 ? '#ffffff' : r === 1 ? '#fbf6ea' : '#f4ecd8';
+        ctx.beginPath(); ctx.ellipse(L / 2, 0, L / 2, w / 2, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(200,170,110,0.5)'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.restore();
+      }
+      ctx.restore();
+      if (fl > 0.1) {                                                    // 風の筋
+        ctx.save(); ctx.globalAlpha = 0.5 * fl * a; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) { const y = 300 + i * 60, x0 = side < 0 ? 60 : W - 60, len = 200 * fl; ctx.beginPath(); ctx.moveTo(x0, y); ctx.quadraticCurveTo(x0 - side * len * 0.5, y - 14, x0 - side * len, y); ctx.stroke(); }
+        ctx.restore();
+      }
+    }
+    for (let i = 0; i < 8; i++) {                                        // 歌う天使（光の門のまわり）
+      const ang = i / 8 * TAU + T * 0.15, x = SN_ROSE.x + Math.cos(ang) * (R0 + 70), y = SN_ROSE.y + Math.sin(ang) * (R0 * 0.75 + 40) + Math.sin(T * 3 + i) * 4;
+      ctx.save(); ctx.globalAlpha = 0.85 * a; ctx.translate(x, y);
+      ctx.fillStyle = '#fffaf0'; ctx.beginPath(); ctx.ellipse(0, 4, 5, 9, 0, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.arc(0, -8, 4, 0, TAU); ctx.fill();
+      const fl = Math.sin(T * 5 + i) * 0.3;
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * 9, 0, 9, 4, s * (0.5 + fl), 0, TAU); ctx.fill(); }
+      ctx.strokeStyle = '#ffd25a'; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.ellipse(0, -14, 5, 1.5, 0, 0, TAU); ctx.stroke();
+      if (Math.floor(T * 2 + i) % 3 === 0) { ctx.fillStyle = 'rgba(255,230,160,0.9)'; ctx.font = `700 12px ${SERIF}`; ctx.fillText('♪', 6, -16 - ((T * 30 + i * 9) % 20)); }
+      ctx.restore();
+    }
+  }
+  // DIES IRAE: 光の五線 ＋ ト音記号
+  function drawStaff(T, a) {
+    if (a <= 0) return;
+    ctx.save(); ctx.globalAlpha = a;
+    const ys = [GROUND_Y - 46, GROUND_Y - 82, GROUND_Y - 118, GROUND_Y - 154, GROUND_Y - 190];
+    if (gfx > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,160,120,0.25)'; ctx.lineWidth = 6; ctx.beginPath(); for (const y of ys) { ctx.moveTo(0, y); ctx.lineTo(W, y); } ctx.stroke(); ctx.globalCompositeOperation = 'source-over'; }
+    ctx.strokeStyle = 'rgba(255,214,150,0.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); for (const y of ys) { ctx.moveTo(0, y); ctx.lineTo(W, y); } ctx.stroke();
+    ctx.fillStyle = 'rgba(255,224,170,0.9)'; ctx.font = `400 170px ${SERIF}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('𝄞', 52, GROUND_Y - 112);
+    ctx.restore();
+  }
+  // DIES IRAE: 審判の天秤（上から下がる）。重りの予告があると、その側へかたむく
+  function drawScale(T, a) {
+    if (a <= 0) return;
+    let tilt = 0;
+    for (const b of bullets) if (b.lstyle === 'scale') {
+      const p = b.delay > 0 ? 1 - b.delay / b.delayMax : 1 - clamp01((b.age - b.hold) / 0.5);
+      tilt = (b.left ? -1 : 1) * 0.32 * easeOut(p);
+    }
+    const px = W / 2, py = 330, L = 170;
+    ctx.save(); ctx.globalAlpha = 0.85 * a;
+    ctx.strokeStyle = '#e0b050'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(px, py - 70); ctx.lineTo(px, py); ctx.stroke();
+    ctx.translate(px, py); ctx.rotate(tilt);
+    ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(-L, 0); ctx.lineTo(L, 0); ctx.stroke();
+    ctx.fillStyle = '#fff2b8'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.fill();
+    for (const s of [-1, 1]) {
+      ctx.save(); ctx.translate(s * L, 0); ctx.rotate(-tilt);
+      ctx.strokeStyle = 'rgba(224,176,80,0.9)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-34, 70); ctx.moveTo(0, 0); ctx.lineTo(34, 70); ctx.stroke();
+      ctx.fillStyle = '#c8962a'; ctx.beginPath(); ctx.ellipse(0, 72, 40, 9, 0, 0, Math.PI); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+  // AMEN: 天の門（2枚の金の扉）が開く
+  function drawGateDoors(T, bp) {
+    const open = easeOut(clamp01((bp - 227.6) / 2.4)), a = clamp01((bp - 223.6) / 0.6) * clamp01(1 - (bp - 236) / 4);
+    if (a <= 0) return;
+    const gx = SN_ROSE.x, gy = SN_ROSE.y, gw = 130, gh = 230;
+    ctx.save(); ctx.globalAlpha = a;
+    if (open > 0 && gfx > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glowSprite([255, 250, 220]), gx - 260 * open, gy - 220, 520 * open, 440); ctx.globalCompositeOperation = 'source-over'; }
+    ctx.strokeStyle = '#e0b050'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(gx - gw - 10, gy + gh / 2); ctx.lineTo(gx - gw - 10, gy - gh / 2 + 40); ctx.arc(gx, gy - gh / 2 + 40, gw + 10, Math.PI, 0); ctx.lineTo(gx + gw + 10, gy + gh / 2); ctx.stroke();
+    for (const s of [-1, 1]) {
+      const w = gw * (1 - open);
+      if (w < 2) continue;
+      ctx.save(); ctx.translate(gx + s * gw, gy); ctx.scale(-s, 1);
+      ctx.fillStyle = 'rgba(224,176,80,0.92)'; ctx.fillRect(0, -gh / 2 + 40, w, gh - 40);
+      ctx.strokeStyle = '#fff2b8'; ctx.lineWidth = 2;
+      for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(w * i / 6, -gh / 2 + 44); ctx.lineTo(w * i / 6, gh / 2 - 4); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, 0); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
   THEMES.sanctus = {
     noTrails: false, noScanlines: true, glow: 1.6,
+    kinds: { pkey: pkeyK, bow: bowK, whip: whipK, bolt: boltK, gust: gustK },
     clearColors: ['#ffd25a', '#fff6e0', '#9fc8ff', '#ff8ab0', '#c79bff'],
     reset, update, background, floor, platform, bullet, laser, world, flash, hint, banner, title, camera,
   };
