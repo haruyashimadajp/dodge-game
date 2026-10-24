@@ -1685,6 +1685,24 @@ function paintSig(g, sk, x, y, w, h, f, cx, bodyTop, baseY, t, front) {
         const px = cx - f * (w * 0.4 + p * w * 1.6);
         g.globalAlpha = 0.8 * (1 - p); g.lineWidth = 1.5; g.beginPath(); g.moveTo(px, py); g.lineTo(px - f * L, py); g.stroke();
       }
+    } else if (S === 'pipes') {                                  // うしろのパイプオルガン: 低い音から高い音へ、順に光が走る
+      const n = 9, bt = t * 2;
+      for (let i = 0; i < n; i++) {
+        const px = cx + (i - (n - 1) / 2) * w * 0.26, len = h * (1.5 - Math.abs(i - (n - 1) / 2) * 0.16), top = baseY - len, pw = w * 0.17;
+        g.fillStyle = '#9aa2b4'; g.fillRect(px - pw / 2, top, pw, len);
+        g.fillStyle = '#e8ecf4'; g.fillRect(px - pw / 2 + 1, top, pw * 0.25, len);
+        g.fillStyle = '#20222a'; g.fillRect(px - pw / 2, baseY - len * 0.25, pw, pw * 0.35);
+        const lit = Math.max(0, 1 - Math.abs(((bt - i * 0.35) % 4 + 4) % 4 - 0.5) * 2);
+        if (lit > 0) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.7 * lit; g.fillStyle = c; g.fillRect(px - pw / 2, top, pw, len); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
+      }
+    } else if (S === 'rosewin') {                                // 背中のバラ窓（ステンドグラス）がゆっくり回り、光の筋を放つ
+      const R = w * 1.05, rx = cx, ry = cy - h * 0.1, rot = t * 0.3, cols = ['#2a5cff', '#ff2a4a', '#ffc21a', '#1ab86a', '#9a3aff', '#22c8ff'];
+      g.globalCompositeOperation = 'lighter'; g.fillStyle = c;
+      for (let i = 0; i < 8; i++) { const a = rot * 0.5 + i * TAU / 8; g.globalAlpha = 0.18; g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx + Math.cos(a - 0.08) * R * 1.8, ry + Math.sin(a - 0.08) * R * 1.8); g.lineTo(rx + Math.cos(a + 0.08) * R * 1.8, ry + Math.sin(a + 0.08) * R * 1.8); g.fill(); }
+      g.globalCompositeOperation = 'source-over'; g.globalAlpha = 0.9;
+      for (let i = 0; i < 12; i++) { const a0 = rot + i / 12 * TAU, a1 = rot + (i + 1) / 12 * TAU; g.fillStyle = cols[i % 6]; g.beginPath(); g.arc(rx, ry, R, a0 + 0.03, a1 - 0.03); g.arc(rx, ry, R * 0.55, a1 - 0.03, a0 + 0.03, true); g.closePath(); g.fill(); }
+      g.globalAlpha = 1; g.strokeStyle = '#1a1626'; g.lineWidth = 1.5; g.beginPath(); g.arc(rx, ry, R, 0, TAU); g.stroke(); g.beginPath(); g.arc(rx, ry, R * 0.55, 0, TAU); g.stroke();
+      g.fillStyle = c; g.beginPath(); g.arc(rx, ry, R * 0.22, 0, TAU); g.fill();
     } else if (S === 'dominoes') {                               // うしろに並んだドミノが、拍に合わせて順にパタパタ倒れ、また起きる
       const cols = sk.sigColors || [c], n = 6, cyc = (t / (60 / 144) / 8) % 1;
       for (let i = 0; i < n; i++) {
@@ -1809,6 +1827,15 @@ function paintSig(g, sk, x, y, w, h, f, cx, bodyTop, baseY, t, front) {
         if (sigHash(seed + i * 5) < 0.4) continue;
         const py = y + sigHash(seed * 2 + i) * h * 1.2 - h * 0.1, bw = w * (0.4 + sigHash(seed + i * 3) * 1.2), px = cx + (sigHash(seed + i * 11) - 0.5) * w * 2;
         g.globalAlpha = 0.7; g.fillStyle = i % 2 ? c : '#ff2ea6'; g.fillRect(px - bw / 2, py, bw, Math.max(1.5, h * 0.05));
+      }
+    } else if (S === 'hymn') {                                   // 五線と音符が、体のまわりを帯のように回る
+      g.strokeStyle = c; g.lineWidth = 0.8; g.globalAlpha = 0.6;
+      for (let l = 0; l < 5; l++) { g.beginPath(); g.ellipse(cx, cy - h * 0.1, w * 1.1, h * 0.45 + l * h * 0.05, -0.18, 0, Math.PI); g.stroke(); }
+      g.globalAlpha = 1; g.fillStyle = c;
+      for (let i = 0; i < 5; i++) {
+        const a = ((t * 0.8 + i / 5) % 1) * Math.PI, px = cx + Math.cos(a) * w * 1.1, py = cy - h * 0.1 + Math.sin(a) * (h * 0.55) + (i % 3) * h * 0.04;
+        g.beginPath(); g.ellipse(px, py, w * 0.07, w * 0.055, -0.4, 0, TAU); g.fill();
+        g.fillRect(px + w * 0.055, py - h * 0.22, 1.2, h * 0.22);
       }
     } else if (S === 'cherries') {                               // デリシャスフルーツが3つ、拍ごとに「カクッ」と 1/8 周ずつ回る
       const bt = t / (60 / 144), n0 = Math.floor(bt), fr = bt - n0, v = n0 + 1 - Math.pow(1 - Math.min(1, fr / 0.3), 3);

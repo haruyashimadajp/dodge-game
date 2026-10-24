@@ -167,6 +167,9 @@ const ACH_GROUPS = [
     { id: 'chain',       lv: 2, name: 'スイッチオン！',   desc: 'CHAIN REACTION をクリアする',                test: () => clearedSong('chain') },
     { id: 'chain_hard',  lv: 3, name: 'デリシャスフルーツ', desc: 'CHAIN REACTION を HARD 以上でクリアする',  test: () => clearedSong('chain', 'hard') },
     { id: 'chain_s',     lv: 4, name: 'からくり王',       desc: 'CHAIN REACTION で S ランクを取る',           test: () => rankedSong('chain') },
+    { id: 'sanctus',     lv: 2, name: '入祭唱',           desc: 'SANCTUS をクリアする',                       test: () => clearedSong('sanctus') },
+    { id: 'sanctus_hard', lv: 3, name: '厳格なフーガ',    desc: 'SANCTUS を HARD 以上でクリアする',           test: () => clearedSong('sanctus', 'hard') },
+    { id: 'sanctus_s',   lv: 4, name: '最後の審判',       desc: 'SANCTUS で S ランクを取る',                  test: () => rankedSong('sanctus') },
     { id: 'revive_imp',  lv: 5, name: '旋律よ、よみがえれ', desc: 'And Revive The Melody を IMPOSSIBLE でクリアする', test: () => clearedSong('revive', 'impossible') },
   ]],
   ['デイリー・ガチャ', [
@@ -270,6 +273,9 @@ const SKINS = [
   { id: 'switcher', name: 'スイッチ係',   body: '#ff4f8b', cap: '#ffffff', brim: '#ff4f8b', skin: '#f0c8a8', shoe: '#2f8cff', glow: '#ff8fb8', eyes: 'cute', eyeColor: '#2f8cff', acc: ['phones', 'headband'], sig: 'dominoes', sigColor: '#ffa400', sigColors: ['#ff4f8b', '#2f8cff', '#ffa400', '#7c5cff', '#14b885'], trail: 'note', trailColor: '#ff4f8b', need: 'chain' },
   { id: 'fruit',    name: 'デリシャスフルーツ', body: '#ff3b4f', cap: '#3fbf6a', brim: '#2a8a4a', skin: '#f4d0c0', shoe: '#ffffff', glow: '#ff6b7a', eyes: 'sharp', eyeColor: '#3fbf6a', acc: ['blush', 'bigbow'], bow: '#3fbf6a', sig: 'cherries', sigColor: '#ff3b4f', aura: '#ff8fb8', sparkle: '#ffffff', trail: 'spark', trailColor: '#ff3b4f', need: 'chain_hard' },
   { id: 'karakuri', name: 'からくり王',   body: '#7c5cff', skin: '#f0c8a8', shoe: '#342e52', glow: '#ff8fb8', hair: '#342e52', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#ffa400', armor: '#4a3a9a', trim: '#ffd23f', acc: ['crown', 'cape', 'monocle'], cape: '#ff4f8b', sig: 'switch', sigColor: '#ff4f8b', sigColors: ['#ff4f8b', '#2f8cff', '#ffa400', '#7c5cff', '#14b885'], sparkle: '#ffd23f', aura: '#ffd23f', trail: 'gold', need: 'chain_s' },
+  { id: 'chorister', name: '聖歌隊',     body: '#f4f0e8', skin: '#f4d8c0', shoe: '#2a1a14', glow: '#ffe8a8', hair: '#c88a40', hairStyle: 'long', eyes: 'cute', eyeColor: '#4a6ad0', acc: ['scarf', 'ribbon'], scarf: '#c81e2e', ribbon: '#c81e2e', sig: 'hymn', sigColor: '#ffd25a', trail: 'note', trailColor: '#ffd25a', need: 'sanctus' },
+  { id: 'organist',  name: 'オルガニスト', body: '#141018', cap: '#141018', brim: '#c8a050', skin: '#f0d0b8', shoe: '#000000', glow: '#ffd25a', eyes: 'sharp', eyeColor: '#c8a050', armor: '#1e1824', trim: '#c8a050', acc: ['cape', 'monocle'], cape: '#3a0a14', sig: 'pipes', sigColor: '#ffd25a', sparkle: '#ffd25a', aura: '#c8a050', trail: 'gold', need: 'sanctus_hard' },
+  { id: 'judge',     name: '審判者',     body: '#fff6e0', skin: '#f8e8d8', shoe: '#c8a050', glow: '#fff2b0', hair: '#f4e8c0', hairStyle: 'long', eyes: 'sharp', eyeColor: '#ffd25a', armor: '#e8d8a8', trim: '#ffd25a', acc: ['wings', 'halo', 'cape', 'katana'], wingStyle: 'seraph', wing: '#fff6e0', haloColor: '#ffd25a', cape: '#ffffff', blade: '#fff2b0', sig: 'rosewin', sigColor: '#ffd25a', sparkle: '#ffffff', aura: '#ffd25a', trail: 'feather', need: 'sanctus_s' },
   // ---- 実績のスキン（追加）----
   { id: 'adventurer', name: '冒険者',     body: '#6a4a2a', skin: '#f0c49a', shoe: '#3a2418', glow: '#b6ff8a', hair: '#8a5a2e', hairStyle: 'pony', tie: '#2f6a3a', acc: ['cape', 'backpack'], cape: '#2f6a3a', pack: '#a0602a', trail: 'leaf', need: 'time3h' },
   { id: 'kamaitachi', name: 'かまいたち', body: '#e8f8f0', skin: '#f4e0d0', shoe: '#2a5a4a', glow: '#9fffe0', hair: '#5ac8a0', hairStyle: 'spiky', eyes: 'sharp', eyeColor: '#5cff9d', acc: ['scarf'], scarf: '#5ac8a0', fx: 'echo', trail: 'leaf', trailColor: '#9fffe0', need: 'graze10000' },

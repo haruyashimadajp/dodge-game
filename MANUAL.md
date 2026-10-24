@@ -67,7 +67,9 @@ dodge-game/
 │   ├── baile.js         ← 曲⑳「NEON BAILE」（オリジナル曲・130 BPM のブラジリアン・ファンク / フォンク。タンボルザォン・歪んだ 808・カウベル・声のチョップ・SLOWED）の拍・場面・譜面
 │   ├── baile-score.js / baile-env.js / baile-compose.py ← 曲⑳の楽譜データ / 音量データ / 作曲プログラム
 │   ├── chain.js         ← 曲㉑「CHAIN REACTION」（オリジナル曲・144 BPM のエレクトロ・ポップ。からくり装置の音でリズムを作った。弾が拍に合わせて一歩ずつ動く）の拍・場面・譜面
-│   └── chain-score.js / chain-env.js / chain-compose.py ← 曲㉑の楽譜データ / 音量データ / 作曲プログラム
+│   ├── chain-score.js / chain-env.js / chain-compose.py ← 曲㉑の楽譜データ / 音量データ / 作曲プログラム
+│   ├── sanctus.js       ← 曲㉒「SANCTUS」（オリジナル曲・120 BPM。パイプオルガンのフーガ・聖歌隊・鐘。神聖で厳格。少しむずかしめ）の拍・場面・譜面
+│   └── sanctus-score.js / sanctus-env.js / sanctus-compose.py ← 曲㉒の楽譜データ / 音量データ / 作曲プログラム
 ├── visuals.js   ← 画面の演出（背景・カメラ・光・パーティクル・タイトルのアニメ）。曲①の見た目
 ├── visuals-night.js ← 曲②の見た目（月夜・UFO・探照灯）
 ├── visuals-dusk.js  ← 曲③の見た目（夕暮れの時計塔の中・ステンドグラスのバラ窓の時計・光の筋・真鍮の歯車）
@@ -86,6 +88,7 @@ dodge-game/
 ├── visuals-punk.js   ← 曲⑱の見た目（地下のライブハウス・チラシの壁・アンプの山・照明・モッシュピットの観客・切り抜き文字）
 ├── visuals-revive.js ← 曲⑲の見た目（オルゴールの円盤・光の羽・燃えた楽譜のカーテン・金色の音符）
 ├── visuals-baile.js  ← 曲⑳の見た目（夜のネオン街・丘のファヴェーラの灯り・ネオンの看板・スピーカーの山・パーティーのレーザー・車・SLOWED の VHS）
+├── visuals-sanctus.js ← 曲㉒の見た目（夜の大聖堂・バラ窓・パイプオルガン（弾を出すパイプが光る）・光の筋・燭台・怒りの日の赤・全休止・アーメンの光）
 ├── visuals-chain.js  ← 曲㉑の見た目（パステルのからくり部屋・スイッチを押すハンマー・電源 ON の色の広がり・窓わくの電球・ドロップ前のシャッター・文字の演出・歯車と振り子・拍で動くカメラ）
 ├── visuals-abyss.js ← 曲⑨の見た目（深海・光の筋・海藻・暗い海とソナー・深さのメーター）
 ├── visuals-day.js   ← 曲⑧の見た目（昼の空・にこにこの太陽・草の床・白い吹き出しのヒント）
@@ -255,7 +258,7 @@ START の上の 4 つのボタン（または 1〜4 キー）で選びます。�
 - **かすり（GRAZE）**: 弾やビームが、当たらずにプレイヤーの 12px 以内を通ると 1 回（1 つの弾につき 1 回）。白い火花と小さな音が出て、画面上の Graze と結果の画面に出ます。
   いちばん多かった数を `dodge_graze_<曲の id>_<難易度>` に保存。広さは game.js の `GRAZE`。仕組みは「当たり判定を GRAZE だけ広げて、もう一度判定する」だけなので、自分の当たり判定 `hits()` を持つ弾もそのまま数えられます。
   プレイヤーの当たり判定は見た目（20×20）より `HIT_INSET`（6）ずつ内側の 8×8。かすりは見た目の大きさから `GRAZE` だけ広げて数えます。
-- **実績とスキン**（`progress.js`）: 実績は `ACH_GROUPS`（9 つのなかまに分けて 109 個。First Step は練習用なので `NOT_COUNTED` に入れて、どの実績にも数えない。`lv` = むずかしさ ★1〜5、`secret: true` = 解除するまでかくす）、スキンは `SKINS`（110 個。うちガチャ限定 18。むずかしい実績のごほうびほど、羽・マント・刀・バイザー・光るふち `aura`・残像 `fx: 'echo'`・虹色 `fx: 'rainbow'` などがつく）。
+- **実績とスキン**（`progress.js`）: 実績は `ACH_GROUPS`（9 つのなかまに分けて 112 個。First Step は練習用なので `NOT_COUNTED` に入れて、どの実績にも数えない。`lv` = むずかしさ ★1〜5、`secret: true` = 解除するまでかくす）、スキンは `SKINS`（113 個。うちガチャ限定 18。むずかしい実績のごほうびほど、羽・マント・刀・バイザー・光るふち `aura`・残像 `fx: 'echo'`・虹色 `fx: 'rainbow'` などがつく）。
   1 回のプレイだけで決まる条件（ジャンプせずにクリア など）は `onProgressRunEnd()` で `P.flags` に書いておき、実績の `test()` で読みます。スキンの `need` に書いた実績を解除すると、そのスキンが使えるようになります。
   タイトルの「🏆 コレクション」で、スキンを選んだり、実績の進みぐあいを見たりできます。プレイの記録（回数・時間・かすり・ジャンプ…）は `dodge_progress`。
   スキンの見た目（色・頭の飾り `acc`・動いた跡 `trail`）は visuals.js の `paintHero()` / `heroTrail()` が描きます。
@@ -906,7 +909,27 @@ spinOnce(t) / tiltTo(t, a) // 画面の回転（stage.spin。見た目だけで�
 さくらんぼと音符は床に落ちると `chainSplash` ではじける。床のタイルは、真上にさくらんぼが落ちてくる所ほど明るい（着地点の予告）。
 スキンの「しるし」に `sig: 'dominoes'`（うしろで順に倒れるドミノ）・`'cherries'`（拍ごとに 1/8 周ずつ回るさくらんぼ）・`'switch'`（頭の上の押しボタン。押すと図形が飛び出す）を足した。
 
-### 5-24. 軽くするための道具（visuals.js）
+### 5-24. 曲㉒「SANCTUS」で生まれた形（フーガがそのまま弾になる）
+
+道具はぜんぶ songs/sanctus.js の sanctusChart の中にある:
+```js
+snPipeX(m)                 // 音の高さ m のパイプの横の位置（左が低い音・右が高い音。visuals-sanctus.js のパイプと同じ並び）
+pipeNote(t, m, o)          // その音のパイプから、まっすぐ下へ落ちる光（o.inv = 左右反対のパイプから = 反行形）
+glyphPair(t, dx, o)        // ラテン文字の光を、まん中から dx の所に左右対称に落とす
+halo(t, n, v, o)           // バラ窓から広がる光の輪
+lance(t, x, o)             // 縦の光（lstyle: 'sword' = 上に十字のつば / 'pillar' = 足もとに紋章）
+beam(t)                    // 床を走る光（floorStrike。跳ぶ）
+```
+曲は songs/sanctus-compose.py が作る。score.json の `fugue` にフーガの音（[拍, 長さ, 音, 声部 1〜3]）、`pedal` にペダル、`entry` に主題・応答が入る拍
+（[拍, 声部, 'subject'|'answer', 移調]。声部 4 = ペダル）、`chant` に聖歌、`dies` に「怒りの日」の旋律、`figura` にトッカータの 16分、`bell` に鐘、
+`timp` にティンパニ、`gp` に全休止の拍が入っている。主題（応答）の中の音かどうかは、`entry` から 8 拍の間かで決める（大きな光にする）。
+全休止では `timeStop` ですべての弾を止める。弾の色は声部ごと（I = 金・II = 青・III = 白・ペダル = 赤）。
+演出（visuals-sanctus.js）: 弾を出すパイプは予告のあいだ光り、出た瞬間にいちばん光る。主題・応答が入ると、パイプの下に「SUBJECT / ANSWER ・ VOX I〜III / PEDAL」の札が出る。
+鐘でバラ窓が明るく脈打ち、光の輪が広がる。KYRIE でバラ窓がゆっくり回り、DIES IRAE で赤くなって火の粉が降る。全休止はフェルマータ、AMEN は上から光があふれて羽根が舞う。
+カメラは厳格なのでほとんど動かず、ティンパニで下へ「ずん」と沈むだけ。
+スキンの「しるし」に `sig: 'pipes'`（うしろのパイプオルガンに光が走る）・`'rosewin'`（背中のバラ窓が回る）・`'hymn'`（五線と音符が体のまわりを回る）を足した。
+
+### 5-25. 軽くするための道具（visuals.js）
 
 ```js
 cachedLayer('名前', 3, 0, g => { /* g に背景を描く */ })   // ゆっくりしか変わらない層を絵にしておき、3コマに1回だけ描き直す
@@ -1042,7 +1065,7 @@ for (let t = 4; t < 14; t += 0.5) {
    - `UNKNOWN_` や `unknown` で始まる名前を、ほかと重ならない名前に変える（例: `MYSONG_` / `mysong`）
    - 拍のきざみ（BPM と最初の拍の秒数）、`SECTIONS` の表、譜面
    - いちばん下の `addSong({ ... })`: `id`（ほかと重ならない名前）・`title`・`file`（mp3 の名前）・`bpm`・`beat`（1拍の秒数）・
-     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`・`'cave'`・`'punk'`・`'revive'`・`'baile'`・`'chain'` など。visuals-〜.js の `THEMES.名前`）・`bestKey`（ベストタイムの保存名）
+     `end`（ここまで生き残ればクリア）・`theme`（`'neon'`・`'night'`・`'dusk'`・`'glass'`・`'gyro'`・`'ex'`・`'virus'`・`'day'`・`'abyss'`・`'horror'`・`'cave'`・`'punk'`・`'revive'`・`'baile'`・`'chain'`・`'sanctus'` など。visuals-〜.js の `THEMES.名前`）・`bestKey`（ベストタイムの保存名）
    - `env:` は音量データ。無ければ `env: null` で大丈夫（イコライザーが動かないだけ）
    同じ曲に別の譜面を足すときは、`addSong` に `variantOf: 'もとの曲のid'` と `variant: '譜面の名前'` を書く
    （◀ ▶ では出てこず、タイトル画面の「譜面」ボタン / C キーで切りかわる。例: `songs/emperror-classic.js`）
